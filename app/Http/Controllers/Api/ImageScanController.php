@@ -12,6 +12,7 @@ class ImageScanController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'scan_type' => ['required', 'in:printer,electricity,online_receipt'],
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
@@ -20,6 +21,7 @@ class ImageScanController extends Controller
         $path = $file->store('image-scans', 'public');
 
         $scan = ImageScan::create([
+            'scan_type' => $request->scan_type,
             'image_path' => $path,
             'original_filename' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType(),
@@ -35,9 +37,15 @@ class ImageScanController extends Controller
         ]);
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $scans = ImageScan::all();
+        $query = ImageScan::query();
+
+        if ($request->filled('scan_type')) {
+            $query->where('scan_type', $request->scan_type);
+        }
+
+        $scans = $query->latest()->get();
 
         return response()->json([
             'success' => true,

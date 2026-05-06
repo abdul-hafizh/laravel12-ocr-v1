@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ImageScan extends Model
 {
     protected $fillable = [
+        'scan_type',
         'image_path',
         'original_filename',
         'mime_type',

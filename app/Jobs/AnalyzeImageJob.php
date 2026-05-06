@@ -47,22 +47,7 @@ class AnalyzeImageJob implements ShouldQueue
                         'content' => [
                             [
                                 'type' => 'input_text',
-                                'text' => 'Analisis gambar ini dan kembalikan hanya JSON valid.
-
-                                            Format:
-                                            {
-                                            "jenis_gambar": "",
-                                            "ringkasan": "",
-                                            "teks_terbaca": "",
-                                            "data_penting": {
-                                                "tanggal": null,
-                                                "nominal": null,
-                                                "nama": null,
-                                                "nomor_referensi": null
-                                            },
-                                            "confidence": 0
-                                            }
-                                ',
+                                'text' => $this->getPromptByType($scan->scan_type),
                             ],
                             [
                                 'type' => 'input_image',
@@ -88,6 +73,70 @@ class AnalyzeImageJob implements ShouldQueue
             'analysis_result' => $parsed ?: $json,
             'extracted_text' => $parsed['teks_terbaca'] ?? $text,
         ]);
+    }
+
+    private function getPromptByType(string $type): string
+    {
+        return match ($type) {
+            'electricity' => 'Analisis gambar token listrik / bukti pembelian token listrik ini dan kembalikan hanya JSON valid.
+            Format:
+            {
+                "jenis_gambar": "token_listrik",
+                "ringkasan": "",
+                "teks_terbaca": "",
+                "data_penting": {
+                    "tanggal": null,
+                    "nomor_meter": null,
+                    "id_pelanggan": null,
+                    "nama_pelanggan": null,
+                    "tarif_daya": null,
+                    "nominal": null,
+                    "token": null,
+                    "nomor_referensi": null
+                },
+                "confidence": 0
+            }
+            ',
+            'online_receipt' => 'Analisis gambar struk online / invoice / bukti transaksi online ini dan kembalikan hanya JSON valid.
+            Format:
+            {
+                "jenis_gambar": "struk_online",
+                "ringkasan": "",
+                "teks_terbaca": "",
+                "data_penting": {
+                    "tanggal": null,
+                    "nama_toko": null,
+                    "nama_pembeli": null,
+                    "nomor_pesanan": null,
+                    "nomor_referensi": null,
+                    "total_pembayaran": null,
+                    "metode_pembayaran": null,
+                    "status_pembayaran": null
+                },
+                "confidence": 0
+            }
+            ',
+            default => 'Analisis gambar mesin cetak / printer / fotocopy ini dan kembalikan hanya JSON valid.
+            Format:
+            {
+            "jenis_gambar": "mesin_cetak",
+            "ringkasan": "",
+            "teks_terbaca": "",
+            "data_penting": {
+                "tanggal": null,
+                "nama_mesin": null,
+                "lokasi": null,
+                "total_black_white_large": null,
+                "total_black_white_small": null,
+                "total_full_color_large": null,
+                "total_full_color_small": null,
+                "total_long_sheet": null,
+                "total": null
+            },
+            "confidence": 0
+            }
+            ',
+        };
     }
 
     public function failed(Throwable $exception): void

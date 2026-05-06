@@ -40,9 +40,18 @@ Route::middleware('auth')->group(function () {
     Route::resource('master-kendaraan', MasterKendaraanController::class)->except(['create', 'edit', 'show']);
     Route::resource('master-skpd', MasterSkpdController::class)->except(['create', 'edit', 'show']);
     Route::resource('master-harga-biaya', MasterHargaBiayaController::class)->except(['create', 'edit', 'show']);
-    Route::get('/image-scans', function () {
-        return Inertia::render('Ocr/HasilUpload');
-    })->middleware(['auth', 'verified'])->name('image-scans.index');
+    
+    Route::get('/hasil-upload/mesin-cetak', function () {
+        return Inertia::render('Ocr/HasilUpload/MesinCetak');
+    })->name('hasil-upload.mesin-cetak');
+
+    Route::get('/hasil-upload/token-listrik', function () {
+        return Inertia::render('Ocr/HasilUpload/TokenListrik');
+    })->name('hasil-upload.token-listrik');
+
+    Route::get('/hasil-upload/struk-online', function () {
+        return Inertia::render('Ocr/HasilUpload/StrukOnline');
+    })->name('hasil-upload.struk-online');
 });
 
 require __DIR__.'/auth.php';

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
@@ -19,6 +19,12 @@ const isMasterDataOpen = ref(
     route().current('master-skpd.*') ||
     route().current('master-harga-biaya.*')
 );
+
+watch(() => route().current(), () => {
+    if (route().current('hasil-upload.*')) {
+        isHasilUploadOpen.value = true;
+    }
+});
 
 const masterDataMenus = [
     {
@@ -86,15 +92,25 @@ const navigation = [
 ];
 
 const isHasilUploadOpen = ref(
-    route().current('image-scans.*')
+    route().current('hasil-upload.*')
 );
 
 const hasilUploadMenus = [
     {
         name: 'Mesin Cetak',
-        href: route('image-scans.index'),
-        current: route().current('image-scans.*'),
+        href: route('hasil-upload.mesin-cetak'),
+        current: route().current('hasil-upload.mesin-cetak'),
     },
+    {
+        name: 'Token Listrik',
+        href: route('hasil-upload.token-listrik'),
+        current: route().current('hasil-upload.token-listrik'),
+    },
+    {
+        name: 'Struk Online',
+        href: route('hasil-upload.struk-online'),
+        current: route().current('hasil-upload.struk-online'),
+    }
 ];
 
 </script>
