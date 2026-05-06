@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm, Link } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 
 const props = defineProps({
@@ -31,34 +31,26 @@ watch(search, (value) => {
     router.get(
         route('master-skpd.index'),
         { search: value },
-        {
-            preserveState: true,
-            replace: true,
-        }
+        { preserveState: true, replace: true }
     );
 });
 
 const openCreate = () => {
     isEdit.value = false;
     selectedId.value = null;
-
     form.reset();
     form.clearErrors();
-
     form.master_kendaraan_id = '';
     form.nominal_pajak = 0;
     form.reminder_hari = 14;
     form.is_active = true;
-
     showModal.value = true;
 };
 
 const openEdit = (item) => {
     isEdit.value = true;
     selectedId.value = item.id;
-
     form.clearErrors();
-
     form.master_kendaraan_id = item.master_kendaraan_id || '';
     form.nomor_skpd = item.nomor_skpd || '';
     form.nama_pemilik = item.nama_pemilik || '';
@@ -68,7 +60,6 @@ const openEdit = (item) => {
     form.reminder_hari = item.reminder_hari || 14;
     form.keterangan = item.keterangan || '';
     form.is_active = Boolean(item.is_active);
-
     showModal.value = true;
 };
 
@@ -82,7 +73,6 @@ const onKendaraanChange = () => {
     const kendaraan = props.kendaraans.find(
         (item) => String(item.id) === String(form.master_kendaraan_id)
     );
-
     if (kendaraan) {
         form.nomor_polisi = kendaraan.nomor_polisi || '';
         form.nama_pemilik = kendaraan.nama_pemilik || '';
@@ -103,12 +93,25 @@ const submit = () => {
     }
 };
 
-const destroyData = (id) => {
-    if (confirm('Yakin ingin menghapus data SKPD ini?')) {
-        router.delete(route('master-skpd.destroy', id), {
-            preserveScroll: true,
-        });
-    }
+const showDeleteModal = ref(false);
+const idToDelete = ref(null);
+const isDeleting = ref(false);
+
+const confirmDelete = (id) => {
+    idToDelete.value = id;
+    showDeleteModal.value = true;
+};
+
+const executeDelete = () => {
+    isDeleting.value = true;
+    router.delete(route('master-skpd.destroy', idToDelete.value), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showDeleteModal.value = false;
+            idToDelete.value = null;
+        },
+        onFinish: () => isDeleting.value = false,
+    });
 };
 
 const formatRupiah = (value) => {
@@ -121,280 +124,306 @@ const formatRupiah = (value) => {
 </script>
 
 <template>
+
     <Head title="Master SKPD" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Master SKPD
+            <h2 class="font-bold text-2xl text-[#1E293B] tracking-tight">
+                Master <span class="text-[#2DD4BF]">SKPD</span>
             </h2>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="bg-white p-6 shadow sm:rounded-lg">
+        <div class="space-y-6">
+            <div class="mx-auto w-full">
+                <div class="bg-white sm:rounded-2xl overflow-hidden border border-slate-200">
 
-                    <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <input
-                            v-model="search"
-                            type="text"
-                            placeholder="Cari nomor SKPD / pemilik / no polisi..."
-                            class="w-full rounded-md border-gray-300 shadow-sm md:w-96"
-                        />
+                    <!-- Search & Action -->
+                    <div class="p-6 border-b border-slate-50 bg-slate-50/30">
+                        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div class="relative">
+                                <input v-model="search" type="text"
+                                    placeholder="Cari nomor SKPD / pemilik / no polisi..."
+                                    class="w-full rounded-xl border-slate-200 bg-white pl-4 pr-10 text-sm shadow-sm focus:border-[#2DD4BF] focus:ring-[#2DD4BF] md:w-96" />
+                            </div>
 
-                        <button
-                            type="button"
-                            @click="openCreate"
-                            class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
-                        >
-                            + Tambah SKPD
-                        </button>
+                            <button type="button" @click="openCreate"
+                                class="inline-flex items-center justify-center rounded-xl bg-[#1E293B] px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-white transition-all hover:bg-slate-700 active:scale-95 shadow-lg shadow-slate-200">
+                                <span class="mr-2 text-lg">+</span> Tambah SKPD
+                            </button>
+                        </div>
                     </div>
 
+                    <!-- Table Section -->
                     <div class="overflow-x-auto">
-                        <table class="w-full border-collapse border">
+                        <table class="w-full text-left border-collapse">
                             <thead>
-                                <tr class="bg-gray-100">
-                                    <th class="border p-2 text-left">Nomor SKPD</th>
-                                    <th class="border p-2 text-left">No Polisi</th>
-                                    <th class="border p-2 text-left">Pemilik</th>
-                                    <th class="border p-2 text-right">Nominal Pajak</th>
-                                    <th class="border p-2 text-left">Jatuh Tempo</th>
-                                    <th class="border p-2 text-left">Reminder</th>
-                                    <th class="border p-2 text-left">Status</th>
-                                    <th class="border p-2 text-center">Aksi</th>
+                                <tr class="bg-slate-50/50">
+                                    <th
+                                        class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center w-16">
+                                        No</th>
+                                    <th
+                                        class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                        Nomor
+                                        SKPD</th>
+                                    <th
+                                        class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                        No
+                                        Polisi</th>
+                                    <th
+                                        class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                        Pemilik</th>
+                                    <th
+                                        class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right">
+                                        Nominal Pajak</th>
+                                    <th
+                                        class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                        Jatuh
+                                        Tempo</th>
+                                    <th
+                                        class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                        Status</th>
+                                    <th
+                                        class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">
+                                        Aksi</th>
                                 </tr>
                             </thead>
 
-                            <tbody>
-                                <tr v-for="item in skpds.data" :key="item.id">
-                                    <td class="border p-2">
+                            <tbody class="divide-y divide-slate-50">
+                                <tr v-for="(item, index) in skpds.data" :key="item.id"
+                                    class="group transition-colors hover:bg-slate-50/50">
+                                    <td class="px-6 py-4 text-center text-[11px] font-bold text-slate-400">
+                                        {{ skpds.from + index }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm font-bold text-slate-700">
                                         {{ item.nomor_skpd }}
                                     </td>
-                                    <td class="border p-2">
+                                    <td class="px-6 py-4 text-sm font-medium text-slate-600 uppercase tracking-tighter">
                                         {{ item.nomor_polisi || item.kendaraan?.nomor_polisi || '-' }}
                                     </td>
-                                    <td class="border p-2">
+                                    <td class="px-6 py-4 text-sm font-medium text-slate-600 uppercase">
                                         {{ item.nama_pemilik || item.kendaraan?.nama_pemilik || '-' }}
                                     </td>
-                                    <td class="border p-2 text-right">
+                                    <td class="px-6 py-4 text-sm font-black text-[#1E293B] text-right">
                                         {{ formatRupiah(item.nominal_pajak) }}
                                     </td>
-                                    <td class="border p-2">
-                                        {{ item.tanggal_jatuh_tempo || '-' }}
+                                    <td class="px-6 py-4">
+                                        <div class="text-[11px] font-bold text-slate-600">{{ item.tanggal_jatuh_tempo ||
+                                            '-' }}
+                                        </div>
+                                        <div
+                                            class="text-[9px] font-black text-[#2DD4BF] uppercase tracking-widest mt-0.5">
+                                            Remind H-{{ item.reminder_hari }}
+                                        </div>
                                     </td>
-                                    <td class="border p-2">
-                                        H-{{ item.reminder_hari || 14 }}
-                                    </td>
-                                    <td class="border p-2">
-                                        <span v-if="item.is_active" class="text-green-600">
+                                    <td class="px-6 py-4">
+                                        <span v-if="item.is_active"
+                                            class="inline-flex rounded-lg bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-600 border border-emerald-100">
                                             Aktif
                                         </span>
-                                        <span v-else class="text-red-600">
+                                        <span v-else
+                                            class="inline-flex rounded-lg bg-rose-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-rose-600 border border-rose-100">
                                             Nonaktif
                                         </span>
                                     </td>
-                                    <td class="border p-2 text-center">
-                                        <button
-                                            @click="openEdit(item)"
-                                            class="mr-2 text-blue-600"
-                                        >
-                                            Edit
-                                        </button>
-
-                                        <button
-                                            @click="destroyData(item.id)"
-                                            class="text-red-600"
-                                        >
-                                            Hapus
-                                        </button>
+                                    <td class="px-6 py-4 text-center">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button @click="openEdit(item)"
+                                                class="p-2 text-slate-300 hover:text-[#2DD4BF] transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path
+                                                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                                        stroke-width="2.5" stroke-linecap="round"
+                                                        stroke-linejoin="round" />
+                                                </svg>
+                                            </button>
+                                            <span class="text-slate-200">|</span>
+                                            <button @click="confirmDelete(item.id)"
+                                                class="p-2 text-slate-300 hover:text-rose-500 transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                                        stroke-width="2.5" stroke-linecap="round"
+                                                        stroke-linejoin="round" />
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
 
+                                <!-- No Data Found -->
                                 <tr v-if="skpds.data.length === 0">
-                                    <td colspan="8" class="border p-4 text-center text-gray-500">
-                                        Data SKPD belum tersedia.
+                                    <td colspan="8" class="px-6 py-24 text-center">
+                                        <div class="flex flex-col items-center">
+                                            <div
+                                                class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 text-2xl">
+                                                📂</div>
+                                            <div
+                                                class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">
+                                                Data SKPD Belum Tersedia
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
 
-                    <div v-if="skpds.links" class="mt-4 flex flex-wrap gap-2">
-                        <button
-                            v-for="link in skpds.links"
-                            :key="link.label"
-                            v-html="link.label"
-                            :disabled="!link.url"
-                            @click="link.url && router.visit(link.url, { preserveScroll: true })"
-                            class="rounded border px-3 py-1"
-                            :class="{
-                                'bg-indigo-600 text-white': link.active,
-                                'text-gray-400': !link.url,
-                            }"
-                        />
-                    </div>
+                    <!-- Pagination Section (Identik Master Cabang) -->
+                    <div class="px-6 py-5 bg-white border-t border-slate-100">
+                        <div class="flex flex-col md:flex-row items-center justify-between gap-5">
+                            <div class="flex flex-col">
+                                <span class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Data
+                                    Statistics</span>
+                                <div class="text-[11px] font-bold text-[#1E293B] uppercase mt-1">
+                                    Showing {{ skpds.from || 0 }} - {{ skpds.to || 0 }}
+                                    <span class="text-[#2DD4BF] mx-1">/</span>
+                                    Total {{ skpds.total || 0 }} SKPD
+                                </div>
+                            </div>
 
+                            <div class="flex items-center gap-1.5">
+                                <template v-for="(link, k) in skpds.links" :key="k">
+                                    <div v-if="link.url === null"
+                                        class="px-4 py-2 text-[10px] font-black text-slate-300 uppercase tracking-widest border border-slate-50 rounded-xl cursor-not-allowed"
+                                        v-html="link.label" />
+                                    <Link v-else :href="link.url"
+                                        class="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border duration-300"
+                                        :class="{
+                                            'bg-[#1E293B] text-white border-[#1E293B] shadow-lg shadow-black/10 scale-105': link.active,
+                                            'bg-slate-50 text-slate-500 border-transparent hover:border-[#2DD4BF] hover:text-[#2DD4BF]': !link.active
+                                        }" v-html="link.label" preserve-scroll />
+                                </template>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div
-            v-if="showModal"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4"
-        >
-            <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-white shadow-lg">
-                <div class="flex items-center justify-between border-b px-6 py-4">
-                    <h3 class="text-lg font-semibold text-gray-800">
-                        {{ isEdit ? 'Edit SKPD' : 'Tambah SKPD' }}
-                    </h3>
-
-                    <button
-                        type="button"
-                        @click="closeModal"
-                        class="text-2xl text-gray-500 hover:text-gray-700"
-                    >
+        <!-- Modal (Identik Master Cabang) -->
+        <div v-if="showModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
+            <div
+                class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-300">
+                <div class="flex items-center justify-between border-b border-slate-50 px-8 py-6">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] font-black uppercase tracking-[0.3em] text-[#2DD4BF]">Form Entry</span>
+                        <h3 class="text-xl font-bold text-slate-800">{{ isEdit ? 'Update SKPD' : 'Create New SKPD' }}
+                        </h3>
+                    </div>
+                    <button type="button" @click="closeModal"
+                        class="h-10 w-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all">
                         &times;
                     </button>
                 </div>
 
-                <form @submit.prevent="submit" class="space-y-4 p-6">
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <form @submit.prevent="submit" class="p-8 space-y-6">
+                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700">
-                                Kendaraan
-                            </label>
-                            <select
-                                v-model="form.master_kendaraan_id"
-                                @change="onKendaraanChange"
-                                class="mt-1 w-full rounded border-gray-300"
-                            >
-                                <option value="">Pilih Kendaraan</option>
-                                <option
-                                    v-for="kendaraan in kendaraans"
-                                    :key="kendaraan.id"
-                                    :value="kendaraan.id"
-                                >
-                                    {{ kendaraan.nomor_polisi }} - {{ kendaraan.merk || '-' }} {{ kendaraan.tipe || '' }}
+                            <label
+                                class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Pilih
+                                Kendaraan</label>
+                            <select v-model="form.master_kendaraan_id" @change="onKendaraanChange"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]">
+                                <option value="">- Silahkan Pilih -</option>
+                                <option v-for="kendaraan in kendaraans" :key="kendaraan.id" :value="kendaraan.id">
+                                    {{ kendaraan.nomor_polisi }} - {{ kendaraan.merk || '-' }}
                                 </option>
                             </select>
-                            <div class="text-sm text-red-600">
-                                {{ form.errors.master_kendaraan_id }}
-                            </div>
+                            <div v-if="form.errors.master_kendaraan_id"
+                                class="mt-1 text-[10px] font-bold text-rose-500 uppercase tracking-tight">{{
+                                    form.errors.master_kendaraan_id }}</div>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Nomor SKPD
-                            </label>
-                            <input
-                                v-model="form.nomor_skpd"
-                                type="text"
-                                class="mt-1 w-full rounded border-gray-300"
-                            />
-                            <div class="text-sm text-red-600">
-                                {{ form.errors.nomor_skpd }}
-                            </div>
+                            <label
+                                class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nomor
+                                SKPD</label>
+                            <input v-model="form.nomor_skpd" type="text"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]" />
+                            <div v-if="form.errors.nomor_skpd"
+                                class="mt-1 text-[10px] font-bold text-rose-500 uppercase tracking-tight">{{
+                                    form.errors.nomor_skpd }}</div>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                No Polisi
-                            </label>
-                            <input
-                                v-model="form.nomor_polisi"
-                                type="text"
-                                class="mt-1 w-full rounded border-gray-300"
-                            />
+                            <label
+                                class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nominal
+                                Pajak</label>
+                            <input v-model="form.nominal_pajak" type="number"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]" />
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Nama Pemilik
-                            </label>
-                            <input
-                                v-model="form.nama_pemilik"
-                                type="text"
-                                class="mt-1 w-full rounded border-gray-300"
-                            />
+                            <label
+                                class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Jatuh
+                                Tempo</label>
+                            <input v-model="form.tanggal_jatuh_tempo" type="date"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]" />
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Nominal Pajak
-                            </label>
-                            <input
-                                v-model="form.nominal_pajak"
-                                type="number"
-                                min="0"
-                                step="100"
-                                class="mt-1 w-full rounded border-gray-300"
-                            />
-                            <div class="text-sm text-red-600">
-                                {{ form.errors.nominal_pajak }}
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Tanggal Jatuh Tempo
-                            </label>
-                            <input
-                                v-model="form.tanggal_jatuh_tempo"
-                                type="date"
-                                class="mt-1 w-full rounded border-gray-300"
-                            />
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Reminder Hari
-                            </label>
-                            <select
-                                v-model="form.reminder_hari"
-                                class="mt-1 w-full rounded border-gray-300"
-                            >
-                                <option :value="7">H-7</option>
-                                <option :value="14">H-14</option>
-                                <option :value="30">H-30</option>
+                            <label
+                                class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Reminder</label>
+                            <select v-model="form.reminder_hari"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]">
+                                <option :value="7">7 Hari Sebelum</option>
+                                <option :value="14">14 Hari Sebelum</option>
+                                <option :value="30">30 Hari Sebelum</option>
                             </select>
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">
-                            Keterangan
-                        </label>
-                        <textarea
-                            v-model="form.keterangan"
-                            rows="3"
-                            class="mt-1 w-full rounded border-gray-300"
-                        ></textarea>
+                    <div class="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
+                        <input type="checkbox" v-model="form.is_active"
+                            class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
+                        <span class="text-[11px] font-black uppercase tracking-widest text-slate-500">Status
+                            Aktif</span>
                     </div>
 
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" v-model="form.is_active" />
-                        <span>Aktif</span>
-                    </label>
-
-                    <div class="flex justify-end gap-2 border-t pt-4">
-                        <button
-                            type="button"
-                            @click="closeModal"
-                            class="rounded bg-gray-500 px-4 py-2 text-white hover:bg-gray-600"
-                        >
-                            Batal
+                    <div class="flex justify-end gap-3 border-t border-slate-50 pt-8">
+                        <button type="button" @click="closeModal"
+                            class="px-6 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-rose-500 transition-all">
+                            Cancel
                         </button>
-
-                        <button
-                            type="submit"
-                            class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
-                            :disabled="form.processing"
-                        >
-                            {{ form.processing ? 'Menyimpan...' : 'Simpan' }}
+                        <button type="submit" :disabled="form.processing"
+                            class="rounded-xl bg-[#1E293B] px-8 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-slate-200 hover:bg-slate-700 active:scale-95 transition-all disabled:opacity-50">
+                            {{ form.processing ? 'Saving...' : 'Save Changes' }}
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+        <div v-if="showDeleteModal"
+            class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-sm p-8 shadow-2xl text-center">
+                <div
+                    class="mx-auto w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mb-6 border border-rose-100">
+                    <svg :class="{ 'animate-spin': isDeleting }" class="w-8 h-8" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path v-if="!isDeleting"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <path v-else
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            fill="currentColor" opacity="0.75" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-black text-[#1E293B] uppercase italic tracking-tighter mb-2">Confirm <span
+                        class="text-rose-500">Delete</span></h3>
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-8">Unit ini akan dihapus
+                    permanen
+                    dari sistem.</p>
+                <div class="flex gap-3">
+                    <button @click="showDeleteModal = false"
+                        class="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest">Batal</button>
+                    <button @click="executeDelete" :disabled="isDeleting"
+                        class="flex-1 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/30">Ya,
+                        Hapus</button>
+                </div>
             </div>
         </div>
     </AuthenticatedLayout>

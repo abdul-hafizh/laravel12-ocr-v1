@@ -78,7 +78,15 @@ class AnalyzeImageJob implements ShouldQueue
     private function getPromptByType(string $type): string
     {
         return match ($type) {
-            'electricity' => 'Analisis gambar token listrik / bukti pembelian token listrik ini dan kembalikan hanya JSON valid.
+            'electricity' => 'Analisis gambar meteran listrik / kWh meter / token listrik ini dan kembalikan hanya JSON valid.
+
+            Ambil informasi penting yang terlihat pada meter listrik seperti:
+            - nilai kWh pada layar meter
+            - nomor meter / nomor token yang tertulis pada meter
+            - lokasi atau alamat pada watermark pojok kanan bawah
+            - tanggal foto jika tersedia
+            - informasi tambahan lain yang relevan
+
             Format:
             {
                 "jenis_gambar": "token_listrik",
@@ -86,17 +94,19 @@ class AnalyzeImageJob implements ShouldQueue
                 "teks_terbaca": "",
                 "data_penting": {
                     "tanggal": null,
+                    "kwh": null,
                     "nomor_meter": null,
-                    "id_pelanggan": null,
-                    "nama_pelanggan": null,
-                    "tarif_daya": null,
-                    "nominal": null,
-                    "token": null,
-                    "nomor_referensi": null
+                    "nomor_token": null,
+                    "lokasi": null,
+                    "alamat_lengkap": null,
+                    "kecamatan": null,
+                    "kota": null,
+                    "provinsi": null
                 },
                 "confidence": 0
             }
             ',
+
             'online_receipt' => 'Analisis gambar struk online / invoice / bukti transaksi online ini dan kembalikan hanya JSON valid.
             Format:
             {
@@ -116,6 +126,7 @@ class AnalyzeImageJob implements ShouldQueue
                 "confidence": 0
             }
             ',
+
             default => 'Analisis gambar mesin cetak / printer / fotocopy ini dan kembalikan hanya JSON valid.
             Format:
             {

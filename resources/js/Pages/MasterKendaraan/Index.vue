@@ -1,20 +1,42 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, router, useForm } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { Head, router, useForm, Link } from '@inertiajs/vue3';
+import { ref, watch, computed } from 'vue';
 
 const props = defineProps({
     kendaraans: Object,
     cabangs: Array,
     filters: Object,
+    flash: Object,
 });
 
 const search = ref(props.filters.search || '');
 const masterCabangId = ref(props.filters.master_cabang_id || '');
-
 const showModal = ref(false);
 const isEdit = ref(false);
 const selectedId = ref(null);
+
+const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    });
+};
+
+watch([search, masterCabangId], ([searchValue, cabangValue]) => {
+    router.get(
+        route('master-kendaraan.index'),
+        {
+            search: searchValue,
+            master_cabang_id: cabangValue,
+            page: 1
+        },
+        { preserveState: true, replace: true }
+    );
+});
 
 const form = useForm({
     master_cabang_id: '',
@@ -30,40 +52,18 @@ const form = useForm({
     is_active: true,
 });
 
-watch([search, masterCabangId], ([searchValue, cabangValue]) => {
-    router.get(
-        route('master-kendaraan.index'),
-        {
-            search: searchValue,
-            master_cabang_id: cabangValue,
-        },
-        {
-            preserveState: true,
-            replace: true,
-        }
-    );
-});
-
 const openCreate = () => {
     isEdit.value = false;
     selectedId.value = null;
-
     form.reset();
     form.clearErrors();
-
-    form.master_cabang_id = '';
-    form.reminder_hari = 14;
-    form.is_active = true;
-
     showModal.value = true;
 };
 
 const openEdit = (item) => {
     isEdit.value = true;
     selectedId.value = item.id;
-
     form.clearErrors();
-
     form.master_cabang_id = item.master_cabang_id || '';
     form.jenis_kendaraan = item.jenis_kendaraan || '';
     form.nomor_polisi = item.nomor_polisi || '';
@@ -75,14 +75,12 @@ const openEdit = (item) => {
     form.reminder_hari = item.reminder_hari || 14;
     form.keterangan = item.keterangan || '';
     form.is_active = Boolean(item.is_active);
-
     showModal.value = true;
 };
 
 const closeModal = () => {
     showModal.value = false;
     form.reset();
-    form.clearErrors();
 };
 
 const submit = () => {
@@ -99,348 +97,367 @@ const submit = () => {
     }
 };
 
-const destroyData = (id) => {
-    if (confirm('Yakin ingin menghapus data kendaraan ini?')) {
-        router.delete(route('master-kendaraan.destroy', id), {
-            preserveScroll: true,
-        });
-    }
+const showDeleteModal = ref(false);
+const idToDelete = ref(null);
+const isDeleting = ref(false);
+
+const confirmDelete = (id) => {
+    idToDelete.value = id;
+    showDeleteModal.value = true;
+};
+
+const executeDelete = () => {
+    isDeleting.value = true;
+    router.delete(route('master-kendaraan.destroy', idToDelete.value), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showDeleteModal.value = false;
+            idToDelete.value = null;
+        },
+        onFinish: () => isDeleting.value = false,
+    });
 };
 </script>
 
 <template>
+
     <Head title="Master Kendaraan" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Master Kendaraan
+            <h2 class="font-bold text-2xl text-[#1E293B] tracking-tight">
+                Master <span class="text-[#2DD4BF]">Kendaraan</span>
             </h2>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="bg-white p-6 shadow sm:rounded-lg">
-
-                    <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div class="flex flex-col gap-3 md:flex-row">
-                            <input
-                                v-model="search"
-                                type="text"
-                                placeholder="Cari kendaraan..."
-                                class="w-full rounded-md border-gray-300 shadow-sm md:w-80"
-                            />
-
-                            <select
-                                v-model="masterCabangId"
-                                class="w-full rounded-md border-gray-300 shadow-sm md:w-64"
-                            >
-                                <option value="">Semua Cabang</option>
-                                <option
-                                    v-for="cabang in cabangs"
-                                    :key="cabang.id"
-                                    :value="cabang.id"
-                                >
-                                    {{ cabang.nama_cabang }}
-                                </option>
-                            </select>
-                        </div>
-
-                        <button
-                            type="button"
-                            @click="openCreate"
-                            class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
-                        >
-                            + Tambah Kendaraan
-                        </button>
+        <div class="space-y-6">
+            <!-- Header Action Bar -->
+            <div
+                class="flex items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
+                <div class="flex flex-1 gap-4 max-w-2xl">
+                    <!-- Search -->
+                    <div class="relative flex-1">
+                        <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="3"
+                                    stroke-linecap="round" />
+                            </svg>
+                        </span>
+                        <input v-model="search" type="text" placeholder="Cari No. Polisi / Pemilik..."
+                            class="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 transition-all" />
                     </div>
+                    <!-- Filter Cabang -->
+                    <select v-model="masterCabangId"
+                        class="bg-slate-50 border-none rounded-xl text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#2DD4BF]/20">
+                        <option value="">Semua Cabang</option>
+                        <option v-for="c in cabangs" :key="c.id" :value="c.id">{{ c.nama_cabang }}</option>
+                    </select>
+                </div>
 
-                    <div class="overflow-x-auto">
-                        <table class="w-full border-collapse border">
-                            <thead>
-                                <tr class="bg-gray-100">
-                                    <th class="border p-2 text-left">Cabang</th>
-                                    <th class="border p-2 text-left">Jenis</th>
-                                    <th class="border p-2 text-left">No Polisi</th>
-                                    <th class="border p-2 text-left">Merk</th>
-                                    <th class="border p-2 text-left">Tipe</th>
-                                    <th class="border p-2 text-left">Tahun</th>
-                                    <th class="border p-2 text-left">Pemilik</th>
-                                    <th class="border p-2 text-left">Jatuh Tempo</th>
-                                    <th class="border p-2 text-left">Reminder</th>
-                                    <th class="border p-2 text-left">Status</th>
-                                    <th class="border p-2 text-center">Aksi</th>
-                                </tr>
-                            </thead>
+                <button @click="openCreate"
+                    class="px-5 py-2.5 bg-[#1E293B] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.15em] hover:bg-[#2DD4BF] transition-all shadow-lg shadow-black/5 flex items-center">
+                    <span class="mr-2 text-sm">+</span> Tambah Kendaraan
+                </button>
+            </div>
 
-                            <tbody>
-                                <tr v-for="item in kendaraans.data" :key="item.id">
-                                    <td class="border p-2">
-                                        {{ item.cabang?.nama_cabang || '-' }}
+            <!-- Table Data Container -->
+            <div class="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-100">
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    No. Polisi
+                                </th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Merk &
+                                    Tipe</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Jenis</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Cabang
+                                </th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Pemilik
+                                </th>
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+                                    Jatuh Tempo</th>
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+                                    Status</th>
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
+                                    Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50">
+                            <template v-if="kendaraans.data.length > 0">
+                                <tr v-for="item in kendaraans.data" :key="item.id"
+                                    class="group hover:bg-slate-50/50 transition-colors">
+                                    <!-- Kolom No Polisi -->
+                                    <td class="px-6 py-4">
+                                        <span
+                                            class="text-[11px] font-black text-[#2DD4BF] bg-[#2DD4BF]/5 border border-[#2DD4BF]/10 px-2.5 py-1 rounded-lg uppercase tracking-tighter">
+                                            {{ item.nomor_polisi }}
+                                        </span>
                                     </td>
-                                    <td class="border p-2">
+
+                                    <!-- Kolom Merk & Tipe -->
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm font-bold text-[#1E293B] uppercase tracking-tight">
+                                            {{ item.merk }}
+                                        </div>
+                                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                                            {{ item.tipe }}
+                                        </div>
+                                    </td>
+
+                                    <!-- Kolom Jenis -->
+                                    <td class="px-6 py-4 text-[11px] font-black text-slate-500 uppercase">
                                         {{ item.jenis_kendaraan }}
                                     </td>
-                                    <td class="border p-2">
-                                        {{ item.nomor_polisi }}
+
+                                    <!-- Kolom Cabang -->
+                                    <td class="px-6 py-4 text-[11px] font-black text-slate-600 uppercase">
+                                        {{ item.cabang?.nama_cabang || '-' }}
                                     </td>
-                                    <td class="border p-2">
-                                        {{ item.merk || '-' }}
-                                    </td>
-                                    <td class="border p-2">
-                                        {{ item.tipe || '-' }}
-                                    </td>
-                                    <td class="border p-2">
-                                        {{ item.tahun_pembelian || '-' }}
-                                    </td>
-                                    <td class="border p-2">
+
+                                    <!-- Kolom Pemilik -->
+                                    <td class="px-6 py-4 text-[11px] font-black text-slate-600 uppercase italic">
                                         {{ item.nama_pemilik || '-' }}
                                     </td>
-                                    <td class="border p-2">
-                                        {{ item.tanggal_jatuh_tempo || '-' }}
-                                    </td>
-                                    <td class="border p-2">
-                                        H-{{ item.reminder_hari || 14 }}
-                                    </td>
-                                    <td class="border p-2">
-                                        <span v-if="item.is_active" class="text-green-600">
-                                            Aktif
-                                        </span>
-                                        <span v-else class="text-red-600">
-                                            Nonaktif
-                                        </span>
-                                    </td>
-                                    <td class="border p-2 text-center">
-                                        <button
-                                            @click="openEdit(item)"
-                                            class="mr-2 text-blue-600"
-                                        >
-                                            Edit
-                                        </button>
 
-                                        <button
-                                            @click="destroyData(item.id)"
-                                            class="text-red-600"
-                                        >
-                                            Hapus
-                                        </button>
+                                    <!-- Kolom Jatuh Tempo -->
+                                    <td class="px-6 py-4 text-center">
+                                        <div class="text-[11px] font-black text-[#1E293B]">{{ formatDate(item.tanggal_jatuh_tempo) }}</div>
+                                        <div class="text-[8px] font-black text-rose-500 uppercase tracking-tighter">
+                                            H-{{ item.reminder_hari }} Alert
+                                        </div>
+                                    </td>
+
+                                    <!-- Kolom Status -->
+                                    <td class="px-6 py-4 text-center">
+                                        <span
+                                            :class="item.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'"
+                                            class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest italic border border-current/10">
+                                            {{ item.is_active ? 'Active' : 'Offline' }}
+                                        </span>
+                                    </td>
+
+                                    <!-- Kolom Aksi -->
+                                    <td class="px-6 py-4 text-right">
+                                        <div class="flex justify-end gap-1">
+                                            <button @click="openEdit(item)"
+                                                class="p-2 text-slate-300 hover:text-[#2DD4BF] transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path
+                                                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                                        stroke-width="2.5" stroke-linecap="round"
+                                                        stroke-linejoin="round" />
+                                                </svg>
+                                            </button>
+                                            <button @click="confirmDelete(item.id)"
+                                                class="p-2 text-slate-300 hover:text-rose-500 transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                                        stroke-width="2.5" stroke-linecap="round"
+                                                        stroke-linejoin="round" />
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
+                            </template>
+                            <!-- No Data Found Section -->
+                            <tr v-else>
+                                <td colspan="8" class="px-6 py-20 text-center">
+                                    <div class="flex flex-col items-center justify-center">
+                                        <div
+                                            class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 border border-slate-100">
+                                            <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path
+                                                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2-2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        </div>
+                                        <h4
+                                            class="text-[13px] font-black text-[#1E293B] uppercase italic tracking-tighter">
+                                            No Data <span class="text-[#2DD4BF]">Kendaraan</span> Found
+                                        </h4>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
-                                <tr v-if="kendaraans.data.length === 0">
-                                    <td colspan="11" class="border p-4 text-center text-gray-500">
-                                        Data kendaraan belum tersedia.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                <!-- Pagination Section -->
+                <div
+                    class="px-6 py-5 bg-slate-50/80 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
+                        Showing <span class="text-[#1E293B]">{{ kendaraans.from || 0 }}</span>
+                        to <span class="text-[#1E293B]">{{ kendaraans.to || 0 }}</span>
+                        of <span class="text-[#2DD4BF]">{{ kendaraans.total || 0 }}</span> Units
                     </div>
-
-                    <div v-if="kendaraans.links" class="mt-4 flex flex-wrap gap-2">
-                        <button
-                            v-for="link in kendaraans.links"
-                            :key="link.label"
-                            v-html="link.label"
-                            :disabled="!link.url"
-                            @click="link.url && router.visit(link.url, { preserveScroll: true })"
-                            class="rounded border px-3 py-1"
-                            :class="{
-                                'bg-indigo-600 text-white': link.active,
-                                'text-gray-400': !link.url,
-                            }"
-                        />
-                    </div>
-
+                    <nav v-if="kendaraans.links && kendaraans.links.length > 0" class="flex flex-wrap gap-1.5">
+                        <template v-for="(link, k) in kendaraans.links" :key="k">
+                            <div v-if="link.url === null"
+                                class="px-3 py-2 text-[10px] font-black text-slate-300 border border-slate-100 rounded-xl bg-white/50 cursor-not-allowed uppercase tracking-tighter"
+                                v-html="link.label"></div>
+                            <Link v-else :href="link.url"
+                                class="px-3 py-2 text-[10px] font-black rounded-xl transition-all duration-200 border uppercase tracking-tighter"
+                                :class="{
+                                    'bg-[#1E293B] text-white border-[#1E293B] shadow-lg shadow-black/10 scale-105 z-10': link.active,
+                                    'bg-white text-slate-600 border-slate-200 hover:border-[#2DD4BF] hover:text-[#2DD4BF]': !link.active
+                                }" v-html="link.label" preserve-scroll />
+                        </template>
+                    </nav>
                 </div>
             </div>
         </div>
 
-        <div
-            v-if="showModal"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4"
-        >
-            <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-white shadow-lg">
-                <div class="flex items-center justify-between border-b px-6 py-4">
-                    <h3 class="text-lg font-semibold text-gray-800">
-                        {{ isEdit ? 'Edit Kendaraan' : 'Tambah Kendaraan' }}
+        <!-- Modal Form -->
+        <div v-if="showModal"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <div
+                class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-2xl p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-8 border-b border-slate-100 pb-4 text-slate-800">
+                    <h3 class="text-xl font-black uppercase italic tracking-tighter">
+                        {{ isEdit ? 'Modify' : 'Register' }} <span class="text-[#2DD4BF]">Vehicle</span>
                     </h3>
-
-                    <button
-                        type="button"
-                        @click="closeModal"
-                        class="text-2xl text-gray-500 hover:text-gray-700"
-                    >
-                        &times;
-                    </button>
+                    <button @click="closeModal"
+                        class="text-slate-300 hover:text-rose-500 uppercase text-[10px] font-black">Close</button>
                 </div>
 
-                <form @submit.prevent="submit" class="space-y-4 p-6">
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700">
-                                Cabang
-                            </label>
-                            <select
-                                v-model="form.master_cabang_id"
-                                class="mt-1 w-full rounded border-gray-300"
-                            >
+                <form @submit.prevent="submit" class="space-y-5">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cabang
+                                Penempatan</label>
+                            <select v-model="form.master_cabang_id"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
                                 <option value="">Pilih Cabang</option>
-                                <option
-                                    v-for="cabang in cabangs"
-                                    :key="cabang.id"
-                                    :value="cabang.id"
-                                >
-                                    {{ cabang.nama_cabang }}
-                                </option>
+                                <option v-for="c in cabangs" :key="c.id" :value="c.id">{{ c.nama_cabang }}</option>
                             </select>
-                            <div class="text-sm text-red-600">
-                                {{ form.errors.master_cabang_id }}
-                            </div>
                         </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Jenis Kendaraan
-                            </label>
-                            <select
-                                v-model="form.jenis_kendaraan"
-                                class="mt-1 w-full rounded border-gray-300"
-                            >
-                                <option value="">Pilih Jenis</option>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Jenis
+                                Kendaraan</label>
+                            <select v-model="form.jenis_kendaraan"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
                                 <option value="motor">Motor</option>
                                 <option value="mobil">Mobil</option>
                             </select>
-                            <div class="text-sm text-red-600">
-                                {{ form.errors.jenis_kendaraan }}
-                            </div>
                         </div>
+                    </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Nomor Polisi
-                            </label>
-                            <input
-                                v-model="form.nomor_polisi"
-                                type="text"
-                                placeholder="Contoh: B 1234 ABC"
-                                class="mt-1 w-full rounded border-gray-300"
-                            />
-                            <div class="text-sm text-red-600">
-                                {{ form.errors.nomor_polisi }}
-                            </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="space-y-1.5 col-span-1">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">No.
+                                Polisi</label>
+                            <input v-model="form.nomor_polisi" type="text" placeholder="B 1234 ABC"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold uppercase focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Merk
-                            </label>
-                            <input
-                                v-model="form.merk"
-                                type="text"
-                                placeholder="Contoh: Honda / Toyota"
-                                class="mt-1 w-full rounded border-gray-300"
-                            />
+                        <div class="space-y-1.5 col-span-1">
+                            <label
+                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Merk</label>
+                            <input v-model="form.merk" type="text" placeholder="Toyota"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Tipe
-                            </label>
-                            <input
-                                v-model="form.tipe"
-                                type="text"
-                                placeholder="Contoh: Beat / Avanza"
-                                class="mt-1 w-full rounded border-gray-300"
-                            />
+                        <div class="space-y-1.5 col-span-1">
+                            <label
+                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipe</label>
+                            <input v-model="form.tipe" type="text" placeholder="Avanza"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
+                    </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Tahun Pembelian
-                            </label>
-                            <input
-                                v-model="form.tahun_pembelian"
-                                type="number"
-                                min="1900"
-                                max="2100"
-                                class="mt-1 w-full rounded border-gray-300"
-                            />
-                            <div class="text-sm text-red-600">
-                                {{ form.errors.tahun_pembelian }}
-                            </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pemilik
+                                (STNK)</label>
+                            <input v-model="form.nama_pemilik" type="text"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Nama Pemilik
-                            </label>
-                            <input
-                                v-model="form.nama_pemilik"
-                                type="text"
-                                class="mt-1 w-full rounded border-gray-300"
-                            />
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tahun
+                                Beli</label>
+                            <input v-model="form.tahun_pembelian" type="number"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
+                    </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Tanggal Jatuh Tempo
-                            </label>
-                            <input
-                                v-model="form.tanggal_jatuh_tempo"
-                                type="date"
-                                class="mt-1 w-full rounded border-gray-300"
-                            />
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Jatuh
+                                Tempo
+                                Pajak</label>
+                            <input v-model="form.tanggal_jatuh_tempo" type="date"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Reminder Hari
-                            </label>
-                            <select
-                                v-model="form.reminder_hari"
-                                class="mt-1 w-full rounded border-gray-300"
-                            >
-                                <option :value="7">H-7</option>
-                                <option :value="14">H-14</option>
-                                <option :value="30">H-30</option>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Reminder
+                                (H-)</label>
+                            <select v-model="form.reminder_hari"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
+                                <option :value="7">7 Hari</option>
+                                <option :value="14">14 Hari</option>
+                                <option :value="30">30 Hari</option>
                             </select>
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">
-                            Keterangan
+                    <div class="flex items-center justify-between bg-slate-900 p-4 rounded-2xl">
+                        <span class="text-[10px] font-black text-white uppercase tracking-widest">Active Status</span>
+                        <label class="relative inline-flex cursor-pointer items-center">
+                            <input type="checkbox" v-model="form.is_active" class="peer sr-only" />
+                            <div
+                                class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2DD4BF]">
+                            </div>
                         </label>
-                        <textarea
-                            v-model="form.keterangan"
-                            rows="3"
-                            class="mt-1 w-full rounded border-gray-300"
-                        ></textarea>
                     </div>
 
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" v-model="form.is_active" />
-                        <span>Aktif</span>
-                    </label>
-
-                    <div class="flex justify-end gap-2 border-t pt-4">
-                        <button
-                            type="button"
-                            @click="closeModal"
-                            class="rounded bg-gray-500 px-4 py-2 text-white hover:bg-gray-600"
-                        >
-                            Batal
-                        </button>
-
-                        <button
-                            type="submit"
-                            class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
-                            :disabled="form.processing"
-                        >
-                            {{ form.processing ? 'Menyimpan...' : 'Simpan' }}
-                        </button>
-                    </div>
+                    <button type="submit" :disabled="form.processing"
+                        class="w-full py-4 bg-[#2DD4BF] text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-[#2DD4BF]/20 hover:bg-[#26bba8] transition-all">
+                        {{ form.processing ? 'Saving...' : 'Execute Vehicle Data' }}
+                    </button>
                 </form>
+            </div>
+        </div>
+
+        <!-- Modal Delete Confirmation -->
+        <div v-if="showDeleteModal"
+            class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-sm p-8 shadow-2xl text-center">
+                <div
+                    class="mx-auto w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mb-6 border border-rose-100">
+                    <svg :class="{ 'animate-spin': isDeleting }" class="w-8 h-8" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path v-if="!isDeleting"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <path v-else
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            fill="currentColor" opacity="0.75" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-black text-[#1E293B] uppercase italic tracking-tighter mb-2">Confirm <span
+                        class="text-rose-500">Delete</span></h3>
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-8">Unit ini akan dihapus
+                    permanen
+                    dari sistem.</p>
+                <div class="flex gap-3">
+                    <button @click="showDeleteModal = false"
+                        class="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest">Batal</button>
+                    <button @click="executeDelete" :disabled="isDeleting"
+                        class="flex-1 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/30">Ya,
+                        Hapus</button>
+                </div>
             </div>
         </div>
     </AuthenticatedLayout>

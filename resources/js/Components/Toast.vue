@@ -10,7 +10,7 @@ const show = ref(false);
 const triggerToast = () => {
     if (props.message?.text) {
         show.value = true;
-        setTimeout(() => (show.value = false), 5000);
+        setTimeout(() => (show.value = false), 2000);
     }
 };
 

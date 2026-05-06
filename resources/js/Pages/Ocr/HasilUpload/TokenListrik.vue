@@ -192,38 +192,52 @@ const formatValue = (value) => {
                                                 </div>
                                             </div>
 
+                                            <div class="rounded bg-green-50 p-2 text-sm">
+                                                <div class="text-green-600">kWh</div>
+                                                <div class="font-bold text-green-700">
+                                                    {{ formatValue(getImportantData(item).kwh) }}
+                                                </div>
+                                            </div>
+
                                             <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">No Meter</div>
+                                                <div class="text-gray-400">Nomor Meter</div>
                                                 <div class="font-semibold">
                                                     {{ formatValue(getImportantData(item).nomor_meter) }}
                                                 </div>
                                             </div>
 
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">ID Pelanggan</div>
+                                            <div class="rounded bg-gray-50 p-2 text-sm md:col-span-2">
+                                                <div class="text-gray-400">Lokasi</div>
                                                 <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).id_pelanggan) }}
+                                                    {{ formatValue(getImportantData(item).lokasi) }}
+                                                </div>
+                                            </div>
+
+                                            <div class="rounded bg-gray-50 p-2 text-sm md:col-span-3">
+                                                <div class="text-gray-400">Alamat Lengkap</div>
+                                                <div class="font-semibold">
+                                                    {{ formatValue(getImportantData(item).alamat_lengkap) }}
                                                 </div>
                                             </div>
 
                                             <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Nama Pelanggan</div>
+                                                <div class="text-gray-400">Kecamatan</div>
                                                 <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).nama_pelanggan) }}
+                                                    {{ formatValue(getImportantData(item).kecamatan) }}
                                                 </div>
                                             </div>
 
                                             <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Nominal</div>
+                                                <div class="text-gray-400">Kota</div>
                                                 <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).nominal) }}
+                                                    {{ formatValue(getImportantData(item).kota) }}
                                                 </div>
                                             </div>
 
-                                            <div class="rounded bg-green-50 p-2 text-sm">
-                                                <div class="text-green-600">Token</div>
-                                                <div class="font-bold text-green-700">
-                                                    {{ formatValue(getImportantData(item).token) }}
+                                            <div class="rounded bg-gray-50 p-2 text-sm">
+                                                <div class="text-gray-400">Provinsi</div>
+                                                <div class="font-semibold">
+                                                    {{ formatValue(getImportantData(item).provinsi) }}
                                                 </div>
                                             </div>
                                         </template>

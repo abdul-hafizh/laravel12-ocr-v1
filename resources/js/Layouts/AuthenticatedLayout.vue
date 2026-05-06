@@ -20,6 +20,10 @@ const isMasterDataOpen = ref(
     route().current('master-harga-biaya.*')
 );
 
+const isHasilUploadOpen = ref(
+    route().current('hasil-upload.*')
+);
+
 watch(() => route().current(), () => {
     if (route().current('hasil-upload.*')) {
         isHasilUploadOpen.value = true;
@@ -90,10 +94,6 @@ const navigation = [
         current: route().current('profile.edit'),
     },
 ];
-
-const isHasilUploadOpen = ref(
-    route().current('hasil-upload.*')
-);
 
 const hasilUploadMenus = [
     {
@@ -181,7 +181,12 @@ const hasilUploadMenus = [
                     <!-- Master Data Menu -->
                     <button
                         type="button"
-                        @click="isMasterDataOpen = !isMasterDataOpen"
+                        @click="
+                            isMasterDataOpen = !isMasterDataOpen;
+                            if (isMasterDataOpen) {
+                                isHasilUploadOpen = false;
+                            }
+                        "
                         :class="[
                             isMasterDataOpen
                                 ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
@@ -225,10 +230,34 @@ const hasilUploadMenus = [
                         </svg>
                     </button>
 
+                    <div
+                        v-if="isSidebarOpen && isMasterDataOpen"
+                        class="ml-6 space-y-1 border-l border-slate-100 pl-3"
+                    >
+                        <Link
+                            v-for="item in masterDataMenus"
+                            :key="item.name"
+                            :href="item.href"
+                            :class="[
+                                item.current
+                                    ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
+                            ]"
+                            class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+                        >
+                            {{ item.name }}
+                        </Link>
+                    </div>
+
                     <!-- Hasil Upload Menu -->
                     <button
                         type="button"
-                        @click="isHasilUploadOpen = !isHasilUploadOpen"
+                        @click="
+                            isHasilUploadOpen = !isHasilUploadOpen;
+                            if (isHasilUploadOpen) {
+                                isMasterDataOpen = false;
+                            }
+                        "
                         :class="[
                             isHasilUploadOpen
                                 ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
@@ -289,26 +318,7 @@ const hasilUploadMenus = [
                         >
                             {{ item.name }}
                         </Link>
-                    </div>
-
-                    <div
-                        v-if="isSidebarOpen && isMasterDataOpen"
-                        class="ml-6 space-y-1 border-l border-slate-100 pl-3"
-                    >
-                        <Link
-                            v-for="item in masterDataMenus"
-                            :key="item.name"
-                            :href="item.href"
-                            :class="[
-                                item.current
-                                    ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
-                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
-                            ]"
-                            class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
-                        >
-                            {{ item.name }}
-                        </Link>
-                    </div>
+                    </div>                    
 
                     <Link
                         v-for="item in navigation.slice(1)"
