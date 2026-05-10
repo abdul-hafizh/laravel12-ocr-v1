@@ -21,20 +21,22 @@ class ImageWhatsappService
 
         SendSms::sendMessageWA(
             $phone,
-            "Menu dipilih ✅\n\n".
+            "Menu ". $menu . " dipilih ✅\n\n".
             "Silakan kirim gambar/foto untuk dianalisis."
         );
     }
 
     public function handle(string $phone, string $message, object $session, array $payload): void
     {
-        $imageUrl = $payload['image'] 
-            ?? $payload['url'] 
-            ?? $payload['media'] 
-            ?? $payload['file'] 
+        $imageUrl =
+            $payload['url']
+            ?? $payload['image']
+            ?? $payload['media_url']
+            ?? $payload['media']
+            ?? $payload['file']
             ?? null;
 
-        if (!$imageUrl) {
+        if (($payload['messageType'] ?? null) !== 'image' || !$imageUrl) {
             SendSms::sendMessageWA(
                 $phone,
                 "Silakan kirim gambar/foto, bukan teks.\n\n".

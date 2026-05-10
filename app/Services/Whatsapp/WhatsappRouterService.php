@@ -14,12 +14,32 @@ class WhatsappRouterService
 
         $phone = $data['phone'] ?? null;
         $message = trim((string)($data['message'] ?? ''));
+        $messageType = $data['messageType'] ?? null;
+        $imageUrl = $data['url'] ?? null;
 
-        if (!$phone || $message === '') {
+        if (!$phone) {
+            return;
+        }
+
+        if ($message === '' && $messageType !== 'image' && !$imageUrl) {
             return;
         }
 
         $phone = $this->normalizePhone($phone);
+
+        $allowedPhones = [
+            '6281314031553',
+        ];
+
+        if (!in_array($phone, $allowedPhones, true)) {
+            \Log::info('WA IGNORED PHONE', [
+                'phone' => $phone,
+                'message' => $message,
+            ]);
+
+            return;
+        }
+
         $cmd = strtoupper(trim($message));
 
         if ($cmd === 'PING') {
@@ -45,8 +65,9 @@ class WhatsappRouterService
                 'updated_at' => now(),
             ]);
 
-            SendSms::sendMessageWA($phone, $this->menuText());
-            return;
+            $session = DB::table('dbo.wa_sessions')
+                ->where('phone', $phone)
+                ->first();
         }
 
         if (($session->step ?? '') === 'ASK_MENU') {
@@ -57,14 +78,13 @@ class WhatsappRouterService
                 return;
             }
 
-            DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
-                'menu' => $menu,
-                'step' => 'ASK_ID',
-                'updated_at' => now(),
-            ]);
-
             if ($menu === 'BMI') {
                 app(BmiWhatsappService::class)->start($phone);
+                return;
+            }
+
+            if ($menu === 'BIAYA_UMUM') {
+                app(ImageWhatsappService::class)->start($phone, $menu, 'online_receipt');
                 return;
             }
 
@@ -74,7 +94,12 @@ class WhatsappRouterService
             }
 
             if ($menu === 'BIAYA_KLIK_METER') {
-                app(ImageWhatsappService::class)->start($phone, $menu, 'electricity');
+                app(ImageWhatsappService::class)->start($phone, $menu, 'printer');
+                return;
+            }
+
+            if ($menu === 'BIAYA_PART') {
+                app(ImageWhatsappService::class)->start($phone, $menu, 'online_receipt');
                 return;
             }
 
@@ -82,14 +107,6 @@ class WhatsappRouterService
                 app(ImageWhatsappService::class)->start($phone, $menu, 'printer');
                 return;
             }
-
-            if ($menu === 'BIAYA_PART' || $menu === 'BIAYA_UMUM') {
-                app(ImageWhatsappService::class)->start($phone, $menu, 'online_receipt');
-                return;
-            }
-
-            SendSms::sendMessageWA($phone, "Menu *{$menu}* belum dibuat.");
-            return;
         }
 
         match ($session->menu) {
@@ -125,9 +142,9 @@ class WhatsappRouterService
         return match (strtoupper(trim($message))) {
             '1', 'BMI' => 'BMI',
             '2', 'BIAYA UMUM' => 'BIAYA_UMUM',
-            '3', 'TOKEN LISTRIK', 'BIAYA TOKEN LISTRIK' => 'TOKEN_LISTRIK',
-            '4', 'KLIK METER', 'BIAYA KLIK METER' => 'KLIK_METER',
-            '5', 'PART', 'BIAYA PART' => 'PART',
+            '3', 'TOKEN LISTRIK', 'BIAYA TOKEN LISTRIK' => 'BIAYA_TOKEN_LISTRIK',
+            '4', 'KLIK METER', 'BIAYA KLIK METER' => 'BIAYA_KLIK_METER',
+            '5', 'PART', 'BIAYA PART' => 'BIAYA_PART',
             '6', 'MAINTENANCE', 'MAINTENANCE MESIN' => 'MAINTENANCE_MESIN',
             default => null,
         };
