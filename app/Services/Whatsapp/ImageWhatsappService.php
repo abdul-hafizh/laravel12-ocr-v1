@@ -40,7 +40,7 @@ class ImageWhatsappService
             SendSms::sendMessageWA(
                 $phone,
                 "Silakan kirim gambar/foto, bukan teks.\n\n".
-                "Ketik *ULANG* untuk kembali ke menu."
+                "Ketik *ulang* untuk kembali ke menu."
             );
             return;
         }
@@ -86,7 +86,7 @@ class ImageWhatsappService
                 "Sedang dianalisis oleh sistem.\n\n".
                 "ID Scan: *{$scan->id}*\n".
                 "Silakan cek hasilnya di website.\n\n".
-                "Ketik *ULANG* untuk kembali ke menu."
+                "Ketik *ulang* untuk kembali ke menu."
             );
         } catch (\Throwable $e) {
             \Log::error('WA_IMAGE_UPLOAD_ERR', [
