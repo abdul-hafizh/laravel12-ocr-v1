@@ -27,11 +27,16 @@ class WhatsappRouterService
 
         $phone = $this->normalizePhone($phone);
 
-        $allowedPhones = [
-            '6281314031553',
-        ];
+        $user = DB::table('dbo.users')
+            ->where('is_active', 1)
+            ->where('is_delete', 0)
+            ->whereNotNull('phone')
+            ->get()
+            ->first(function ($user) use ($phone) {
+                return $this->normalizePhone($user->phone) === $phone;
+            });
 
-        if (!in_array($phone, $allowedPhones, true)) {
+        if (!$user) {
             \Log::info('WA IGNORED PHONE', [
                 'phone' => $phone,
                 'message' => $message,
@@ -39,6 +44,11 @@ class WhatsappRouterService
 
             return;
         }
+
+        $cabang = DB::table('dbo.master_cabangs')
+            ->where('pic_user_id', $user->id)
+            ->where('is_active', 1)
+            ->first();
 
         $cmd = strtoupper(trim($message));
 
@@ -59,6 +69,8 @@ class WhatsappRouterService
         if (!$session) {
             DB::table('dbo.wa_sessions')->insert([
                 'phone' => $phone,
+                'user_id' => $user->id,
+                'cabang_id' => $cabang?->id,
                 'menu' => null,
                 'step' => 'ASK_MENU',
                 'created_at' => now(),

@@ -24,9 +24,21 @@ const isHasilUploadOpen = ref(
     route().current('hasil-upload.*')
 );
 
+const isUserAccessOpen = ref(
+    route().current('roles.*') ||
+    route().current('users-management.*')
+);
+
 watch(() => route().current(), () => {
     if (route().current('hasil-upload.*')) {
         isHasilUploadOpen.value = true;
+    }
+
+    if (
+        route().current('roles.*') ||
+        route().current('users-management.*')
+    ) {
+        isUserAccessOpen.value = true;
     }
 });
 
@@ -113,6 +125,19 @@ const hasilUploadMenus = [
     }
 ];
 
+const userAccessMenus = [
+    {
+        name: 'Master Role',
+        href: route('roles.index'),
+        current: route().current('roles.*'),
+    },
+    {
+        name: 'Manajemen User',
+        href: route('users-management.index'),
+        current: route().current('users-management.*'),
+    },
+];
+
 </script>
 
 <template>
@@ -185,6 +210,7 @@ const hasilUploadMenus = [
                             isMasterDataOpen = !isMasterDataOpen;
                             if (isMasterDataOpen) {
                                 isHasilUploadOpen = false;
+                                isUserAccessOpen = false;
                             }
                         "
                         :class="[
@@ -301,6 +327,78 @@ const hasilUploadMenus = [
                         </svg>
                     </button>
 
+                    <!-- User Access Menu -->
+                <button
+                    type="button"
+                    @click="
+                        isUserAccessOpen = !isUserAccessOpen;
+                        if (isUserAccessOpen) {
+                            isMasterDataOpen = false;
+                            isHasilUploadOpen = false;
+                        }
+                    "
+                    :class="[
+                        isUserAccessOpen
+                            ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
+                            : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
+                    ]"
+                    class="group flex w-full items-center px-4 py-3.5 text-sm font-bold rounded-[1.25rem] transition-all duration-200"
+                >
+                    <svg
+                        class="w-6 h-6 shrink-0 transition-colors"
+                        :class="[isUserAccessOpen ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 11-8 0 4 4 0 018 0zm6 4a4 4 0 10-3.46-6M3 14a4 4 0 013.46-6"
+                        />
+                    </svg>
+
+                    <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
+                        User Access
+                    </span>
+
+                    <svg
+                        v-if="isSidebarOpen"
+                        class="h-4 w-4 transition-transform"
+                        :class="{ 'rotate-180': isUserAccessOpen }"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M19 9l-7 7-7-7"
+                        />
+                    </svg>
+                </button>
+
+                <div
+                    v-if="isSidebarOpen && isUserAccessOpen"
+                    class="ml-6 space-y-1 border-l border-slate-100 pl-3"
+                >
+                    <Link
+                        v-for="item in userAccessMenus"
+                        :key="item.name"
+                        :href="item.href"
+                        :class="[
+                            item.current
+                                ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
+                        ]"
+                        class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+                    >
+                        {{ item.name }}
+                    </Link>
+                </div>
+
                     <div
                         v-if="isSidebarOpen && isHasilUploadOpen"
                         class="ml-6 space-y-1 border-l border-slate-100 pl-3"
@@ -350,7 +448,7 @@ const hasilUploadMenus = [
                             {{ item.name }}
                         </span>
                     </Link>
-                </nav>
+                </nav>                
 
                 <button
                     @click="isSidebarOpen = !isSidebarOpen"

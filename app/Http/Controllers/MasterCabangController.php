@@ -3,23 +3,28 @@
 namespace App\Http\Controllers;
 
 use App\Models\MasterCabang;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class MasterCabangController extends Controller
 {
     public function index(Request $request)
     {
-        $query = MasterCabang::query();
+        $query = MasterCabang::with('picUser');
 
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = trim($request->search);
 
             $query->where(function ($q) use ($search) {
                 $q->where('kode_cabang', 'like', "%{$search}%")
-                  ->orWhere('nama_cabang', 'like', "%{$search}%")
-                  ->orWhere('pic', 'like', "%{$search}%")
-                  ->orWhere('no_hp', 'like', "%{$search}%");
+                    ->orWhere('nama_cabang', 'like', "%{$search}%")
+                    ->orWhereHas('picUser', function ($userQuery) use ($search) {
+                        $userQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -28,8 +33,21 @@ class MasterCabangController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+        $users = User::query()
+            ->where('is_active', true)
+            ->where('is_delete', false)
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'email',
+                'phone',
+                'employee_id',
+            ]);
+
         return Inertia::render('MasterCabang/Index', [
             'cabangs' => $data,
+            'users' => $users,
             'filters' => [
                 'search' => $request->search,
             ],
@@ -39,11 +57,21 @@ class MasterCabangController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'kode_cabang' => ['required', 'string', 'max:100', 'unique:master_cabangs,kode_cabang'],
+            'kode_cabang' => [
+                'required',
+                'string',
+                'max:100',
+                'unique:master_cabangs,kode_cabang',
+            ],
             'nama_cabang' => ['required', 'string', 'max:255'],
             'alamat' => ['nullable', 'string'],
-            'pic' => ['nullable', 'string', 'max:255'],
-            'no_hp' => ['nullable', 'string', 'max:50'],
+            'pic_user_id' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(function ($query) {
+                    $query->where('is_active', true)
+                        ->where('is_delete', false);
+                }),
+            ],
             'keterangan' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
@@ -58,11 +86,21 @@ class MasterCabangController extends Controller
     public function update(Request $request, MasterCabang $masterCabang)
     {
         $validated = $request->validate([
-            'kode_cabang' => ['required', 'string', 'max:100', 'unique:master_cabangs,kode_cabang,' . $masterCabang->id],
+            'kode_cabang' => [
+                'required',
+                'string',
+                'max:100',
+                'unique:master_cabangs,kode_cabang,' . $masterCabang->id,
+            ],
             'nama_cabang' => ['required', 'string', 'max:255'],
             'alamat' => ['nullable', 'string'],
-            'pic' => ['nullable', 'string', 'max:255'],
-            'no_hp' => ['nullable', 'string', 'max:50'],
+            'pic_user_id' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(function ($query) {
+                    $query->where('is_active', true)
+                        ->where('is_delete', false);
+                }),
+            ],
             'keterangan' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);

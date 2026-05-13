@@ -64,6 +64,8 @@ class ImageWhatsappService
             Storage::disk('public')->put($path, $response->body());
 
             $scan = ImageScan::create([
+                'user_id' => $session->user_id ?? null,
+                'cabang_id' => $session->cabang_id ?? null,
                 'scan_type' => $scanType,
                 'image_path' => $path,
                 'original_filename' => $filename,
@@ -80,11 +82,20 @@ class ImageWhatsappService
                 'updated_at' => now(),
             ]);
 
+            $namaCabang = null;
+
+            if (!empty($session->cabang_id)) {
+                $namaCabang = \DB::table('dbo.master_cabangs')
+                    ->where('id', $session->cabang_id)
+                    ->value('nama_cabang');
+            }
+
             SendSms::sendMessageWA(
                 $phone,
                 "✅ Gambar berhasil diterima.\n".
                 "Sedang dianalisis oleh sistem.\n\n".
                 "ID Scan: *{$scan->id}*\n".
+                "Cabang: *".($namaCabang ?: 'Belum terdeteksi')."*\n\n".
                 "Silakan cek hasilnya di website.\n\n".
                 "Ketik *ulang* untuk kembali ke menu."
             );

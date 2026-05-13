@@ -15,6 +15,18 @@ const props = defineProps({
     },
 });
 
+const formatDate = (value) => {
+    if (!value) return '-';
+
+    return new Date(value).toLocaleString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
+
 const dataList = ref([]);
 const loading = ref(false);
 
@@ -156,6 +168,44 @@ const formatValue = (value) => {
                                     >
                                         {{ item.status }}
                                     </span>
+
+                                    <span class="rounded bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                                        ID Scan: #{{ item.id }}
+                                    </span>
+
+                                    <span class="rounded bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                                        {{ formatDate(item.created_at) }}
+                                    </span>
+                                </div>
+
+                                <div class="mb-4 grid grid-cols-1 gap-3 rounded-xl border bg-slate-50 p-4 md:grid-cols-2">
+                                    <div>
+                                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                            User Upload
+                                        </div>
+
+                                        <div class="mt-1 font-bold text-gray-800">
+                                            {{ item.user?.name || '-' }}
+                                        </div>
+
+                                        <div class="text-sm text-gray-500">
+                                            {{ item.user?.phone || item.user?.email || '-' }}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                            Cabang
+                                        </div>
+
+                                        <div class="mt-1 font-bold text-gray-800">
+                                            {{ item.cabang?.nama_cabang || '-' }}
+                                        </div>
+
+                                        <div class="text-sm text-gray-500">
+                                            {{ item.cabang?.kode_cabang || '-' }}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <template v-if="parseResult(item)">

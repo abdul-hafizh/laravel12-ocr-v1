@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\Api\ImageScanController;
 use App\Http\Controllers\MasterCabangController;
 use App\Http\Controllers\MasterVendorController;
 use App\Http\Controllers\MasterMesinController;
@@ -11,7 +12,8 @@ use App\Http\Controllers\MasterKendaraanController;
 use App\Http\Controllers\MasterSkpdController;
 use App\Http\Controllers\MasterHargaBiayaController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\Api\ImageScanController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\UserManagementController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -33,6 +35,20 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::resource('roles', RoleController::class)->except(['create', 'show', 'edit']);
+    
+    Route::get('/users-management', [UserManagementController::class, 'index'])
+        ->name('users-management.index');
+
+    Route::post('/users-management', [UserManagementController::class, 'store'])
+        ->name('users-management.store');
+
+    Route::put('/users-management/{user}', [UserManagementController::class, 'update'])
+        ->name('users-management.update');
+
+    Route::delete('/users-management/{user}', [UserManagementController::class, 'destroy'])
+        ->name('users-management.destroy');
+
     Route::resource('master-cabang', MasterCabangController::class);    
     Route::resource('master-vendor', MasterVendorController::class)->except(['create', 'edit', 'show']);
     Route::resource('master-mesin', MasterMesinController::class)->except(['create', 'edit', 'show']);

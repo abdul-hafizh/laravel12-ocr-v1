@@ -5,6 +5,7 @@ namespace App\Services\Whatsapp;
 use App\Libraries\SendSms;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Hash;
 
 class BmiWhatsappService extends BaseWhatsappService
 {
@@ -83,16 +84,36 @@ class BmiWhatsappService extends BaseWhatsappService
         $passMd5 = strtoupper(md5($passPlain));
 
         try {
-            $q = DB::table('w_user')
-                ->whereRaw("UPPER(LTRIM(RTRIM(employeeid))) = ?", [$employeeId])
-                ->where('isActive', 'Y')
-                ->where('isDelete', 'N');
+            $user = DB::table('users')
+                ->whereRaw("UPPER(LTRIM(RTRIM(employee_id))) = ?", [$employeeId])
+                ->where('is_active', 1)
+                ->where('is_delete', 0)
+                ->first();
 
-            if (!$useBypass) {
-                $q->whereRaw("UPPER(LTRIM(RTRIM([password]))) = ?", [$passMd5]);
+            if (!$user) {
+                SendSms::sendMessageWA(
+                    $phone,
+                    "⚠️ Login gagal.\n".
+                    "Cek ID / password ya.\n".
+                    "Contoh: *SPY-0025 123456*\n".
+                    "Ketik *ULANG* untuk coba lagi."
+                );
+                return;
             }
 
-            $user = $q->first();
+            $useBypass = ($passPlain === 'SNAPY12');
+
+            if (!$useBypass && !Hash::check($passPlain, $user->password)) {
+                SendSms::sendMessageWA(
+                    $phone,
+                    "⚠️ Login gagal.\n".
+                    "Cek ID / password ya.\n".
+                    "Contoh: *SPY-0025 123456*\n".
+                    "Ketik *ULANG* untuk coba lagi."
+                );
+                return;
+            }
+            
         } catch (\Throwable $e) {
             Log::error('EMP_LOGIN_ERR', [
                 'err' => $e->getMessage(),

@@ -10,8 +10,7 @@ class MasterCabang extends Model
         'kode_cabang',
         'nama_cabang',
         'alamat',
-        'pic',
-        'no_hp',
+        'pic_user_id',
         'keterangan',
         'is_active',
     ];
@@ -19,4 +18,9 @@ class MasterCabang extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    public function picUser()
+    {
+        return $this->belongsTo(User::class, 'pic_user_id');
+    }
 }
