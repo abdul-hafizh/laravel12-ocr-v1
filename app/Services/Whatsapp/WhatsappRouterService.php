@@ -42,6 +42,12 @@ class WhatsappRouterService
                 'message' => $message,
             ]);
 
+            SendSms::sendMessageWA(
+                $phone,
+                "Maaf, nomor Anda belum terdaftar di sistem.\n\n".
+                "Silakan hubungi admin untuk mendaftarkan nomor WhatsApp Anda."
+            );
+
             return;
         }
 

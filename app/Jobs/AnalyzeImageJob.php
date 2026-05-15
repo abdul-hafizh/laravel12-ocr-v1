@@ -86,6 +86,7 @@ class AnalyzeImageJob implements ShouldQueue
             - lokasi atau alamat pada watermark pojok kanan bawah
             - tanggal foto jika tersedia
             - informasi tambahan lain yang relevan
+            - angka diatas barcode atau QR code
 
             Format:
             {
@@ -95,6 +96,7 @@ class AnalyzeImageJob implements ShouldQueue
                 "data_penting": {
                     "tanggal": null,
                     "kwh": null,
+                    "barcode": null,
                     "nomor_meter": null,
                     "nomor_token": null,
                     "lokasi": null,

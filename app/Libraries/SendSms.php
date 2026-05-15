@@ -9,8 +9,9 @@ class SendSms
 {
     public static function sendMessageWA($to, $message)
     {
-        $token = env('WABLAS_TOKEN', false);
-        $baseUrl = rtrim(env('WABLAS_BASE_URL'), '/');
+        $token = env('WABLAS_TOKEN');
+        $secretKey = env('WABLAS_SECRET_KEY');
+        $baseUrl = rtrim(env('WABLAS_BASE_URL', 'https://tegal.wablas.com'), '/');
 
         $to = self::normalizePhone($to);
 
@@ -19,6 +20,7 @@ class SendSms
         ])->post($baseUrl . '/api/send-message', [
             'phone' => $to,
             'message' => $message,
+            'secret_key' => $secretKey,
         ]);
 
         Log::info('WABLAS_SEND_OUT', [
@@ -42,12 +44,10 @@ class SendSms
             ')'
         ], '', $phone);
 
-        // 08xxx -> 628xxx
         if (preg_match('/^0\d+$/', $phone)) {
             $phone = preg_replace('/^0/', '62', $phone);
         }
 
-        // 8xxx -> 628xxx
         if (preg_match('/^8\d+$/', $phone)) {
             $phone = '62' . $phone;
         }

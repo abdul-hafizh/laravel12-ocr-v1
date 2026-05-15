@@ -256,10 +256,10 @@ const formatValue = (value) => {
                                                 </div>
                                             </div>
 
-                                            <div class="rounded bg-gray-50 p-2 text-sm md:col-span-2">
-                                                <div class="text-gray-400">Lokasi</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).lokasi) }}
+                                            <div class="rounded bg-yellow-50 p-2 text-sm">
+                                                <div class="text-yellow-600">Nomor Barcode</div>
+                                                <div class="font-bold text-yellow-700">
+                                                    {{ formatValue(getImportantData(item).barcode) }}
                                                 </div>
                                             </div>
 
