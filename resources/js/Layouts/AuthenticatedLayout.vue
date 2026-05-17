@@ -10,6 +10,10 @@ const flashMessage = computed(() => page.props.flash.message);
 
 const isSidebarOpen = ref(true);
 
+const isSummaryOpen = ref(
+    route().current('summary.*')
+);
+
 const isMasterDataOpen = ref(
     route().current('master-cabang.*') ||
     route().current('master-vendor.*') ||
@@ -30,6 +34,10 @@ const isUserAccessOpen = ref(
 );
 
 watch(() => route().current(), () => {
+    if (route().current('summary.*')) {
+        isSummaryOpen.value = true;
+    }
+
     if (route().current('hasil-upload.*')) {
         isHasilUploadOpen.value = true;
     }
@@ -41,6 +49,14 @@ watch(() => route().current(), () => {
         isUserAccessOpen.value = true;
     }
 });
+
+const summaryMenus = [
+    {
+        name: 'Token Listrik',
+        href: route('summary.electricity'),
+        current: route().current('summary.electricity'),
+    },
+];
 
 const masterDataMenus = [
     {
@@ -74,7 +90,7 @@ const masterDataMenus = [
         current: route().current('master-skpd.*'),
     },
     {
-        name: 'Master Harga Biaya',
+        name: 'Master Biaya',
         href: route('master-harga-biaya.index'),
         current: route().current('master-harga-biaya.*'),
     },
@@ -109,7 +125,7 @@ const navigation = [
 
 const hasilUploadMenus = [
     {
-        name: 'Mesin Cetak',
+        name: 'Meter Mesin',
         href: route('hasil-upload.mesin-cetak'),
         current: route().current('hasil-upload.mesin-cetak'),
     },
@@ -119,7 +135,7 @@ const hasilUploadMenus = [
         current: route().current('hasil-upload.token-listrik'),
     },
     {
-        name: 'Struk Online',
+        name: 'Bukti Bayar',
         href: route('hasil-upload.struk-online'),
         current: route().current('hasil-upload.struk-online'),
     }
@@ -209,6 +225,7 @@ const userAccessMenus = [
                         @click="
                             isMasterDataOpen = !isMasterDataOpen;
                             if (isMasterDataOpen) {
+                                isSummaryOpen = false;
                                 isHasilUploadOpen = false;
                                 isUserAccessOpen = false;
                             }
@@ -275,6 +292,79 @@ const userAccessMenus = [
                         </Link>
                     </div>
 
+                    <!-- Summary Menu -->
+                    <button
+                        type="button"
+                        @click="
+                            isSummaryOpen = !isSummaryOpen;
+                            if (isSummaryOpen) {
+                                isMasterDataOpen = false;
+                                isHasilUploadOpen = false;
+                                isUserAccessOpen = false;
+                            }
+                        "
+                        :class="[
+                            isSummaryOpen
+                                ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
+                        ]"
+                        class="group flex w-full items-center px-4 py-3.5 text-sm font-bold rounded-[1.25rem] transition-all duration-200"
+                    >
+                        <svg
+                            class="w-6 h-6 shrink-0 transition-colors"
+                            :class="[isSummaryOpen ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M11 3v18m4-14v14m4-10v10M7 13v8M3 17v4"
+                            />
+                        </svg>
+
+                        <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
+                            Summary
+                        </span>
+
+                        <svg
+                            v-if="isSidebarOpen"
+                            class="h-4 w-4 transition-transform"
+                            :class="{ 'rotate-180': isSummaryOpen }"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M19 9l-7 7-7-7"
+                            />
+                        </svg>
+                    </button>
+
+                    <div
+                        v-if="isSidebarOpen && isSummaryOpen"
+                        class="ml-6 space-y-1 border-l border-slate-100 pl-3"
+                    >
+                        <Link
+                            v-for="item in summaryMenus"
+                            :key="item.name"
+                            :href="item.href"
+                            :class="[
+                                item.current
+                                    ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
+                            ]"
+                            class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+                        >
+                            {{ item.name }}
+                        </Link>
+                    </div>
+
                     <!-- Hasil Upload Menu -->
                     <button
                         type="button"
@@ -282,6 +372,8 @@ const userAccessMenus = [
                             isHasilUploadOpen = !isHasilUploadOpen;
                             if (isHasilUploadOpen) {
                                 isMasterDataOpen = false;
+                                isSummaryOpen = false;
+                                isUserAccessOpen = false;
                             }
                         "
                         :class="[
@@ -328,76 +420,77 @@ const userAccessMenus = [
                     </button>
 
                     <!-- User Access Menu -->
-                <button
-                    type="button"
-                    @click="
-                        isUserAccessOpen = !isUserAccessOpen;
-                        if (isUserAccessOpen) {
-                            isMasterDataOpen = false;
-                            isHasilUploadOpen = false;
-                        }
-                    "
-                    :class="[
-                        isUserAccessOpen
-                            ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
-                            : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
-                    ]"
-                    class="group flex w-full items-center px-4 py-3.5 text-sm font-bold rounded-[1.25rem] transition-all duration-200"
-                >
-                    <svg
-                        class="w-6 h-6 shrink-0 transition-colors"
-                        :class="[isUserAccessOpen ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 11-8 0 4 4 0 018 0zm6 4a4 4 0 10-3.46-6M3 14a4 4 0 013.46-6"
-                        />
-                    </svg>
-
-                    <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
-                        User Access
-                    </span>
-
-                    <svg
-                        v-if="isSidebarOpen"
-                        class="h-4 w-4 transition-transform"
-                        :class="{ 'rotate-180': isUserAccessOpen }"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M19 9l-7 7-7-7"
-                        />
-                    </svg>
-                </button>
-
-                <div
-                    v-if="isSidebarOpen && isUserAccessOpen"
-                    class="ml-6 space-y-1 border-l border-slate-100 pl-3"
-                >
-                    <Link
-                        v-for="item in userAccessMenus"
-                        :key="item.name"
-                        :href="item.href"
+                    <button
+                        type="button"
+                        @click="
+                            isUserAccessOpen = !isUserAccessOpen;
+                            if (isUserAccessOpen) {
+                                isMasterDataOpen = false;
+                                isSummaryOpen = false;
+                                isHasilUploadOpen = false;
+                            }
+                        "
                         :class="[
-                            item.current
-                                ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
+                            isUserAccessOpen
+                                ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
                         ]"
-                        class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+                        class="group flex w-full items-center px-4 py-3.5 text-sm font-bold rounded-[1.25rem] transition-all duration-200"
                     >
-                        {{ item.name }}
-                    </Link>
-                </div>
+                        <svg
+                            class="w-6 h-6 shrink-0 transition-colors"
+                            :class="[isUserAccessOpen ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 11-8 0 4 4 0 018 0zm6 4a4 4 0 10-3.46-6M3 14a4 4 0 013.46-6"
+                            />
+                        </svg>
+
+                        <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
+                            User Access
+                        </span>
+
+                        <svg
+                            v-if="isSidebarOpen"
+                            class="h-4 w-4 transition-transform"
+                            :class="{ 'rotate-180': isUserAccessOpen }"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M19 9l-7 7-7-7"
+                            />
+                        </svg>
+                    </button>
+
+                    <div
+                        v-if="isSidebarOpen && isUserAccessOpen"
+                        class="ml-6 space-y-1 border-l border-slate-100 pl-3"
+                    >
+                        <Link
+                            v-for="item in userAccessMenus"
+                            :key="item.name"
+                            :href="item.href"
+                            :class="[
+                                item.current
+                                    ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
+                            ]"
+                            class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+                        >
+                            {{ item.name }}
+                        </Link>
+                    </div>                    
 
                     <div
                         v-if="isSidebarOpen && isHasilUploadOpen"

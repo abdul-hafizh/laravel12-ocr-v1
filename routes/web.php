@@ -15,6 +15,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\DashboardScanController;
+use App\Http\Controllers\SummaryController;
 
 Route::get('/', function () { return redirect()->route('login'); });
 
@@ -42,6 +43,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/hasil-upload/mesin-cetak', function () {return Inertia::render('Ocr/HasilUpload/MesinCetak');})->name('hasil-upload.mesin-cetak');
     Route::get('/hasil-upload/token-listrik', function () {return Inertia::render('Ocr/HasilUpload/TokenListrik');})->name('hasil-upload.token-listrik');
     Route::get('/hasil-upload/struk-online', function () {return Inertia::render('Ocr/HasilUpload/StrukOnline');})->name('hasil-upload.struk-online');
+
+    Route::get('/summary/electricity', [SummaryController::class, 'electricity'])->name('summary.electricity');
 });
 
 require __DIR__.'/auth.php';
