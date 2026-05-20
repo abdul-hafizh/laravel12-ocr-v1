@@ -10,9 +10,7 @@ const flashMessage = computed(() => page.props.flash.message);
 
 const isSidebarOpen = ref(true);
 
-const isSummaryOpen = ref(
-    route().current('summary.*')
-);
+const isSummaryOpen = ref(route().current('summary.*'));
 
 const isMasterDataOpen = ref(
     route().current('master-cabang.*') ||
@@ -24,9 +22,7 @@ const isMasterDataOpen = ref(
     route().current('master-harga-biaya.*')
 );
 
-const isHasilUploadOpen = ref(
-    route().current('hasil-upload.*')
-);
+const isHasilUploadOpen = ref(route().current('hasil-upload.*'));
 
 const isUserAccessOpen = ref(
     route().current('roles.*') ||
@@ -36,6 +32,17 @@ const isUserAccessOpen = ref(
 watch(() => route().current(), () => {
     if (route().current('summary.*')) {
         isSummaryOpen.value = true;
+    }
+
+    if (route().current('master-cabang.*') ||
+        route().current('master-vendor.*') ||
+        route().current('master-mesin.*') ||
+        route().current('master-token-listrik.*') ||
+        route().current('master-kendaraan.*') ||
+        route().current('master-skpd.*') ||
+        route().current('master-harga-biaya.*')
+    ) {
+        isMasterDataOpen.value = true;
     }
 
     if (route().current('hasil-upload.*')) {
@@ -107,7 +114,7 @@ const navigation = [
         name: 'Documents',
         href: route('document'),
         icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-        current: route().current('documents.index'),
+        current: route().current('document'),
     },
     {
         name: 'History',
@@ -138,7 +145,7 @@ const hasilUploadMenus = [
         name: 'Bukti Bayar',
         href: route('hasil-upload.struk-online'),
         current: route().current('hasil-upload.struk-online'),
-    }
+    },
 ];
 
 const userAccessMenus = [
@@ -153,7 +160,6 @@ const userAccessMenus = [
         current: route().current('users-management.*'),
     },
 ];
-
 </script>
 
 <template>
@@ -188,12 +194,11 @@ const userAccessMenus = [
                 </div>
 
                 <nav class="flex-1 space-y-1.5 overflow-y-auto pr-1">
+                    <!-- Dashboard -->
                     <Link
-                        v-for="item in navigation.slice(0, 1)"
-                        :key="item.name"
-                        :href="item.href"
+                        :href="navigation[0].href"
                         :class="[
-                            item.current
+                            navigation[0].current
                                 ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
                                 : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
                         ]"
@@ -201,7 +206,7 @@ const userAccessMenus = [
                     >
                         <svg
                             class="w-6 h-6 shrink-0 transition-colors"
-                            :class="[item.current ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
+                            :class="[navigation[0].current ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -210,87 +215,14 @@ const userAccessMenus = [
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
                                 stroke-width="2"
-                                :d="item.icon"
+                                :d="navigation[0].icon"
                             />
                         </svg>
 
                         <span v-if="isSidebarOpen" class="ms-4">
-                            {{ item.name }}
+                            {{ navigation[0].name }}
                         </span>
                     </Link>
-
-                    <!-- Master Data Menu -->
-                    <button
-                        type="button"
-                        @click="
-                            isMasterDataOpen = !isMasterDataOpen;
-                            if (isMasterDataOpen) {
-                                isSummaryOpen = false;
-                                isHasilUploadOpen = false;
-                                isUserAccessOpen = false;
-                            }
-                        "
-                        :class="[
-                            isMasterDataOpen
-                                ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
-                        ]"
-                        class="group flex w-full items-center px-4 py-3.5 text-sm font-bold rounded-[1.25rem] transition-all duration-200"
-                    >
-                        <svg
-                            class="w-6 h-6 shrink-0 transition-colors"
-                            :class="[isMasterDataOpen ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M4 6h16M4 10h16M4 14h16M4 18h16"
-                            />
-                        </svg>
-
-                        <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
-                            Master Data
-                        </span>
-
-                        <svg
-                            v-if="isSidebarOpen"
-                            class="h-4 w-4 transition-transform"
-                            :class="{ 'rotate-180': isMasterDataOpen }"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M19 9l-7 7-7-7"
-                            />
-                        </svg>
-                    </button>
-
-                    <div
-                        v-if="isSidebarOpen && isMasterDataOpen"
-                        class="ml-6 space-y-1 border-l border-slate-100 pl-3"
-                    >
-                        <Link
-                            v-for="item in masterDataMenus"
-                            :key="item.name"
-                            :href="item.href"
-                            :class="[
-                                item.current
-                                    ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
-                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
-                            ]"
-                            class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
-                        >
-                            {{ item.name }}
-                        </Link>
-                    </div>
 
                     <!-- Summary Menu -->
                     <button
@@ -365,6 +297,79 @@ const userAccessMenus = [
                         </Link>
                     </div>
 
+                    <!-- Master Data Menu -->
+                    <button
+                        type="button"
+                        @click="
+                            isMasterDataOpen = !isMasterDataOpen;
+                            if (isMasterDataOpen) {
+                                isSummaryOpen = false;
+                                isHasilUploadOpen = false;
+                                isUserAccessOpen = false;
+                            }
+                        "
+                        :class="[
+                            isMasterDataOpen
+                                ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
+                        ]"
+                        class="group flex w-full items-center px-4 py-3.5 text-sm font-bold rounded-[1.25rem] transition-all duration-200"
+                    >
+                        <svg
+                            class="w-6 h-6 shrink-0 transition-colors"
+                            :class="[isMasterDataOpen ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                            />
+                        </svg>
+
+                        <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
+                            Master Data
+                        </span>
+
+                        <svg
+                            v-if="isSidebarOpen"
+                            class="h-4 w-4 transition-transform"
+                            :class="{ 'rotate-180': isMasterDataOpen }"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M19 9l-7 7-7-7"
+                            />
+                        </svg>
+                    </button>
+
+                    <div
+                        v-if="isSidebarOpen && isMasterDataOpen"
+                        class="ml-6 space-y-1 border-l border-slate-100 pl-3"
+                    >
+                        <Link
+                            v-for="item in masterDataMenus"
+                            :key="item.name"
+                            :href="item.href"
+                            :class="[
+                                item.current
+                                    ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
+                            ]"
+                            class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+                        >
+                            {{ item.name }}
+                        </Link>
+                    </div>
+
                     <!-- Hasil Upload Menu -->
                     <button
                         type="button"
@@ -418,6 +423,25 @@ const userAccessMenus = [
                             />
                         </svg>
                     </button>
+
+                    <div
+                        v-if="isSidebarOpen && isHasilUploadOpen"
+                        class="ml-6 space-y-1 border-l border-slate-100 pl-3"
+                    >
+                        <Link
+                            v-for="item in hasilUploadMenus"
+                            :key="item.name"
+                            :href="item.href"
+                            :class="[
+                                item.current
+                                    ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
+                            ]"
+                            class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+                        >
+                            {{ item.name }}
+                        </Link>
+                    </div>
 
                     <!-- User Access Menu -->
                     <button
@@ -490,27 +514,9 @@ const userAccessMenus = [
                         >
                             {{ item.name }}
                         </Link>
-                    </div>                    
+                    </div>
 
-                    <div
-                        v-if="isSidebarOpen && isHasilUploadOpen"
-                        class="ml-6 space-y-1 border-l border-slate-100 pl-3"
-                    >
-                        <Link
-                            v-for="item in hasilUploadMenus"
-                            :key="item.name"
-                            :href="item.href"
-                            :class="[
-                                item.current
-                                    ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
-                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
-                            ]"
-                            class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
-                        >
-                            {{ item.name }}
-                        </Link>
-                    </div>                    
-
+                    <!-- Documents, History, Settings -->
                     <Link
                         v-for="item in navigation.slice(1)"
                         :key="item.name"
@@ -541,7 +547,7 @@ const userAccessMenus = [
                             {{ item.name }}
                         </span>
                     </Link>
-                </nav>                
+                </nav>
 
                 <button
                     @click="isSidebarOpen = !isSidebarOpen"

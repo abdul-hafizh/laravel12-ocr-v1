@@ -6,6 +6,7 @@ import { ref, watch } from 'vue';
 const props = defineProps({
     skpds: Object,
     kendaraans: Array,
+    financeUsers: Array,
     filters: Object,
 });
 
@@ -17,6 +18,7 @@ const selectedId = ref(null);
 
 const form = useForm({
     master_kendaraan_id: '',
+    user_id: '',
     nomor_skpd: '',
     nama_pemilik: '',
     nomor_polisi: '',
@@ -44,6 +46,7 @@ const openCreate = () => {
     form.nominal_pajak = 0;
     form.reminder_hari = 14;
     form.is_active = true;
+    form.user_id = '';
     showModal.value = true;
 };
 
@@ -59,6 +62,7 @@ const openEdit = (item) => {
     form.tanggal_jatuh_tempo = item.tanggal_jatuh_tempo || '';
     form.reminder_hari = item.reminder_hari || 14;
     form.keterangan = item.keterangan || '';
+    form.user_id = item.user_id || '';
     form.is_active = Boolean(item.is_active);
     showModal.value = true;
 };
@@ -336,6 +340,35 @@ const formatRupiah = (value) => {
                             <div v-if="form.errors.master_kendaraan_id"
                                 class="mt-1 text-[10px] font-bold text-rose-500 uppercase tracking-tight">{{
                                     form.errors.master_kendaraan_id }}</div>
+                        </div>
+
+                        <div>
+                            <label
+                                class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
+                                User Finance
+                            </label>
+
+                            <select
+                                v-model="form.user_id"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]">
+                                
+                                <option value="">- Pilih User Finance -</option>
+
+                                <option
+                                    v-for="user in financeUsers"
+                                    :key="user.id"
+                                    :value="user.id">
+
+                                    {{ user.name }} - {{ user.phone }}
+                                </option>
+                            </select>
+
+                            <div
+                                v-if="form.errors.user_id"
+                                class="mt-1 text-[10px] font-bold text-rose-500 uppercase tracking-tight">
+
+                                {{ form.errors.user_id }}
+                            </div>
                         </div>
 
                         <div>

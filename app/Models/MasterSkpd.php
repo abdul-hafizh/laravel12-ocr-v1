@@ -8,6 +8,7 @@ class MasterSkpd extends Model
 {
     protected $fillable = [
         'master_kendaraan_id',
+        'user_id',
         'nomor_skpd',
         'nama_pemilik',
         'nomor_polisi',
@@ -27,5 +28,10 @@ class MasterSkpd extends Model
     public function kendaraan()
     {
         return $this->belongsTo(MasterKendaraan::class, 'master_kendaraan_id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

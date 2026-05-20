@@ -198,7 +198,7 @@ const badgeClass = (status) => {
                 <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Rekomendasi Top-up</p>
                     <h3 class="text-3xl font-black text-[#2DD4BF] mt-2">
-                        {{ formatRupiah(summary.reduce((total, item) => total + Number(item.rekomendasi_topup_bulan_depan || 0), 0)) }}
+                        {{ formatRupiah(summary.reduce((total, item) => total + Number(item.rekomendasi_topup_bulan_depan - item.estimasi_sisa_rupiah || 0), 0)) }}
                     </h3>
                 </div>
             </div>
@@ -262,7 +262,7 @@ const badgeClass = (status) => {
 
                                 <td class="px-6 py-5">
                                     <p class="font-black text-[#2DD4BF]">
-                                        {{ formatRupiah(item.rekomendasi_topup_bulan_depan) }}
+                                        {{ formatRupiah(item.rekomendasi_topup_bulan_depan - item.estimasi_sisa_rupiah) }}
                                     </p>
                                     <p class="text-xs text-slate-400 mt-1">
                                         Sisa estimasi: {{ formatRupiah(item.estimasi_sisa_rupiah) }}

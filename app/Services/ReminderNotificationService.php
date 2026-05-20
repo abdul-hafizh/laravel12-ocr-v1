@@ -17,9 +17,9 @@ class ReminderNotificationService
             [
                 'module' => $data['module'],
                 'reference_id' => $data['reference_id'],
+                'user_id' => $data['user_id'],
             ],
             [
-                'user_id' => $data['user_id'],
                 'due_date' => $dueDate,
                 'reminder_days' => $reminderDays,
                 'reminder_date' => $reminderDate,
