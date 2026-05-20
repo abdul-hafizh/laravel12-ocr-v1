@@ -6,6 +6,7 @@ import { ref, watch, computed } from 'vue';
 const props = defineProps({
     kendaraans: Object,
     cabangs: Array,
+    financeUsers: Array,
     filters: Object,
     flash: Object,
 });
@@ -40,6 +41,7 @@ watch([search, masterCabangId], ([searchValue, cabangValue]) => {
 
 const form = useForm({
     master_cabang_id: '',
+    finance_user_id: '',
     jenis_kendaraan: '',
     nomor_polisi: '',
     merk: '',
@@ -74,6 +76,7 @@ const openEdit = (item) => {
     form.tanggal_jatuh_tempo = item.tanggal_jatuh_tempo || '';
     form.reminder_hari = item.reminder_hari || 14;
     form.keterangan = item.keterangan || '';
+    form.finance_user_id = item.finance_user_id || '';
     form.is_active = Boolean(item.is_active);
     showModal.value = true;
 };
@@ -186,6 +189,8 @@ const executeDelete = () => {
                                 <th
                                     class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
                                     Status</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Finance</th>
                                 <th
                                     class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
                                     Aksi</th>
@@ -245,6 +250,10 @@ const executeDelete = () => {
                                         </span>
                                     </td>
 
+                                    <td class="px-6 py-4 text-[11px] font-black text-slate-600 uppercase">
+                                        {{ item.finance_user?.name || '-' }}
+                                    </td>
+
                                     <!-- Kolom Aksi -->
                                     <td class="px-6 py-4 text-right">
                                         <div class="flex justify-end gap-1">
@@ -274,7 +283,7 @@ const executeDelete = () => {
                             </template>
                             <!-- No Data Found Section -->
                             <tr v-else>
-                                <td colspan="8" class="px-6 py-20 text-center">
+                                <td colspan="9" class="px-6 py-20 text-center">
                                     <div class="flex flex-col items-center justify-center">
                                         <div
                                             class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 border border-slate-100">
@@ -344,6 +353,23 @@ const executeDelete = () => {
                                 <option value="">Pilih Cabang</option>
                                 <option v-for="c in cabangs" :key="c.id" :value="c.id">{{ c.nama_cabang }}</option>
                             </select>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                PIC Finance
+                            </label>
+
+                            <select v-model="form.finance_user_id"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
+                                <option value="">Pilih User Finance</option>
+                                <option v-for="u in financeUsers" :key="u.id" :value="u.id">
+                                    {{ u.name }} - {{ u.phone || 'No Phone' }}
+                                </option>
+                            </select>
+
+                            <div v-if="form.errors.finance_user_id" class="text-[10px] font-bold text-rose-500">
+                                {{ form.errors.finance_user_id }}
+                            </div>
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Jenis

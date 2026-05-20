@@ -8,6 +8,7 @@ class MasterKendaraan extends Model
 {
     protected $fillable = [
         'master_cabang_id',
+        'finance_user_id',
         'jenis_kendaraan',
         'nomor_polisi',
         'merk',
@@ -28,5 +29,10 @@ class MasterKendaraan extends Model
     public function cabang()
     {
         return $this->belongsTo(MasterCabang::class, 'master_cabang_id');
+    }
+
+    public function financeUser()
+    {
+        return $this->belongsTo(User::class, 'finance_user_id');
     }
 }

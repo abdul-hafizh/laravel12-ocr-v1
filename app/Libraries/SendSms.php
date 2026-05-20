@@ -32,6 +32,33 @@ class SendSms
         return $response->json();
     }
 
+    public static function sendDocumentWA($to, $documentUrl, $caption = '')
+    {
+        $token = env('WABLAS_TOKEN');
+        $secretKey = env('WABLAS_SECRET_KEY');
+        $baseUrl = rtrim(env('WABLAS_BASE_URL', 'https://tegal.wablas.com'), '/');
+
+        $to = self::normalizePhone($to);
+
+        $response = Http::withHeaders([
+            'Authorization' => $token,
+        ])->post($baseUrl . '/api/send-document', [
+            'phone' => $to,
+            'document' => $documentUrl,
+            'caption' => $caption,
+            'secret_key' => $secretKey,
+        ]);
+
+        Log::info('WABLAS_SEND_DOCUMENT_OUT', [
+            'to' => $to,
+            'document' => $documentUrl,
+            'status' => $response->status(),
+            'body' => $response->body(),
+        ]);
+
+        return $response->json();
+    }
+
     private static function normalizePhone($phone): string
     {
         $phone = trim((string) $phone);

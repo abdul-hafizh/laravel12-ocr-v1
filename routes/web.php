@@ -45,6 +45,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/hasil-upload/struk-online', function () {return Inertia::render('Ocr/HasilUpload/StrukOnline');})->name('hasil-upload.struk-online');
 
     Route::get('/summary/electricity', [SummaryController::class, 'electricity'])->name('summary.electricity');
+    Route::post('/summary/electricity/send-wa', [SummaryController::class, 'sendElectricityWa'])
+    ->middleware(['auth', 'verified'])
+    ->name('summary.electricity.send-wa');
 });
 
 require __DIR__.'/auth.php';

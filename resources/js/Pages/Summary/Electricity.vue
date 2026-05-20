@@ -41,6 +41,24 @@ const formatNumber = (value) => {
     }).format(value || 0);
 };
 
+const sendWa = () => {
+    if (!confirm('Kirim file Excel summary ini ke semua user Finance?')) {
+        return;
+    }
+
+    router.post(
+        route('summary.electricity.send-wa'),
+        {
+            search: search.value,
+            month: month.value,
+            cabang_id: cabangId.value,
+        },
+        {
+            preserveScroll: true,
+        }
+    );
+};
+
 const applyFilter = () => {
     router.get(
         route('summary.electricity'),
@@ -95,9 +113,10 @@ const badgeClass = (status) => {
                 <div class="flex items-center space-x-3">
                     <button
                         type="button"
-                        class="px-5 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
+                        @click="sendWa"
+                        class="px-5 py-3 bg-[#2DD4BF] text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-[#26bba8] transition-all shadow-sm"
                     >
-                        Export
+                        Kirim WA Finance
                     </button>
                 </div>
             </div>
