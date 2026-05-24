@@ -55,44 +55,58 @@ class MasterKendaraanController extends Controller
     {
         $validated = $request->validate([
             'master_cabang_id' => ['nullable', 'exists:master_cabangs,id'],
-            'finance_user_id' => ['required', 'exists:users,id'],
+            'finance_user_ids' => ['required', 'array', 'min:1'],
+            'finance_user_ids.*' => ['required', 'exists:users,id'],
+            'reminder_hari' => ['required', 'array', 'min:1'],
+            'reminder_hari.*' => ['required', 'integer', 'in:7,14,30'],
             'jenis_kendaraan' => ['required', 'string', 'max:100'],
             'nomor_polisi' => ['required', 'string', 'max:50', 'unique:master_kendaraans,nomor_polisi'],
             'merk' => ['nullable', 'string', 'max:255'],
             'tipe' => ['nullable', 'string', 'max:255'],
             'tahun_pembelian' => ['nullable', 'integer', 'min:1900', 'max:2100'],
-            'tanggal_jatuh_tempo' => ['nullable', 'date'],
-            'reminder_hari' => ['required', 'integer', 'min:1'],
+            'tanggal_jatuh_tempo' => ['required', 'date'],
             'keterangan' => ['nullable', 'string'],
+            'nama_pemilik' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
         ]);
 
-        $financeUser = User::where('id', $validated['finance_user_id'])
+        $validated['finance_user_id'] = $validated['finance_user_ids'][0] ?? null;
+
+        $financeUsers = User::whereIn('id', $validated['finance_user_ids'])
             ->whereHas('role', fn ($q) => $q->where('slug', 'finance'))
-            ->firstOrFail();
+            ->get();
+
+        if ($financeUsers->count() !== count($validated['finance_user_ids'])) {
+            abort(422, 'User finance tidak valid.');
+        }
 
         $kendaraan = MasterKendaraan::create($validated);
         $kendaraan->load('cabang');
 
         if (!empty($validated['tanggal_jatuh_tempo'])) {
-            ReminderNotificationService::createOrUpdate([
-                'module' => 'kendaraan',
-                'reference_id' => $kendaraan->id,
-                'user_id' => $validated['finance_user_id'],
-                'due_date' => $validated['tanggal_jatuh_tempo'],
-                'reminder_days' => $validated['reminder_hari'],
-                'title' => 'Reminder Pajak Kendaraan',
-                'message' => "Halo Finance,\n\n"
-                    . "Reminder jatuh tempo pajak kendaraan.\n\n"
-                    . "No. Polisi: {$kendaraan->nomor_polisi}\n"
-                    . "Jenis: {$kendaraan->jenis_kendaraan}\n"
-                    . "Merk/Tipe: {$kendaraan->merk} {$kendaraan->tipe}\n"
-                    . "Cabang: " . ($kendaraan->cabang?->nama_cabang ?? '-') . "\n"
-                    . "Jatuh Tempo: " . optional($kendaraan->tanggal_jatuh_tempo)->format('d-m-Y') . "\n"
-                    . "Reminder: H-{$kendaraan->reminder_hari}\n\n"
-                    . "Mohon segera dilakukan pengecekan dan tindak lanjut.\n\n"
-                    . "Terima kasih.",
-            ]);
+            foreach ($validated['finance_user_ids'] as $userId) {
+                foreach ($validated['reminder_hari'] as $reminderDay) {
+                    ReminderNotificationService::createOrUpdate([
+                        'module' => 'kendaraan',
+                        'reference_id' => $kendaraan->id,
+                        'user_id' => $userId,
+                        'due_date' => $validated['tanggal_jatuh_tempo'],
+                        'reminder_days' => $reminderDay,
+                        'title' => 'Reminder Pajak Kendaraan',
+                        'message' => "Halo Finance,\n\n"
+                            . "Reminder jatuh tempo pajak kendaraan.\n\n"
+                            . "No. Polisi: {$kendaraan->nomor_polisi}\n"
+                            . "Jenis: {$kendaraan->jenis_kendaraan}\n"
+                            . "Merk/Tipe: {$kendaraan->merk} {$kendaraan->tipe}\n"
+                            . "Cabang: " . ($kendaraan->cabang?->nama_cabang ?? '-') . "\n"
+                            . "Jatuh Tempo: " . optional($kendaraan->tanggal_jatuh_tempo)->format('d-m-Y') . "\n"
+                            . "Reminder: H-{$reminderDay}\n"
+                            . "Keterangan: " . ($kendaraan->keterangan ?: '-') . "\n\n"
+                            . "Mohon segera dilakukan pengecekan dan tindak lanjut.\n\n"
+                            . "Terima kasih.",
+                    ]);
+                }
+            }
         }
 
         return back()->with('success', 'Master kendaraan berhasil ditambahkan dan notifikasi WA berhasil diproses.');
@@ -102,46 +116,57 @@ class MasterKendaraanController extends Controller
     {
         $validated = $request->validate([
             'master_cabang_id' => ['nullable', 'exists:master_cabangs,id'],
-            'finance_user_id' => ['required', 'exists:users,id'],
+            'finance_user_ids' => ['required', 'array', 'min:1'],
+            'finance_user_ids.*' => ['required', 'exists:users,id'],
+            'reminder_hari' => ['required', 'array', 'min:1'],
+            'reminder_hari.*' => ['required', 'integer', 'in:7,14,30'],
             'jenis_kendaraan' => ['required', 'string', 'max:100'],
             'nomor_polisi' => ['required', 'string', 'max:50', 'unique:master_kendaraans,nomor_polisi,' . $masterKendaraan->id],
             'merk' => ['nullable', 'string', 'max:255'],
             'tipe' => ['nullable', 'string', 'max:255'],
             'tahun_pembelian' => ['nullable', 'integer', 'min:1900', 'max:2100'],
             'nama_pemilik' => ['nullable', 'string', 'max:255'],
-            'tanggal_jatuh_tempo' => ['nullable', 'date'],
-            'reminder_hari' => ['required', 'integer', 'min:1'],
+            'tanggal_jatuh_tempo' => ['required', 'date'],
             'keterangan' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
 
-        User::where('id', $validated['finance_user_id'])
+        $financeUsers = User::whereIn('id', $validated['finance_user_ids'])
             ->whereHas('role', fn ($q) => $q->where('slug', 'finance'))
-            ->firstOrFail();
+            ->get();
+
+        if ($financeUsers->count() !== count($validated['finance_user_ids'])) {
+            abort(422, 'User finance tidak valid.');
+        }
 
         $masterKendaraan->update($validated);
         $masterKendaraan->refresh();
         $masterKendaraan->load('cabang');
 
         if (!empty($validated['tanggal_jatuh_tempo'])) {
-            ReminderNotificationService::createOrUpdate([
-                'module' => 'kendaraan',
-                'reference_id' => $masterKendaraan->id,
-                'user_id' => $validated['finance_user_id'],
-                'due_date' => $validated['tanggal_jatuh_tempo'],
-                'reminder_days' => $validated['reminder_hari'],
-                'title' => 'Reminder Pajak Kendaraan',
-                'message' => "Halo Finance,\n\n"
-                    . "Reminder jatuh tempo pajak kendaraan.\n\n"
-                    . "No. Polisi: {$masterKendaraan->nomor_polisi}\n"
-                    . "Jenis: {$masterKendaraan->jenis_kendaraan}\n"
-                    . "Merk/Tipe: {$masterKendaraan->merk} {$masterKendaraan->tipe}\n"
-                    . "Cabang: " . ($masterKendaraan->cabang?->nama_cabang ?? '-') . "\n"
-                    . "Jatuh Tempo: " . optional($masterKendaraan->tanggal_jatuh_tempo)->format('d-m-Y') . "\n"
-                    . "Reminder: H-{$masterKendaraan->reminder_hari}\n\n"
-                    . "Mohon segera dilakukan pengecekan dan tindak lanjut.\n\n"
-                    . "Terima kasih.",
-            ]);
+            foreach ($validated['finance_user_ids'] as $userId) {
+                foreach ($validated['reminder_hari'] as $reminderDay) {
+                    ReminderNotificationService::createOrUpdate([
+                        'module' => 'kendaraan',
+                        'reference_id' => $masterKendaraan->id,
+                        'user_id' => $userId,
+                        'due_date' => $validated['tanggal_jatuh_tempo'],
+                        'reminder_days' => $reminderDay,
+                        'title' => 'Reminder Pajak Kendaraan',
+                        'message' => "Halo Finance,\n\n"
+                            . "Reminder jatuh tempo pajak kendaraan.\n\n"
+                            . "No. Polisi: {$masterKendaraan->nomor_polisi}\n"
+                            . "Jenis: {$masterKendaraan->jenis_kendaraan}\n"
+                            . "Merk/Tipe: {$masterKendaraan->merk} {$masterKendaraan->tipe}\n"
+                            . "Cabang: " . ($masterKendaraan->cabang?->nama_cabang ?? '-') . "\n"
+                            . "Jatuh Tempo: " . optional($masterKendaraan->tanggal_jatuh_tempo)->format('d-m-Y') . "\n"
+                            . "Reminder: H-{$reminderDay}\n"
+                            . "Keterangan: " . ($masterKendaraan->keterangan ?: '-') . "\n\n"
+                            . "Mohon segera dilakukan pengecekan dan tindak lanjut.\n\n"
+                            . "Terima kasih.",
+                    ]);
+                }
+            }
         }
 
         return back()->with('success', 'Master kendaraan berhasil diperbarui.');

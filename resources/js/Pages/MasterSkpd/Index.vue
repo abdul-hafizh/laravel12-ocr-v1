@@ -1,11 +1,11 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm, Link } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 
 const props = defineProps({
     skpds: Object,
-    kendaraans: Array,
+    cabangs: Array,
     financeUsers: Array,
     filters: Object,
 });
@@ -17,16 +17,31 @@ const isEdit = ref(false);
 const selectedId = ref(null);
 
 const form = useForm({
-    master_kendaraan_id: '',
-    user_id: '',
+    master_cabang_id: '',
+    jenis: '',
     nomor_skpd: '',
-    nama_pemilik: '',
-    nomor_polisi: '',
     nominal_pajak: 0,
-    tanggal_jatuh_tempo: '',
-    reminder_hari: 14,
     keterangan: '',
+    tanggal_jatuh_tempo: '',
+    reminder_hari: [7, 14, 30],
+    user_ids: [],
+    foto: null,
     is_active: true,
+});
+
+const userSearch = ref('');
+
+const filteredFinanceUsers = computed(() => {
+    const keyword = userSearch.value.toLowerCase();
+
+    if (!keyword) return props.financeUsers;
+
+    return props.financeUsers.filter((user) => {
+        return (
+            user.name?.toLowerCase().includes(keyword) ||
+            user.phone?.toLowerCase().includes(keyword)
+        );
+    });
 });
 
 watch(search, (value) => {
@@ -42,11 +57,18 @@ const openCreate = () => {
     selectedId.value = null;
     form.reset();
     form.clearErrors();
-    form.master_kendaraan_id = '';
+
+    form.master_cabang_id = '';
+    form.jenis = '';
+    form.keterangan = '';
+    form.tanggal_jatuh_tempo = '';
+    form.reminder_hari = [7, 14, 30];
+    form.user_ids = [];
+    form.foto = null;
+    form.nomor_skpd = '';
     form.nominal_pajak = 0;
-    form.reminder_hari = 14;
     form.is_active = true;
-    form.user_id = '';
+
     showModal.value = true;
 };
 
@@ -54,17 +76,31 @@ const openEdit = (item) => {
     isEdit.value = true;
     selectedId.value = item.id;
     form.clearErrors();
-    form.master_kendaraan_id = item.master_kendaraan_id || '';
+
+    form.master_cabang_id = item.master_cabang_id || '';
     form.nomor_skpd = item.nomor_skpd || '';
-    form.nama_pemilik = item.nama_pemilik || '';
-    form.nomor_polisi = item.nomor_polisi || '';
     form.nominal_pajak = item.nominal_pajak || 0;
-    form.tanggal_jatuh_tempo = item.tanggal_jatuh_tempo || '';
-    form.reminder_hari = item.reminder_hari || 14;
+    form.jenis = item.jenis || '';
     form.keterangan = item.keterangan || '';
-    form.user_id = item.user_id || '';
+    form.tanggal_jatuh_tempo = item.tanggal_jatuh_tempo || '';
+    form.foto = null;
+
+    form.reminder_hari = Array.isArray(item.reminder_hari)
+        ? item.reminder_hari
+        : item.reminder_hari
+            ? [Number(item.reminder_hari)]
+            : [];
+
+    form.user_ids = Array.isArray(item.user_ids)
+        ? item.user_ids
+        : [];
+
     form.is_active = Boolean(item.is_active);
     showModal.value = true;
+};
+
+const handleFotoChange = (event) => {
+    form.foto = event.target.files[0] || null;
 };
 
 const closeModal = () => {
@@ -84,17 +120,19 @@ const onKendaraanChange = () => {
 };
 
 const submit = () => {
-    if (isEdit.value) {
-        form.put(route('master-skpd.update', selectedId.value), {
+    form.transform((data) => ({
+        ...data,
+        _method: isEdit.value ? 'put' : undefined,
+    })).post(
+        isEdit.value
+            ? route('master-skpd.update', selectedId.value)
+            : route('master-skpd.store'),
+        {
             preserveScroll: true,
+            forceFormData: true,
             onSuccess: () => closeModal(),
-        });
-    } else {
-        form.post(route('master-skpd.store'), {
-            preserveScroll: true,
-            onSuccess: () => closeModal(),
-        });
-    }
+        }
+    );
 };
 
 const showDeleteModal = ref(false);
@@ -171,13 +209,6 @@ const formatRupiah = (value) => {
                                         Nomor
                                         SKPD</th>
                                     <th
-                                        class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                                        No
-                                        Polisi</th>
-                                    <th
-                                        class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                                        Pemilik</th>
-                                    <th
                                         class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right">
                                         Nominal Pajak</th>
                                     <th
@@ -187,6 +218,8 @@ const formatRupiah = (value) => {
                                     <th
                                         class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                                         Status</th>
+                                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                        Foto</th>
                                     <th
                                         class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">
                                         Aksi</th>
@@ -200,14 +233,9 @@ const formatRupiah = (value) => {
                                         {{ skpds.from + index }}
                                     </td>
                                     <td class="px-6 py-4 text-sm font-bold text-slate-700">
-                                        {{ item.nomor_skpd }}
+                                        {{ item.nomor_skpd || '-' }}
                                     </td>
-                                    <td class="px-6 py-4 text-sm font-medium text-slate-600 uppercase tracking-tighter">
-                                        {{ item.nomor_polisi || item.kendaraan?.nomor_polisi || '-' }}
-                                    </td>
-                                    <td class="px-6 py-4 text-sm font-medium text-slate-600 uppercase">
-                                        {{ item.nama_pemilik || item.kendaraan?.nama_pemilik || '-' }}
-                                    </td>
+
                                     <td class="px-6 py-4 text-sm font-black text-[#1E293B] text-right">
                                         {{ formatRupiah(item.nominal_pajak) }}
                                     </td>
@@ -229,6 +257,27 @@ const formatRupiah = (value) => {
                                             class="inline-flex rounded-lg bg-rose-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-rose-600 border border-rose-100">
                                             Nonaktif
                                         </span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <a
+                                            v-if="item.foto_url"
+                                            :href="item.foto_url"
+                                            target="_blank"
+                                            class="block w-14 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-50"
+                                        >
+                                            <img
+                                                :src="item.foto_url"
+                                                alt="Foto SKPD"
+                                                class="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
+                                            />
+                                        </a>
+
+                                        <div
+                                            v-else
+                                            class="w-14 h-14 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-[9px] font-black text-slate-300 uppercase"
+                                        >
+                                            No Foto
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <div class="flex items-center justify-center gap-1">
@@ -326,87 +375,163 @@ const formatRupiah = (value) => {
 
                 <form @submit.prevent="submit" class="p-8 space-y-6">
                     <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                        <div class="md:col-span-2">
-                            <label
-                                class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Pilih
-                                Kendaraan</label>
-                            <select v-model="form.master_kendaraan_id" @change="onKendaraanChange"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]">
-                                <option value="">- Silahkan Pilih -</option>
-                                <option v-for="kendaraan in kendaraans" :key="kendaraan.id" :value="kendaraan.id">
-                                    {{ kendaraan.nomor_polisi }} - {{ kendaraan.merk || '-' }}
+                        <div>
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
+                                Cabang
+                            </label>
+                            <select
+                                v-model="form.master_cabang_id"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
+                            >
+                                <option value="">- Pilih Cabang -</option>
+                                <option v-for="c in cabangs" :key="c.id" :value="c.id">
+                                    {{ c.nama_cabang }}
                                 </option>
                             </select>
-                            <div v-if="form.errors.master_kendaraan_id"
-                                class="mt-1 text-[10px] font-bold text-rose-500 uppercase tracking-tight">{{
-                                    form.errors.master_kendaraan_id }}</div>
                         </div>
 
                         <div>
-                            <label
-                                class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
-                                User Finance
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
+                                Nomor SKPD
                             </label>
 
-                            <select
-                                v-model="form.user_id"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]">
-                                
-                                <option value="">- Pilih User Finance -</option>
+                            <input
+                                v-model="form.nomor_skpd"
+                                type="text"
+                                placeholder="Masukkan nomor SKPD..."
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
+                            />
+                        </div>
 
-                                <option
-                                    v-for="user in financeUsers"
-                                    :key="user.id"
-                                    :value="user.id">
+                        <div>
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
+                                Nominal Pajak
+                            </label>
 
-                                    {{ user.name }} - {{ user.phone }}
-                                </option>
-                            </select>
+                            <input
+                                v-model="form.nominal_pajak"
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
+                            />
+                        </div>
 
-                            <div
-                                v-if="form.errors.user_id"
-                                class="mt-1 text-[10px] font-bold text-rose-500 uppercase tracking-tight">
+                        <div>
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
+                                Jenis
+                            </label>
+                            <input
+                                v-model="form.jenis"
+                                type="text"
+                                placeholder="Contoh: Pajak, Perizinan, Dokumen Cabang"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
+                            />
+                        </div>
 
-                                {{ form.errors.user_id }}
+                        <div>
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
+                                Jatuh Tempo
+                            </label>
+                            <input
+                                v-model="form.tanggal_jatuh_tempo"
+                                type="date"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
+                            />
+                        </div>
+
+                        <div>
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
+                                Upload Foto
+                            </label>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                @change="handleFotoChange"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
+                            />
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
+                                Keterangan
+                            </label>
+                            <textarea
+                                v-model="form.keterangan"
+                                rows="3"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
+                            ></textarea>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+                                Reminder
+                            </label>
+
+                            <div class="flex flex-wrap gap-3 rounded-2xl bg-slate-50 p-4">
+                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input type="checkbox" :value="7" v-model="form.reminder_hari" class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
+                                    H-7 Hari
+                                </label>
+
+                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input type="checkbox" :value="14" v-model="form.reminder_hari" class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
+                                    H-14 Hari
+                                </label>
+
+                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input type="checkbox" :value="30" v-model="form.reminder_hari" class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
+                                    H-30 Hari
+                                </label>
                             </div>
                         </div>
 
-                        <div>
-                            <label
-                                class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nomor
-                                SKPD</label>
-                            <input v-model="form.nomor_skpd" type="text"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]" />
-                            <div v-if="form.errors.nomor_skpd"
-                                class="mt-1 text-[10px] font-bold text-rose-500 uppercase tracking-tight">{{
-                                    form.errors.nomor_skpd }}</div>
-                        </div>
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                    User Penerima Reminder WA
+                                </label>
 
-                        <div>
-                            <label
-                                class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nominal
-                                Pajak</label>
-                            <input v-model="form.nominal_pajak" type="number"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]" />
-                        </div>
+                                <span class="text-[9px] font-black text-[#2DD4BF] uppercase tracking-widest">
+                                    {{ form.user_ids.length }} Dipilih
+                                </span>
+                            </div>
 
-                        <div>
-                            <label
-                                class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Jatuh
-                                Tempo</label>
-                            <input v-model="form.tanggal_jatuh_tempo" type="date"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]" />
-                        </div>
+                            <div class="rounded-2xl border border-slate-100 bg-slate-50 overflow-hidden">
+                                <div class="border-b border-slate-100 bg-white p-3">
+                                    <input
+                                        v-model="userSearch"
+                                        type="text"
+                                        placeholder="Cari nama / nomor HP user..."
+                                        class="w-full rounded-xl border-none bg-slate-50 px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
+                                    />
+                                </div>
 
-                        <div>
-                            <label
-                                class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Reminder</label>
-                            <select v-model="form.reminder_hari"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]">
-                                <option :value="7">7 Hari Sebelum</option>
-                                <option :value="14">14 Hari Sebelum</option>
-                                <option :value="30">30 Hari Sebelum</option>
-                            </select>
+                                <div class="grid max-h-64 grid-cols-1 gap-2 overflow-y-auto p-3 md:grid-cols-2">
+                                    <label
+                                        v-for="user in filteredFinanceUsers"
+                                        :key="user.id"
+                                        class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-100 bg-white p-3 transition-all hover:border-[#2DD4BF]/40"
+                                        :class="form.user_ids.includes(user.id) ? 'border-[#2DD4BF] bg-[#2DD4BF]/5' : ''"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            :value="user.id"
+                                            v-model="form.user_ids"
+                                            class="mt-1 rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
+                                        />
+
+                                        <div class="min-w-0">
+                                            <div class="truncate text-[11px] font-black uppercase text-slate-700">
+                                                {{ user.name }}
+                                            </div>
+                                            <div class="text-[10px] font-bold text-slate-400">
+                                                {{ user.phone || 'No Phone' }}
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

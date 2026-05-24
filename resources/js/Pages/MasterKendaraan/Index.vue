@@ -39,9 +39,27 @@ watch([search, masterCabangId], ([searchValue, cabangValue]) => {
     );
 });
 
+const financeSearch = ref('');
+
+const filteredFinanceUsers = computed(() => {
+    const keyword = financeSearch.value.toLowerCase();
+
+    if (!keyword) return props.financeUsers;
+
+    return props.financeUsers.filter((user) => {
+        return (
+            user.name?.toLowerCase().includes(keyword) ||
+            user.phone?.toLowerCase().includes(keyword)
+        );
+    });
+});
+
+const selectedFinanceCount = computed(() => {
+    return form.finance_user_ids.length;
+});
+
 const form = useForm({
     master_cabang_id: '',
-    finance_user_id: '',
     jenis_kendaraan: '',
     nomor_polisi: '',
     merk: '',
@@ -49,7 +67,8 @@ const form = useForm({
     tahun_pembelian: '',
     nama_pemilik: '',
     tanggal_jatuh_tempo: '',
-    reminder_hari: 14,
+    finance_user_ids: [],
+    reminder_hari: [7, 14],
     keterangan: '',
     is_active: true,
 });
@@ -60,6 +79,10 @@ const openCreate = () => {
     form.reset();
     form.clearErrors();
     showModal.value = true;
+    form.finance_user_ids = [];
+    form.reminder_hari = [7, 14];
+    form.keterangan = '';
+    form.is_active = true;
 };
 
 const openEdit = (item) => {
@@ -74,9 +97,18 @@ const openEdit = (item) => {
     form.tahun_pembelian = item.tahun_pembelian || '';
     form.nama_pemilik = item.nama_pemilik || '';
     form.tanggal_jatuh_tempo = item.tanggal_jatuh_tempo || '';
-    form.reminder_hari = item.reminder_hari || 14;
     form.keterangan = item.keterangan || '';
-    form.finance_user_id = item.finance_user_id || '';
+    form.reminder_hari = Array.isArray(item.reminder_hari)
+        ? item.reminder_hari
+        : item.reminder_hari
+            ? [Number(item.reminder_hari)]
+            : [];
+
+    form.finance_user_ids = Array.isArray(item.finance_user_ids)
+        ? item.finance_user_ids
+        : item.finance_user_id
+            ? [item.finance_user_id]
+            : [];
     form.is_active = Boolean(item.is_active);
     showModal.value = true;
 };
@@ -237,7 +269,7 @@ const executeDelete = () => {
                                     <td class="px-6 py-4 text-center">
                                         <div class="text-[11px] font-black text-[#1E293B]">{{ formatDate(item.tanggal_jatuh_tempo) }}</div>
                                         <div class="text-[8px] font-black text-rose-500 uppercase tracking-tighter">
-                                            H-{{ item.reminder_hari }} Alert
+                                            H-{{ Array.isArray(item.reminder_hari) ? item.reminder_hari.join(', H-') : item.reminder_hari }} Alert
                                         </div>
                                     </td>
 
@@ -354,21 +386,62 @@ const executeDelete = () => {
                                 <option v-for="c in cabangs" :key="c.id" :value="c.id">{{ c.nama_cabang }}</option>
                             </select>
                         </div>
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                PIC Finance
-                            </label>
+                        <div class="space-y-2 col-span-2">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    User Finance Penerima Reminder
+                                </label>
 
-                            <select v-model="form.finance_user_id"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
-                                <option value="">Pilih User Finance</option>
-                                <option v-for="u in financeUsers" :key="u.id" :value="u.id">
-                                    {{ u.name }} - {{ u.phone || 'No Phone' }}
-                                </option>
-                            </select>
+                                <span class="text-[9px] font-black text-[#2DD4BF] uppercase tracking-widest">
+                                    {{ selectedFinanceCount }} Dipilih
+                                </span>
+                            </div>
 
-                            <div v-if="form.errors.finance_user_id" class="text-[10px] font-bold text-rose-500">
-                                {{ form.errors.finance_user_id }}
+                            <div class="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                                <div class="p-3 border-b border-slate-100 bg-white">
+                                    <input
+                                        v-model="financeSearch"
+                                        type="text"
+                                        placeholder="Cari nama / nomor HP finance..."
+                                        class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 placeholder:text-slate-400"
+                                    />
+                                </div>
+
+                                <div class="max-h-64 overflow-y-auto p-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    <label
+                                        v-for="u in filteredFinanceUsers"
+                                        :key="u.id"
+                                        class="flex items-start gap-3 p-3 rounded-xl bg-white border border-slate-100 cursor-pointer hover:border-[#2DD4BF]/40 transition-all"
+                                        :class="form.finance_user_ids.includes(u.id) ? 'border-[#2DD4BF] bg-[#2DD4BF]/5' : ''"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            :value="u.id"
+                                            v-model="form.finance_user_ids"
+                                            class="mt-1 rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
+                                        />
+
+                                        <div class="min-w-0">
+                                            <div class="text-[11px] font-black text-slate-700 uppercase truncate">
+                                                {{ u.name }}
+                                            </div>
+                                            <div class="text-[10px] font-bold text-slate-400">
+                                                {{ u.phone || 'No Phone' }}
+                                            </div>
+                                        </div>
+                                    </label>
+
+                                    <div
+                                        v-if="filteredFinanceUsers.length === 0"
+                                        class="col-span-2 text-center py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest"
+                                    >
+                                        User finance tidak ditemukan.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="form.errors.finance_user_ids" class="text-[10px] font-bold text-rose-500">
+                                {{ form.errors.finance_user_ids }}
                             </div>
                         </div>
                         <div class="space-y-1.5">
@@ -426,15 +499,57 @@ const executeDelete = () => {
                             <input v-model="form.tanggal_jatuh_tempo" type="date"
                                 class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Reminder
+                            </label>
+
+                            <div class="flex gap-3 bg-slate-50 rounded-2xl p-4">
+                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        :value="7"
+                                        v-model="form.reminder_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
+                                    />
+                                    H-7 Hari
+                                </label>
+
+                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        :value="14"
+                                        v-model="form.reminder_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
+                                    />
+                                    H-14 Hari
+                                </label>
+                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        :value="30"
+                                        v-model="form.reminder_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
+                                    />
+                                    H-30 Hari
+                                </label>
+                            </div>
+
+                            <div v-if="form.errors.reminder_hari" class="text-[10px] font-bold text-rose-500">
+                                {{ form.errors.reminder_hari }}
+                            </div>
+                        </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Reminder
-                                (H-)</label>
-                            <select v-model="form.reminder_hari"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
-                                <option :value="7">7 Hari</option>
-                                <option :value="14">14 Hari</option>
-                                <option :value="30">30 Hari</option>
-                            </select>
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Keterangan
+                            </label>
+
+                            <textarea
+                                v-model="form.keterangan"
+                                rows="3"
+                                placeholder="Masukkan keterangan kendaraan..."
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"
+                            ></textarea>
                         </div>
                     </div>
 

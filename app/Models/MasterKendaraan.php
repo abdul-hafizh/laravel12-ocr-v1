@@ -9,6 +9,7 @@ class MasterKendaraan extends Model
     protected $fillable = [
         'master_cabang_id',
         'finance_user_id',
+        'finance_user_ids',
         'jenis_kendaraan',
         'nomor_polisi',
         'merk',
@@ -24,6 +25,8 @@ class MasterKendaraan extends Model
     protected $casts = [
         'tanggal_jatuh_tempo' => 'date',
         'is_active' => 'boolean',
+        'reminder_hari' => 'array',
+        'finance_user_ids' => 'array',
     ];
 
     public function cabang()

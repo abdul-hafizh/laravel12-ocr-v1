@@ -29,7 +29,7 @@ const form = useForm({
     nama_vendor: '',
     pic: '',
     no_hp: '',
-    email: '',
+    email: [''],
     alamat: '',
     keterangan: '',
     is_active: true,
@@ -49,10 +49,30 @@ watch(search, (value) => {
 const openCreate = () => {
     isEdit.value = false;
     selectedId.value = null;
+
     form.reset();
     form.clearErrors();
+
+    form.kode_vendor = generateVendorCode();
+    form.email = [''];
+    form.keterangan = '';
     form.is_active = true;
+
     showModal.value = true;
+};
+
+const generateVendorCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+    let result = '';
+
+    for (let i = 0; i < 5; i++) {
+        result += chars.charAt(
+            Math.floor(Math.random() * chars.length)
+        );
+    }
+
+    return result;
 };
 
 const openEdit = (item) => {
@@ -63,7 +83,7 @@ const openEdit = (item) => {
     form.nama_vendor = item.nama_vendor;
     form.pic = item.pic || '';
     form.no_hp = item.no_hp || '';
-    form.email = item.email || '';
+    form.email = item.email?.length ? item.email : [''];
     form.alamat = item.alamat || '';
     form.keterangan = item.keterangan || '';
     form.is_active = Boolean(item.is_active);
@@ -78,9 +98,20 @@ const openAddressDetail = (alamat) => {
     showDetailModal.value = true;
 };
 
+const addEmail = () => {
+    form.email.push('');
+};
+
+const removeEmail = (index) => {
+    if (form.email.length > 1) {
+        form.email.splice(index, 1);
+    }
+};
+
 const closeModal = () => {
     showModal.value = false;
     form.reset();
+    form.kode_vendor = generateVendorCode();
 };
 
 const submit = () => {
@@ -173,6 +204,9 @@ const executeDelete = () => {
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     Kontak
                                 </th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Keterangan
+                                </th>
                                 <th
                                     class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
                                     Status</th>
@@ -211,8 +245,32 @@ const executeDelete = () => {
                                         '-' }}</td>
                                     <td class="px-6 py-4">
                                         <div class="text-[11px] font-black text-slate-600">{{ item.no_hp || '-' }}</div>
-                                        <div class="text-[9px] font-bold text-slate-400 lowercase italic">{{ item.email
-                                            || '' }}</div>
+                                        <div
+                                            v-if="item.email?.length"
+                                            class="space-y-1"
+                                        >
+                                            <div
+                                                v-for="(mail, idx) in item.email"
+                                                :key="idx"
+                                                class="text-[9px] font-bold text-slate-400 lowercase italic"
+                                            >
+                                                {{ mail }}
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            v-else
+                                            class="text-[9px] font-bold text-slate-300 italic"
+                                        >
+                                            -
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div
+                                            class="text-[10px] font-bold text-slate-500 uppercase max-w-[180px] line-clamp-2"
+                                        >
+                                            {{ item.keterangan || '-' }}
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <span
@@ -319,8 +377,12 @@ const executeDelete = () => {
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vendor
                                 Code</label>
-                            <input v-model="form.kode_vendor" type="text" placeholder="EX: VND001"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 placeholder:text-slate-300" />
+                            <input
+                                v-model="form.kode_vendor"
+                                type="text"
+                                placeholder="AUTO GENERATED"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold uppercase focus:ring-2 focus:ring-[#2DD4BF]/20 placeholder:text-slate-300"
+                            />
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vendor
@@ -346,11 +408,46 @@ const executeDelete = () => {
                         </div>
                     </div>
 
-                    <div class="space-y-1.5">
-                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email
-                            Address</label>
-                        <input v-model="form.email" type="email" placeholder="vendor@example.com"
-                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Email Address
+                            </label>
+
+                            <button
+                                type="button"
+                                @click="addEmail"
+                                class="px-3 py-1 bg-[#2DD4BF] text-white rounded-lg text-[10px] font-black uppercase"
+                            >
+                                + Add Email
+                            </button>
+                        </div>
+
+                        <div
+                            v-for="(email, index) in form.email"
+                            :key="index"
+                            class="flex gap-2"
+                        >
+                            <input
+                                v-model="form.email[index]"
+                                type="email"
+                                placeholder="vendor@example.com"
+                                class="flex-1 px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
+                            />
+
+                            <button
+                                v-if="form.email.length > 1"
+                                type="button"
+                                @click="removeEmail(index)"
+                                class="px-3 bg-rose-500 text-white rounded-xl"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div v-if="form.errors['email.0']" class="text-xs text-red-500">
+                            {{ form.errors['email.0'] }}
+                        </div>
                     </div>
 
                     <div class="space-y-1.5">
@@ -358,6 +455,20 @@ const executeDelete = () => {
                             class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Address</label>
                         <textarea v-model="form.alamat" rows="2"
                             class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"></textarea>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label
+                            class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                            Keterangan
+                        </label>
+
+                        <textarea
+                            v-model="form.keterangan"
+                            rows="3"
+                            placeholder="Masukkan keterangan vendor..."
+                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"
+                        ></textarea>
                     </div>
 
                     <div class="flex items-center justify-between bg-slate-900 p-4 rounded-2xl">

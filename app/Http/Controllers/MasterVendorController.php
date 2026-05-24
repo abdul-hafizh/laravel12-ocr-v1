@@ -20,7 +20,7 @@ class MasterVendorController extends Controller
                     ->orWhere('nama_vendor', 'like', "%{$search}%")
                     ->orWhere('pic', 'like', "%{$search}%")
                     ->orWhere('no_hp', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhereJsonContains('email', $search);
             });
         }
 
@@ -44,11 +44,18 @@ class MasterVendorController extends Controller
             'nama_vendor' => ['required', 'string', 'max:255'],
             'pic' => ['nullable', 'string', 'max:255'],
             'no_hp' => ['nullable', 'string', 'max:50'],
-            'email' => ['nullable', 'email', 'max:255'],
+
+            'email' => ['nullable', 'array'],
+            'email.*' => ['nullable', 'email', 'max:255'],
+
             'alamat' => ['nullable', 'string'],
             'keterangan' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
+
+        $validated['email'] = array_values(
+            array_filter($validated['email'] ?? [])
+        );
 
         MasterVendor::create($validated);
 
@@ -64,11 +71,18 @@ class MasterVendorController extends Controller
             'nama_vendor' => ['required', 'string', 'max:255'],
             'pic' => ['nullable', 'string', 'max:255'],
             'no_hp' => ['nullable', 'string', 'max:50'],
-            'email' => ['nullable', 'email', 'max:255'],
+
+            'email' => ['nullable', 'array'],
+            'email.*' => ['nullable', 'email', 'max:255'],
+
             'alamat' => ['nullable', 'string'],
             'keterangan' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
+
+        $validated['email'] = array_values(
+            array_filter($validated['email'] ?? [])
+        );
 
         $masterVendor->update($validated);
 

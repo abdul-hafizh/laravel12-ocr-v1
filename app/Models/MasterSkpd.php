@@ -7,31 +7,28 @@ use Illuminate\Database\Eloquent\Model;
 class MasterSkpd extends Model
 {
     protected $fillable = [
-        'master_kendaraan_id',
-        'user_id',
-        'nomor_skpd',
-        'nama_pemilik',
-        'nomor_polisi',
-        'nominal_pajak',
+        'master_cabang_id',
+        'user_ids',
+        'jenis',
+        'keterangan',
         'tanggal_jatuh_tempo',
         'reminder_hari',
-        'keterangan',
+        'nomor_skpd',
+        'nominal_pajak',
+        'foto',
         'is_active',
     ];
 
     protected $casts = [
+        'user_ids' => 'array',
+        'reminder_hari' => 'array',
         'nominal_pajak' => 'decimal:2',
         'tanggal_jatuh_tempo' => 'date',
         'is_active' => 'boolean',
     ];
 
-    public function kendaraan()
+    public function cabang()
     {
-        return $this->belongsTo(MasterKendaraan::class, 'master_kendaraan_id');
-    }
-
-    public function user()
-    {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(MasterCabang::class, 'master_cabang_id');
     }
 }
