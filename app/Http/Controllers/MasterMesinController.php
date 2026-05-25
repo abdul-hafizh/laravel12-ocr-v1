@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\MasterMesin;
 use App\Models\MasterCabang;
+use App\Models\MasterMesin;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -11,14 +11,13 @@ class MasterMesinController extends Controller
 {
     public function index(Request $request)
     {
-        $query = MasterMesin::with('cabang');
+        $query = MasterMesin::with(['cabang', 'maintenanceParts']);
 
         if ($request->filled('search')) {
             $search = trim($request->search);
 
             $query->where(function ($q) use ($search) {
-                $q->where('kode_mesin', 'like', "%{$search}%")
-                    ->orWhere('nama_mesin', 'like', "%{$search}%")
+                $q->where('nama_mesin', 'like', "%{$search}%")
                     ->orWhere('merk', 'like', "%{$search}%")
                     ->orWhere('tipe', 'like', "%{$search}%")
                     ->orWhere('serial_number', 'like', "%{$search}%");
@@ -38,40 +37,44 @@ class MasterMesinController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'master_cabang_id' => ['required', 'exists:master_cabangs,id'],
-            'kode_mesin' => ['required', 'string', 'max:100', 'unique:master_mesins,kode_mesin'],
-            'nama_mesin' => ['required', 'string', 'max:255'],
-            'merk' => ['nullable', 'string', 'max:255'],
-            'tipe' => ['nullable', 'string', 'max:255'],
-            'serial_number' => ['nullable', 'string', 'max:255'],
-            'harga_minimum' => ['required', 'numeric', 'min:0'],
-            'harga_normal' => ['required', 'numeric', 'min:0'],
-            'keterangan' => ['nullable', 'string'],
-            'is_active' => ['boolean'],
-        ]);
+        $validated = $this->validateData($request);
 
-        MasterMesin::create($validated);
+        $parts = $validated['maintenance_parts'] ?? [];
+        unset($validated['maintenance_parts']);
+
+        $mesin = MasterMesin::create($validated);
+
+        foreach ($parts as $part) {
+            if (!empty($part['nama_part'])) {
+                $mesin->maintenanceParts()->create([
+                    'nama_part' => $part['nama_part'],
+                    'harga_part' => $part['harga_part'] ?? 0,
+                ]);
+            }
+        }
 
         return back()->with('success', 'Master mesin berhasil ditambahkan.');
     }
 
     public function update(Request $request, MasterMesin $masterMesin)
     {
-        $validated = $request->validate([
-            'master_cabang_id' => ['required', 'exists:master_cabangs,id'],
-            'kode_mesin' => ['required', 'string', 'max:100', 'unique:master_mesins,kode_mesin,' . $masterMesin->id],
-            'nama_mesin' => ['required', 'string', 'max:255'],
-            'merk' => ['nullable', 'string', 'max:255'],
-            'tipe' => ['nullable', 'string', 'max:255'],
-            'serial_number' => ['nullable', 'string', 'max:255'],
-            'harga_minimum' => ['required', 'numeric', 'min:0'],
-            'harga_normal' => ['required', 'numeric', 'min:0'],
-            'keterangan' => ['nullable', 'string'],
-            'is_active' => ['boolean'],
-        ]);
+        $validated = $this->validateData($request, $masterMesin->id);
+
+        $parts = $validated['maintenance_parts'] ?? [];
+        unset($validated['maintenance_parts']);
 
         $masterMesin->update($validated);
+
+        $masterMesin->maintenanceParts()->delete();
+
+        foreach ($parts as $part) {
+            if (!empty($part['nama_part'])) {
+                $masterMesin->maintenanceParts()->create([
+                    'nama_part' => $part['nama_part'],
+                    'harga_part' => $part['harga_part'] ?? 0,
+                ]);
+            }
+        }
 
         return back()->with('success', 'Master mesin berhasil diperbarui.');
     }
@@ -81,5 +84,32 @@ class MasterMesinController extends Controller
         $masterMesin->delete();
 
         return back()->with('success', 'Master mesin berhasil dihapus.');
+    }
+
+    private function validateData(Request $request, ?int $ignoreId = null): array
+    {
+        return $request->validate([
+            'master_cabang_id' => ['required', 'exists:master_cabangs,id'],
+            'nama_mesin' => ['required', 'string', 'max:255'],
+            'merk' => ['nullable', 'string', 'max:255'],
+            'tipe' => ['nullable', 'string', 'max:255'],
+            'serial_number' => [
+                'required',
+                'string',
+                'max:255',
+                'unique:master_mesins,serial_number' . ($ignoreId ? ',' . $ignoreId : ''),
+            ],
+            'harga_minimum' => ['required', 'numeric', 'min:0'],
+            'harga_maksimum' => ['required', 'numeric', 'min:0'],
+            'harga_bw' => ['required', 'numeric', 'min:0'],
+            'harga_color' => ['required', 'numeric', 'min:0'],
+            'harga_long_sheet' => ['required', 'numeric', 'min:0'],
+            'keterangan' => ['nullable', 'string'],
+            'is_active' => ['boolean'],
+
+            'maintenance_parts' => ['nullable', 'array'],
+            'maintenance_parts.*.nama_part' => ['nullable', 'string', 'max:255'],
+            'maintenance_parts.*.harga_part' => ['nullable', 'numeric', 'min:0'],
+        ]);
     }
 }

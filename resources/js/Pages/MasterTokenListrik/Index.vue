@@ -265,7 +265,7 @@ const formatRupiah = (value) => {
                             <input v-model="form.nama_pelanggan" type="text" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nominal Default</label>
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Harga Per KWh</label>
                             <input v-model="form.nominal_default" type="number" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
                     </div>

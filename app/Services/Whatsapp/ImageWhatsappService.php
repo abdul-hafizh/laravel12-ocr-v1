@@ -5,6 +5,8 @@ namespace App\Services\Whatsapp;
 use App\Jobs\AnalyzeImageJob;
 use App\Libraries\SendSms;
 use App\Models\ImageScan;
+use App\Models\MasterMesin;
+use App\Services\ImageAnalysisPromptService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -67,6 +69,65 @@ class ImageWhatsappService
                 imageBody: $response->body(),
                 mimeType: $contentType
             );
+
+            if ($scanType === 'printer') {
+                $serialNumber = $validation['data']['serial_number'] ?? null;
+
+                if (!$serialNumber) {
+                    SendSms::sendMessageWA(
+                        $phone,
+                        "❌ Serial number tidak ditemukan pada gambar.\n\nSilakan kirim gambar counter mesin yang menampilkan serial number."
+                    );
+                    return;
+                }
+
+                $mesin = MasterMesin::where('serial_number', $serialNumber)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (!$mesin) {
+                    SendSms::sendMessageWA(
+                        $phone,
+                        "❌ Serial number *{$serialNumber}* tidak ditemukan di Master Mesin.\n\nSilakan daftarkan mesin terlebih dahulu."
+                    );
+                    return;
+                }
+
+                $bw = (int) ($validation['data']['total_black_white'] ?? 0);
+                $color = (int) ($validation['data']['total_color'] ?? 0);
+                $longSheet = (int) ($validation['data']['total_long_sheet'] ?? 0);
+
+                $validation['data']['master_mesin'] = [
+                    'id' => $mesin->id,
+                    'nama_mesin' => $mesin->nama_mesin,
+                    'serial_number' => $mesin->serial_number,
+                    'harga_bw' => (int) $mesin->harga_bw,
+                    'harga_color' => (int) $mesin->harga_color,
+                    'harga_long_sheet' => (int) $mesin->harga_long_sheet,
+                ];
+
+                $validation['data']['perhitungan'] = [
+                    'bw' => [
+                        'qty' => $bw,
+                        'harga' => (int) $mesin->harga_bw,
+                        'subtotal' => $bw * (int) $mesin->harga_bw,
+                    ],
+                    'color' => [
+                        'qty' => $color,
+                        'harga' => (int) $mesin->harga_color,
+                        'subtotal' => $color * (int) $mesin->harga_color,
+                    ],
+                    'long_sheet' => [
+                        'qty' => $longSheet,
+                        'harga' => (int) $mesin->harga_long_sheet,
+                        'subtotal' => $longSheet * (int) $mesin->harga_long_sheet,
+                    ],
+                    'total' =>
+                        ($bw * (int) $mesin->harga_bw) +
+                        ($color * (int) $mesin->harga_color) +
+                        ($longSheet * (int) $mesin->harga_long_sheet),
+                ];
+            }
 
             if (!($validation['valid'] ?? false)) {
                 SendSms::sendMessageWA(
@@ -151,7 +212,7 @@ class ImageWhatsappService
                         'content' => [
                             [
                                 'type' => 'input_text',
-                                'text' => $this->getValidationPrompt($scanType),
+                                'text' => ImageAnalysisPromptService::getPrompt($scanType),
                             ],
                             [
                                 'type' => 'input_image',
@@ -171,6 +232,21 @@ class ImageWhatsappService
 
         $parsed = json_decode($text, true);
 
+        // if (is_array($parsed)) {
+        //     $parsed = ImageAnalysisPromptService::normalize($parsed, $scanType);
+        // }
+
+        if (
+            isset($parsed['data']['nominal']) &&
+            !is_numeric($parsed['data']['nominal'])
+        ) {
+            $parsed['data']['nominal'] = (int) preg_replace(
+                '/[^0-9]/',
+                '',
+                (string) $parsed['data']['nominal']
+            );
+        }
+
         if (!is_array($parsed)) {
             return [
                 'valid' => false,
@@ -181,91 +257,8 @@ class ImageWhatsappService
         return [
             'valid' => (bool)($parsed['valid'] ?? false),
             'message' => $parsed['message'] ?? 'Data wajib tidak ditemukan.',
-            'data' => $parsed['data'] ?? [],
+            'data' => $parsed['data_penting'] ?? [],
         ];
-    }
-
-    private function getValidationPrompt(string $scanType): string
-    {
-        return match ($scanType) {
-            'electricity' => '
-            Validasi apakah gambar ini sesuai untuk menu TOKEN LISTRIK / KWH METER.
-
-            Syarat valid:
-            - Harus terlihat nomor token listrik ATAU nomor meter.
-            - Harus terlihat nilai kWh / kwh / angka kWh pada meter.
-            - Jika keduanya tidak ada, gambar tidak valid.
-
-            Kembalikan hanya JSON valid:
-            {
-                "valid": true,
-                "message": "",
-                "data": {
-                    "nomor_token": null,
-                    "nomor_meter": null,
-                    "kwh": null
-                }
-            }
-
-            Jika tidak valid:
-            {
-                "valid": false,
-                "message": "Gambar tidak sesuai. Nomor token/nomor meter dan kWh tidak ditemukan.",
-                "data": {}
-            }
-            ',
-
-            'online_receipt' => '
-            Validasi apakah gambar ini sesuai untuk menu STRUK ONLINE / BIAYA UMUM / BIAYA PART.
-
-            Syarat valid:
-            - Harus terlihat nominal pembayaran / total pembayaran / jumlah uang.
-            - Nominal bisa berbentuk Rp, IDR, total, subtotal, grand total, amount, atau angka pembayaran.
-            - Jika nominal tidak ada, gambar tidak valid.
-
-            Kembalikan hanya JSON valid:
-            {
-                "valid": true,
-                "message": "",
-                "data": {
-                    "nominal": null
-                }
-            }
-
-            Jika tidak valid:
-            {
-                "valid": false,
-                "message": "Gambar tidak sesuai. Nominal pembayaran tidak ditemukan.",
-                "data": {}
-            }
-            ',
-
-            default => '
-            Validasi apakah gambar ini sesuai untuk menu MESIN CETAK / KLIK METER / MAINTENANCE MESIN.
-
-            Syarat valid:
-            - Harus terlihat serial number atau informasi mesin.
-            - Harus terlihat nama mesin yang berada di bawah / dekat serial number.
-            - Jika nama mesin tidak ada, gambar tidak valid.
-
-            Kembalikan hanya JSON valid:
-            {
-                "valid": true,
-                "message": "",
-                "data": {
-                    "serial_number": null,
-                    "nama_mesin": null
-                }
-            }
-
-            Jika tidak valid:
-            {
-                "valid": false,
-                "message": "Gambar tidak sesuai. Nama mesin di bawah serial number tidak ditemukan.",
-                "data": {}
-            }
-            ',
-        };
     }
 
     private function extensionFromMime(string $mime): string
