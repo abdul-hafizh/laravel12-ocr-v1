@@ -9,6 +9,14 @@ const title = 'Hasil Upload Token Listrik';
 const dataList = ref([]);
 const loading = ref(false);
 
+const showImageModal = ref(false);
+const selectedImageUrl = ref('');
+
+const openImagePreview = (url) => {
+    selectedImageUrl.value = url;
+    showImageModal.value = true;
+};
+
 const getData = async () => {
     loading.value = true;
 
@@ -88,6 +96,7 @@ const getStatusClass = (status) => {
 </script>
 
 <template>
+
     <Head :title="title" />
 
     <AuthenticatedLayout>
@@ -110,10 +119,8 @@ const getStatusClass = (status) => {
                             </p>
                         </div>
 
-                        <button
-                            @click="getData"
-                            class="px-4 py-2 rounded-xl bg-[#1E293B] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#2DD4BF] transition"
-                        >
+                        <button @click="getData"
+                            class="px-4 py-2 rounded-xl bg-[#1E293B] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#2DD4BF] transition">
                             Refresh
                         </button>
                     </div>
@@ -123,52 +130,52 @@ const getStatusClass = (status) => {
                     </div>
 
                     <div v-else class="grid gap-5">
-                        <div
-                            v-for="item in dataList"
-                            :key="item.id"
-                            class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
-                        >
+                        <div v-for="item in dataList" :key="item.id"
+                            class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                             <div class="flex flex-col gap-5 lg:flex-row">
-                                <div class="w-full lg:w-40 flex-shrink-0">
-                                    <img
-                                        :src="item.image_path ? '/storage/' + item.image_path : '/no-image.png'"
-                                        class="h-40 w-full lg:w-40 rounded-2xl border border-slate-200 object-cover"
-                                    />
+                                <div class="w-full lg:w-40 flex-shrink-0 cursor-pointer"
+                                    @click="openImagePreview(item.image_path ? '/storage/' + item.image_path : '/no-image.png')">
+                                    <img :src="item.image_path ? '/storage/' + item.image_path : '/no-image.png'"
+                                        class="h-40 w-full lg:w-40 rounded-2xl border border-slate-200 object-cover hover:opacity-80 transition-opacity" />
                                 </div>
 
                                 <div class="flex-1 space-y-5">
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <span class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
+                                        <span
+                                            class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
                                             ID Scan: #{{ item.id }}
                                         </span>
 
-                                        <span
-                                            class="rounded-full px-3 py-1 text-[10px] font-black uppercase"
-                                            :class="getStatusClass(item.status)"
-                                        >
+                                        <span class="rounded-full px-3 py-1 text-[10px] font-black uppercase"
+                                            :class="getStatusClass(item.status)">
                                             {{ item.status }}
                                         </span>
 
-                                        <span class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
+                                        <span
+                                            class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
                                             {{ formatDate(item.created_at) }}
                                         </span>
                                     </div>
 
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                                         <div class="rounded-2xl bg-slate-50 p-4">
-                                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <div
+                                                class="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                                 User Upload
                                             </div>
                                             <div class="mt-1 text-sm font-black text-[#1E293B]">
                                                 {{ item.user_name || item.user?.name || '-' }}
                                             </div>
                                             <div class="text-xs font-bold text-slate-400">
-                                                {{ item.user_phone || item.user?.phone || item.user_email || item.user?.email || '-' }}
+                                                {{ item.user_phone || item.user?.phone || item.user_email ||
+                                                    item.user?.email ||
+                                                    '-' }}
                                             </div>
                                         </div>
 
                                         <div class="rounded-2xl bg-slate-50 p-4">
-                                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <div
+                                                class="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                                 Cabang
                                             </div>
                                             <div class="mt-1 text-sm font-black text-[#1E293B]">
@@ -180,7 +187,8 @@ const getStatusClass = (status) => {
                                         </div>
 
                                         <div class="rounded-2xl bg-emerald-50 p-4 border border-emerald-100">
-                                            <div class="text-[10px] font-black uppercase tracking-widest text-emerald-600">
+                                            <div
+                                                class="text-[10px] font-black uppercase tracking-widest text-emerald-600">
                                                 kWh
                                             </div>
                                             <div class="mt-1 text-xl font-black text-emerald-700">
@@ -191,33 +199,38 @@ const getStatusClass = (status) => {
 
                                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                         <div class="rounded-2xl border border-slate-200 p-4">
-                                            <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                            <h4
+                                                class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
                                                 Informasi Token
                                             </h4>
 
                                             <div class="space-y-2">
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Tanggal</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'tanggal')) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Nomor Meter</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'barcode')) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">IDPEL</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'nomor_token')) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between gap-4 rounded-xl bg-emerald-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-emerald-50 p-3 text-sm">
                                                     <span class="font-bold text-emerald-600">kWh</span>
                                                     <span class="font-black text-emerald-700 text-right">
                                                         {{ formatValue(getValue(item, 'kwh')) }}
@@ -227,33 +240,38 @@ const getStatusClass = (status) => {
                                         </div>
 
                                         <div class="rounded-2xl border border-slate-200 p-4">
-                                            <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                            <h4
+                                                class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
                                                 Lokasi
                                             </h4>
 
                                             <div class="space-y-2">
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Lokasi</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'lokasi')) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Kecamatan</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'kecamatan')) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Kota</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'kota')) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Provinsi</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'provinsi')) }}
@@ -263,17 +281,13 @@ const getStatusClass = (status) => {
                                         </div>
                                     </div>
 
-                                    <div
-                                        v-if="item.error_message"
-                                        class="rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-600"
-                                    >
+                                    <div v-if="item.error_message"
+                                        class="rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-600">
                                         {{ item.error_message }}
                                     </div>
 
-                                    <div
-                                        v-if="item.status === 'pending' || item.status === 'processing'"
-                                        class="rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-600"
-                                    >
+                                    <div v-if="item.status === 'pending' || item.status === 'processing'"
+                                        class="rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-600">
                                         Gambar sedang dianalisis...
                                     </div>
                                 </div>
@@ -285,6 +299,20 @@ const getStatusClass = (status) => {
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div v-if="showImageModal"
+            class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            @click="showImageModal = false">
+
+            <div class="relative max-w-4xl w-full" @click.stop>
+                <button @click="showImageModal = false"
+                    class="absolute -top-10 right-0 text-white hover:text-slate-300 font-bold">
+                    TUTUP [X]
+                </button>
+
+                <img :src="selectedImageUrl" class="w-full h-auto max-h-[80vh] object-contain rounded-2xl shadow-2xl" />
             </div>
         </div>
     </AuthenticatedLayout>
