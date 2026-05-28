@@ -4,16 +4,7 @@ import { Head } from '@inertiajs/vue3';
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
-const props = defineProps({
-    title: {
-        type: String,
-        default: 'Hasil Upload Mesin Cetak',
-    },
-    scanType: {
-        type: String,
-        default: 'printer',
-    },
-});
+const title = 'Hasil Upload Mesin / Printer';
 
 const dataList = ref([]);
 const loading = ref(false);
@@ -24,13 +15,13 @@ const getData = async () => {
     try {
         const res = await axios.get('/api/image-scans', {
             params: {
-                scan_type: props.scanType,
+                scan_type: 'printer',
             },
         });
 
         dataList.value = res.data.data || [];
     } catch (error) {
-        console.error('Gagal mengambil data:', error);
+        console.error('Gagal mengambil data mesin:', error);
     } finally {
         loading.value = false;
     }
@@ -48,31 +39,41 @@ const parseResult = (item) => {
 
         return JSON.parse(item.analysis_result);
     } catch (e) {
-        console.log('JSON parse error:', e, item.analysis_result);
+        console.error('JSON parse error:', e);
         return null;
     }
 };
 
 const getDataPenting = (item) => {
-    return parseResult(item) || {};
+    const parsed = parseResult(item);
+
+    if (parsed?.data_penting) {
+        return parsed.data_penting;
+    }
+
+    return parsed || {};
+};
+
+const getValue = (item, key, fallback = '-') => {
+    const data = getDataPenting(item);
+
+    return item[key] ?? data[key] ?? fallback;
 };
 
 const getSerialNumber = (item) => {
-    return getDataPenting(item).serial_number || '-';
+    return getValue(item, 'serial_number');
 };
 
 const getCounter = (item) => {
-    const data = getDataPenting(item);
-
     return {
-        black_white_large: data.total_black_white_large ?? 0,
-        black_white_small: data.total_black_white_small ?? 0,
-        full_color_large: data.total_full_color_large ?? 0,
-        full_color_small: data.total_full_color_small ?? 0,
-        long_sheet_total: data.total_long_sheet ?? 0,
-        bw: data.total_black_white ?? 0,
-        color: data.total_color ?? 0,
-        total: data.total ?? 0,
+        black_white_large: getValue(item, 'total_black_white_large', 0),
+        black_white_small: getValue(item, 'total_black_white_small', 0),
+        color_large: getValue(item, 'total_full_color_large', 0),
+        color_small: getValue(item, 'total_full_color_small', 0),
+        long_sheet: getValue(item, 'total_long_sheet', 0),
+        bw: getValue(item, 'total_black_white', 0),
+        color: getValue(item, 'total_color', 0),
+        total: getValue(item, 'total', 0),
     };
 };
 
@@ -114,7 +115,7 @@ const getStatusClass = (status) => {
     <AuthenticatedLayout>
         <template #header>
             <h2 class="font-bold text-2xl text-[#1E293B] tracking-tight">
-                Hasil Upload <span class="text-[#2DD4BF]">Mesin Cetak</span>
+                Hasil Upload <span class="text-[#2DD4BF]">Mesin / Printer</span>
             </h2>
         </template>
 
@@ -127,7 +128,7 @@ const getStatusClass = (status) => {
                                 Data Counter Mesin
                             </h3>
                             <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                                Perhitungan berdasarkan serial number dan master harga mesin
+                                Khusus hasil scan mesin printer / fotocopy
                             </p>
                         </div>
 
@@ -181,10 +182,10 @@ const getStatusClass = (status) => {
                                                 User Upload
                                             </div>
                                             <div class="mt-1 text-sm font-black text-[#1E293B]">
-                                                {{ item.user?.name || '-' }}
+                                                {{ item.user_name || item.user?.name || '-' }}
                                             </div>
                                             <div class="text-xs font-bold text-slate-400">
-                                                {{ item.user?.phone || item.user?.email || '-' }}
+                                                {{ item.user_phone || item.user?.phone || item.user_email || item.user?.email || '-' }}
                                             </div>
                                         </div>
 
@@ -193,10 +194,10 @@ const getStatusClass = (status) => {
                                                 Cabang
                                             </div>
                                             <div class="mt-1 text-sm font-black text-[#1E293B]">
-                                                {{ item.cabang?.nama_cabang || '-' }}
+                                                {{ item.nama_cabang || item.cabang?.nama_cabang || '-' }}
                                             </div>
                                             <div class="text-xs font-bold text-slate-400">
-                                                {{ item.cabang?.kode_cabang || '-' }}
+                                                {{ item.kode_cabang || item.cabang?.kode_cabang || '-' }}
                                             </div>
                                         </div>
 
@@ -210,140 +211,128 @@ const getStatusClass = (status) => {
                                         </div>
                                     </div>
 
-                                    <template v-if="parseResult(item)">
-                                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                            <div class="rounded-2xl border border-slate-200 p-4">
-                                                <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                                                    Informasi Mesin
-                                                </h4>
+                                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                        <div class="rounded-2xl border border-slate-200 p-4">
+                                            <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                                Informasi Mesin
+                                            </h4>
 
-                                                <div class="space-y-2">
-                                                    <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
-                                                        <span class="font-bold text-slate-500">Tanggal</span>
-                                                        <span class="font-black text-[#1E293B]">
-                                                            {{ getDataPenting(item).tanggal || '-' }}
-                                                        </span>
-                                                    </div>
-
-                                                    <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
-                                                        <span class="font-bold text-slate-500">Lokasi</span>
-                                                        <span class="font-black text-[#1E293B]">
-                                                            {{ getDataPenting(item).lokasi || '-' }}
-                                                        </span>
-                                                    </div>
-
-                                                    <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
-                                                        <span class="font-bold text-slate-500">Nama Mesin</span>
-                                                        <span class="font-black text-[#1E293B]">
-                                                            {{ getDataPenting(item).nama_mesin || '-' }}
-                                                        </span>
-                                                    </div>
-
-                                                    <div class="flex justify-between rounded-xl bg-[#2DD4BF]/10 p-3 text-sm">
-                                                        <span class="font-bold text-[#0F766E]">Serial Number</span>
-                                                        <span class="font-black text-[#1E293B] uppercase">
-                                                            {{ getSerialNumber(item) }}
-                                                        </span>
-                                                    </div>
+                                            <div class="space-y-2">
+                                                <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
+                                                    <span class="font-bold text-slate-500">Tanggal</span>
+                                                    <span class="font-black text-[#1E293B]">
+                                                        {{ getValue(item, 'tanggal') }}
+                                                    </span>
                                                 </div>
-                                            </div>
 
-                                            <div class="rounded-2xl border border-slate-200 p-4">
-                                                <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                                                    Summary Counter
-                                                </h4>
+                                                <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
+                                                    <span class="font-bold text-slate-500">Lokasi</span>
+                                                    <span class="font-black text-[#1E293B]">
+                                                        {{ getValue(item, 'lokasi') }}
+                                                    </span>
+                                                </div>
 
-                                                <div class="space-y-2">
-                                                    <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
-                                                        <span class="font-bold text-slate-500">Total Black & White</span>
-                                                        <span class="font-black text-[#1E293B]">
-                                                            {{ formatValue(getCounter(item).bw) }}
-                                                        </span>
-                                                    </div>
+                                                <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
+                                                    <span class="font-bold text-slate-500">Nama Mesin</span>
+                                                    <span class="font-black text-[#1E293B]">
+                                                        {{ getValue(item, 'nama_mesin') }}
+                                                    </span>
+                                                </div>
 
-                                                    <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
-                                                        <span class="font-bold text-slate-500">Total Color</span>
-                                                        <span class="font-black text-[#1E293B]">
-                                                            {{ formatValue(getCounter(item).color) }}
-                                                        </span>
-                                                    </div>
-
-                                                    <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
-                                                        <span class="font-bold text-slate-500">Total Long Sheet</span>
-                                                        <span class="font-black text-[#1E293B]">
-                                                            {{ formatValue(getCounter(item).long_sheet_total) }}
-                                                        </span>
-                                                    </div>
-
-                                                    <div class="flex justify-between rounded-xl bg-emerald-50 p-3 text-sm">
-                                                        <span class="font-bold text-emerald-600">Total Keseluruhan</span>
-                                                        <span class="font-black text-emerald-700">
-                                                            {{ formatValue(getCounter(item).total) }}
-                                                        </span>
-                                                    </div>
+                                                <div class="flex justify-between rounded-xl bg-[#2DD4BF]/10 p-3 text-sm">
+                                                    <span class="font-bold text-[#0F766E]">Serial Number</span>
+                                                    <span class="font-black text-[#1E293B] uppercase">
+                                                        {{ getSerialNumber(item) }}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div class="rounded-2xl border border-slate-200 p-4">
                                             <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                                                Detail Counter
+                                                Summary Counter
                                             </h4>
 
-                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div class="space-y-2">
                                                 <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
-                                                    <span class="font-bold text-slate-500">Black & White Large</span>
+                                                    <span class="font-bold text-slate-500">Total Black & White</span>
                                                     <span class="font-black text-[#1E293B]">
-                                                        {{ formatValue(getCounter(item).black_white_large) }}
+                                                        {{ formatValue(getCounter(item).bw) }}
                                                     </span>
                                                 </div>
 
                                                 <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
-                                                    <span class="font-bold text-slate-500">Black & White Small</span>
+                                                    <span class="font-bold text-slate-500">Total Color</span>
                                                     <span class="font-black text-[#1E293B]">
-                                                        {{ formatValue(getCounter(item).black_white_small) }}
+                                                        {{ formatValue(getCounter(item).color) }}
                                                     </span>
                                                 </div>
 
                                                 <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
-                                                    <span class="font-bold text-slate-500">Full Color Large</span>
+                                                    <span class="font-bold text-slate-500">Total Long Sheet</span>
                                                     <span class="font-black text-[#1E293B]">
-                                                        {{ formatValue(getCounter(item).full_color_large) }}
+                                                        {{ formatValue(getCounter(item).long_sheet) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
-                                                    <span class="font-bold text-slate-500">Full Color Small</span>
-                                                    <span class="font-black text-[#1E293B]">
-                                                        {{ formatValue(getCounter(item).full_color_small) }}
-                                                    </span>
-                                                </div>
-
-                                                <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm md:col-span-2">
-                                                    <span class="font-bold text-slate-500">Long Sheet</span>
-                                                    <span class="font-black text-[#1E293B]">
-                                                        {{ formatValue(getCounter(item).long_sheet_total) }}
+                                                <div class="flex justify-between rounded-xl bg-emerald-50 p-3 text-sm">
+                                                    <span class="font-bold text-emerald-600">Total Keseluruhan</span>
+                                                    <span class="font-black text-emerald-700">
+                                                        {{ formatValue(getCounter(item).total) }}
                                                     </span>
                                                 </div>
                                             </div>
                                         </div>
-                                    </template>
+                                    </div>
 
-                                    <template v-else>
-                                        <div v-if="item.status === 'pending' || item.status === 'processing'" class="rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-600">
-                                            Gambar sedang dianalisis...
-                                        </div>
+                                    <div class="rounded-2xl border border-slate-200 p-4">
+                                        <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                            Detail Counter
+                                        </h4>
 
-                                        <div v-else class="rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-600">
-                                            Data hasil analisis tidak valid.
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
+                                                <span class="font-bold text-slate-500">Black & White Large</span>
+                                                <span class="font-black text-[#1E293B]">
+                                                    {{ formatValue(getCounter(item).black_white_large) }}
+                                                </span>
+                                            </div>
+
+                                            <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
+                                                <span class="font-bold text-slate-500">Black & White Small</span>
+                                                <span class="font-black text-[#1E293B]">
+                                                    {{ formatValue(getCounter(item).black_white_small) }}
+                                                </span>
+                                            </div>
+
+                                            <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
+                                                <span class="font-bold text-slate-500">Color Large</span>
+                                                <span class="font-black text-[#1E293B]">
+                                                    {{ formatValue(getCounter(item).color_large) }}
+                                                </span>
+                                            </div>
+
+                                            <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
+                                                <span class="font-bold text-slate-500">Color Small</span>
+                                                <span class="font-black text-[#1E293B]">
+                                                    {{ formatValue(getCounter(item).color_small) }}
+                                                </span>
+                                            </div>
                                         </div>
-                                    </template>
+                                    </div>
+
+                                    <div
+                                        v-if="item.error_message"
+                                        class="rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-600"
+                                    >
+                                        {{ item.error_message }}
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <div v-if="dataList.length === 0" class="py-16 text-center text-sm font-bold text-slate-400">
-                            Belum ada data hasil upload mesin cetak.
+                            Belum ada data hasil upload mesin / printer.
                         </div>
                     </div>
                 </div>

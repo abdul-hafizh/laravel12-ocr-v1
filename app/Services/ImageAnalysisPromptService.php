@@ -48,36 +48,87 @@ class ImageAnalysisPromptService
     private static function onlineReceiptPrompt(): string
     {
         return '
-            Analisis gambar struk online / invoice / bukti transaksi online.
+            Analisis gambar struk online / invoice / bukti transaksi online / bukti transfer / bukti pembayaran / pembelian token listrik.
 
             Syarat valid:
-            - Harus terlihat nominal pembayaran / total pembayaran / jumlah uang.
+            - Harus terlihat nominal pembayaran / total bayar / jumlah uang / total transaksi.
+            - Jika struk adalah pembelian token listrik PLN, tetap anggap valid sebagai struk online.
 
             PENTING:
-            - Nominal HARUS integer.
-            - Hapus Rp, IDR, titik, koma, dan spasi.
-            - Contoh "Rp. 12.000" menjadi 12000.
+            - Semua nominal uang HARUS integer.
+            - Hapus Rp, IDR, titik, koma, spasi, dan desimal.
+            - Contoh "Rp 1.003.500" menjadi 1003500.
+            - Contoh "Rp 97.001,00" menjadi 97001.
+            - Jika data tidak terlihat, isi null.
+            - Jangan mengarang data.
+            - Kembalikan hanya JSON valid tanpa markdown.
 
-            Kembalikan hanya JSON valid:
+            Kembalikan format JSON berikut:
             {
                 "valid": true,
                 "message": "",
                 "data_penting": {
-                    "tanggal": null,
+                    "jenis_struk": null,
+                    "bank_atau_aplikasi": null,
+                    "status_transaksi": null,
+
+                    "tanggal_transaksi": null,
+                    "waktu_transaksi": null,
+
+                    "total_pembayaran": null,
+                    "rekening_sumber": null,
+                    "nama_rekening_sumber": null,
+
+                    "terminal": null,
+                    "jenis_pembelian": null,
+                    "nomor_transaksi": null,
+                    "nomor_struk": null,
+                    "nomor_referensi": null,
+
                     "nama_toko": null,
                     "nama_pembeli": null,
                     "nomor_pesanan": null,
-                    "nomor_referensi": null,
-                    "total_pembayaran": 12000,
                     "metode_pembayaran": null,
-                    "status_pembayaran": null
+
+                    "produk": null,
+                    "provider": null,
+
+                    "nomor_meter": null,
+                    "id_pelanggan": null,
+                    "nama_pelanggan": null,
+                    "tarif_daya": null,
+                    "no_ref": null,
+
+                    "rp_bayar": null,
+                    "materai": null,
+                    "ppn": null,
+                    "ppj_tl": null,
+                    "angsuran": null,
+                    "rp_stroom_token": null,
+                    "jumlah_kwh": null,
+                    "stroom_token": null,
+                    "admin_bank": null,
+
+                    "catatan": null
                 }
             }
+
+            Penjelasan field khusus token listrik:
+            - nomor_meter ambil dari NO METER.
+            - id_pelanggan ambil dari IDPEL.
+            - nama_pelanggan ambil dari NAMA.
+            - tarif_daya ambil dari TARIF/DAYA.
+            - no_ref ambil dari NO REF.
+            - rp_bayar ambil dari RP BAYAR.
+            - rp_stroom_token ambil dari RP STROOM/TOKEN.
+            - jumlah_kwh ambil dari JML KWH.
+            - stroom_token ambil dari STROOM/TOKEN.
+            - admin_bank ambil dari ADMIN BANK.
 
             Jika tidak valid:
             {
                 "valid": false,
-                "message": "Gambar tidak sesuai. Nominal pembayaran tidak ditemukan.",
+                "message": "Gambar tidak sesuai. Nominal pembayaran atau data transaksi tidak ditemukan.",
                 "data_penting": {}
             }
             ';
@@ -111,14 +162,14 @@ class ImageAnalysisPromptService
                     "lokasi": "Tebet",
                     "nama_mesin": "iPR C710",
                     "serial_number": "2NT02555",
-                    "total_black_white_large": 27624,
-                    "total_black_white_small": 33680,
-                    "total_full_color_large": 1047569,
-                    "total_full_color_small": 616046,
-                    "total_long_sheet": 94,
-                    "total_black_white": 61304,
-                    "total_color": 1663615,
-                    "total": 1724919
+                    "total_black_white_large": 0,
+                    "total_black_white_small": 0,
+                    "total_full_color_large": 0,
+                    "total_full_color_small": 0,
+                    "total_long_sheet": 0,
+                    "total_black_white": 0,
+                    "total_color": 0,
+                    "total": 0
                 }
             }
 

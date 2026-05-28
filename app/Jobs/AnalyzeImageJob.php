@@ -10,6 +10,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -64,32 +65,51 @@ class AnalyzeImageJob implements ShouldQueue
             ]);
 
         if ($response->failed()) {
-            throw new \Exception(json_encode($response->json()));
+            throw new \Exception('OpenAI error: ' . $response->body());
         }
 
         $json = $response->json();
-        $text = $json['output'][0]['content'][0]['text'] ?? null;
 
-        $parsed = json_decode($text, true);
+        $text =
+            $json['output_text']
+            ?? $json['output'][0]['content'][0]['text']
+            ?? null;
 
-        // if (!is_array($parsed)) {
-        //     throw new \Exception('Response OpenAI bukan JSON valid: ' . $text);
-        // }
+        $parsed = null;
 
-        // $parsed = ImageAnalysisPromptService::normalize($parsed, $scan->scan_type);
+        if ($text) {
+            $cleanText = trim($text);
 
-        $result = $parsed['data_penting'] ?? $parsed;
+            $cleanText = preg_replace('/^```json\s*/', '', $cleanText);
+            $cleanText = preg_replace('/^```\s*/', '', $cleanText);
+            $cleanText = preg_replace('/```$/', '', $cleanText);
+
+            $parsed = json_decode(trim($cleanText), true);
+        }
+
+        if (!is_array($parsed)) {
+            $parsed = [
+                'valid' => false,
+                'message' => 'Response OpenAI bukan JSON valid',
+                'raw_text' => $text,
+                'raw_response' => $json,
+            ];
+        }
 
         Log::info('OPENAI_RESULT_BEFORE_SAVE', [
             'scan_id' => $scan->id,
-            'result' => $result,
-            'json_result' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'scan_type' => $scan->scan_type,
+            'analysis_result' => $parsed,
         ]);
 
         $scan->update([
             'status' => 'success',
-            'analysis_result' => $parsed ?: $json,
-            'extracted_text' => $parsed['teks_terbaca'] ?? $text,
+            'analysis_result' => $parsed,
+            'extracted_text' => $parsed['teks_terbaca']
+                ?? $parsed['data']['teks_terbaca']
+                ?? $parsed['data_penting']['teks_terbaca']
+                ?? $text,
+            'error_message' => null,
         ]);
     }
 
@@ -98,6 +118,11 @@ class AnalyzeImageJob implements ShouldQueue
         ImageScan::where('id', $this->scanId)->update([
             'status' => 'failed',
             'error_message' => $exception->getMessage(),
+        ]);
+
+        Log::error('ANALYZE_IMAGE_JOB_FAILED', [
+            'scan_id' => $this->scanId,
+            'error' => $exception->getMessage(),
         ]);
     }
 }

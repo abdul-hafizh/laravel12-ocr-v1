@@ -4,16 +4,61 @@ import { Head } from '@inertiajs/vue3';
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
-const props = defineProps({
-    title: {
-        type: String,
-        default: 'Hasil Upload',
-    },
-    scanType: {
-        type: String,
-        default: 'electricity',
-    },
-});
+const title = 'Hasil Upload Token Listrik';
+
+const dataList = ref([]);
+const loading = ref(false);
+
+const getData = async () => {
+    loading.value = true;
+
+    try {
+        const res = await axios.get('/api/image-scans', {
+            params: {
+                scan_type: 'electricity',
+            },
+        });
+
+        dataList.value = res.data.data || [];
+    } catch (error) {
+        console.error('Gagal mengambil data token listrik:', error);
+    } finally {
+        loading.value = false;
+    }
+};
+
+onMounted(getData);
+
+const parseResult = (item) => {
+    try {
+        if (!item.analysis_result) return null;
+
+        if (typeof item.analysis_result === 'object') {
+            return item.analysis_result;
+        }
+
+        return JSON.parse(item.analysis_result);
+    } catch (e) {
+        console.error('JSON parse error:', e);
+        return null;
+    }
+};
+
+const getDataPenting = (item) => {
+    const parsed = parseResult(item);
+
+    if (parsed?.data_penting) {
+        return parsed.data_penting;
+    }
+
+    return parsed || {};
+};
+
+const getValue = (item, key, fallback = '-') => {
+    const data = getDataPenting(item);
+
+    return item[key] ?? data[key] ?? fallback;
+};
 
 const formatDate = (value) => {
     if (!value) return '-';
@@ -27,94 +72,18 @@ const formatDate = (value) => {
     });
 };
 
-const dataList = ref([]);
-const loading = ref(false);
-
-const getData = async () => {
-    loading.value = true;
-
-    try {
-        const res = await axios.get('/api/image-scans', {
-            params: {
-                scan_type: props.scanType,
-            },
-        });
-
-        dataList.value = res.data.data;
-    } catch (error) {
-        console.error('Gagal mengambil data:', error);
-    } finally {
-        loading.value = false;
-    }
-};
-
-onMounted(() => {
-    getData();
-});
-
-const parseResult = (item) => {
-    try {
-        if (!item.analysis_result) return null;
-
-        if (typeof item.analysis_result === 'object') {
-            return item.analysis_result;
-        }
-
-        return JSON.parse(item.analysis_result);
-    } catch (e) {
-        console.log('JSON parse error:', e, item.analysis_result);
-        return null;
-    }
-};
-
-const getImportantData = (item) => {
-    const result = parseResult(item);
-    return result?.data_penting || {};
-};
-
-const extractCounters = (text) => {
-    if (!text) return [];
-
-    const results = [];
-
-    const regexDetail = /(\d{3})\s+Total\s+\((.*?)\)\s+(\d+)/g;
-    let match;
-
-    while ((match = regexDetail.exec(text)) !== null) {
-        results.push({
-            code: match[1],
-            label: match[2],
-            value: parseInt(match[3], 10),
-            isTotal: false,
-        });
-    }
-
-    const regexTotal = /101\s+Total\s+1\s+(\d+)/;
-    const totalMatch = text.match(regexTotal);
-
-    if (totalMatch) {
-        results.unshift({
-            code: '101',
-            label: 'Total Keseluruhan',
-            value: parseInt(totalMatch[1], 10),
-            isTotal: true,
-        });
-    }
-
-    return results;
-};
-
-const getTotal = (list) => {
-    return list.find((i) => i.isTotal);
-};
-
-const getDetailCounters = (list) => {
-    return list.filter((i) => !i.isTotal);
-};
-
 const formatValue = (value) => {
     if (value === null || value === undefined || value === '') return '-';
     return value;
+};
+
+const getStatusClass = (status) => {
+    return {
+        'bg-yellow-100 text-yellow-700': status === 'pending',
+        'bg-blue-100 text-blue-700': status === 'processing',
+        'bg-green-100 text-green-700': status === 'success',
+        'bg-red-100 text-red-700': status === 'failed',
+    };
 };
 </script>
 
@@ -123,294 +92,198 @@ const formatValue = (value) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                {{ title }}
+            <h2 class="font-bold text-2xl text-[#1E293B] tracking-tight">
+                Hasil Upload <span class="text-[#2DD4BF]">Token Listrik</span>
             </h2>
         </template>
 
-        <div class="py-12">
+        <div class="py-8">
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="bg-white p-6 shadow sm:rounded-lg">
+                <div class="bg-white p-6 shadow-sm sm:rounded-3xl border border-slate-200">
+                    <div class="mb-6 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-black text-[#1E293B] uppercase tracking-tight">
+                                Data Token Listrik
+                            </h3>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                Khusus hasil scan token listrik / meteran kWh
+                            </p>
+                        </div>
 
-                    <div v-if="loading" class="py-10 text-center text-gray-500">
+                        <button
+                            @click="getData"
+                            class="px-4 py-2 rounded-xl bg-[#1E293B] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#2DD4BF] transition"
+                        >
+                            Refresh
+                        </button>
+                    </div>
+
+                    <div v-if="loading" class="py-16 text-center text-sm font-bold text-slate-400">
                         Memuat data...
                     </div>
 
-                    <div v-else class="grid gap-4">
-
+                    <div v-else class="grid gap-5">
                         <div
                             v-for="item in dataList"
                             :key="item.id"
-                            class="flex flex-col gap-4 rounded-xl border bg-white p-5 shadow md:flex-row"
+                            class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
                         >
-                            <div class="w-32 flex-shrink-0">
-                                <img
-                                    :src="item.image_path ? '/storage/' + item.image_path : '/no-image.png'"
-                                    class="h-32 w-32 rounded-lg border object-cover"
-                                >
-                            </div>
-
-                            <div class="flex-1">
-
-                                <div class="mb-3 flex flex-wrap items-center gap-2">
-                                    <span class="rounded bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                                        {{ item.scan_type }}
-                                    </span>
-
-                                    <span
-                                        class="rounded px-3 py-1 text-xs font-semibold"
-                                        :class="{
-                                            'bg-yellow-100 text-yellow-700': item.status === 'pending',
-                                            'bg-blue-100 text-blue-700': item.status === 'processing',
-                                            'bg-green-100 text-green-700': item.status === 'success',
-                                            'bg-red-100 text-red-700': item.status === 'failed',
-                                        }"
-                                    >
-                                        {{ item.status }}
-                                    </span>
-
-                                    <span class="rounded bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                                        ID Scan: #{{ item.id }}
-                                    </span>
-
-                                    <span class="rounded bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                                        {{ formatDate(item.created_at) }}
-                                    </span>
+                            <div class="flex flex-col gap-5 lg:flex-row">
+                                <div class="w-full lg:w-40 flex-shrink-0">
+                                    <img
+                                        :src="item.image_path ? '/storage/' + item.image_path : '/no-image.png'"
+                                        class="h-40 w-full lg:w-40 rounded-2xl border border-slate-200 object-cover"
+                                    />
                                 </div>
 
-                                <div class="mb-4 grid grid-cols-1 gap-3 rounded-xl border bg-slate-50 p-4 md:grid-cols-2">
-                                    <div>
-                                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                            User Upload
+                                <div class="flex-1 space-y-5">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
+                                            ID Scan: #{{ item.id }}
+                                        </span>
+
+                                        <span
+                                            class="rounded-full px-3 py-1 text-[10px] font-black uppercase"
+                                            :class="getStatusClass(item.status)"
+                                        >
+                                            {{ item.status }}
+                                        </span>
+
+                                        <span class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
+                                            {{ formatDate(item.created_at) }}
+                                        </span>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div class="rounded-2xl bg-slate-50 p-4">
+                                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                User Upload
+                                            </div>
+                                            <div class="mt-1 text-sm font-black text-[#1E293B]">
+                                                {{ item.user_name || item.user?.name || '-' }}
+                                            </div>
+                                            <div class="text-xs font-bold text-slate-400">
+                                                {{ item.user_phone || item.user?.phone || item.user_email || item.user?.email || '-' }}
+                                            </div>
                                         </div>
 
-                                        <div class="mt-1 font-bold text-gray-800">
-                                            {{ item.user?.name || '-' }}
+                                        <div class="rounded-2xl bg-slate-50 p-4">
+                                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                Cabang
+                                            </div>
+                                            <div class="mt-1 text-sm font-black text-[#1E293B]">
+                                                {{ item.nama_cabang || item.cabang?.nama_cabang || '-' }}
+                                            </div>
+                                            <div class="text-xs font-bold text-slate-400">
+                                                {{ item.kode_cabang || item.cabang?.kode_cabang || '-' }}
+                                            </div>
                                         </div>
 
-                                        <div class="text-sm text-gray-500">
-                                            {{ item.user?.phone || item.user?.email || '-' }}
+                                        <div class="rounded-2xl bg-emerald-50 p-4 border border-emerald-100">
+                                            <div class="text-[10px] font-black uppercase tracking-widest text-emerald-600">
+                                                kWh
+                                            </div>
+                                            <div class="mt-1 text-xl font-black text-emerald-700">
+                                                {{ formatValue(getValue(item, 'kwh')) }}
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                            Cabang
+                                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                        <div class="rounded-2xl border border-slate-200 p-4">
+                                            <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                                Informasi Token
+                                            </h4>
+
+                                            <div class="space-y-2">
+                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                    <span class="font-bold text-slate-500">Tanggal</span>
+                                                    <span class="font-black text-[#1E293B] text-right">
+                                                        {{ formatValue(getValue(item, 'tanggal')) }}
+                                                    </span>
+                                                </div>
+
+                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                    <span class="font-bold text-slate-500">Nomor Meter</span>
+                                                    <span class="font-black text-[#1E293B] text-right">
+                                                        {{ formatValue(getValue(item, 'barcode')) }}
+                                                    </span>
+                                                </div>
+
+                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                    <span class="font-bold text-slate-500">IDPEL</span>
+                                                    <span class="font-black text-[#1E293B] text-right">
+                                                        {{ formatValue(getValue(item, 'nomor_meter')) }}
+                                                    </span>
+                                                </div>
+
+                                                <div class="flex justify-between gap-4 rounded-xl bg-emerald-50 p-3 text-sm">
+                                                    <span class="font-bold text-emerald-600">kWh</span>
+                                                    <span class="font-black text-emerald-700 text-right">
+                                                        {{ formatValue(getValue(item, 'kwh')) }}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <div class="mt-1 font-bold text-gray-800">
-                                            {{ item.cabang?.nama_cabang || '-' }}
+                                        <div class="rounded-2xl border border-slate-200 p-4">
+                                            <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                                Lokasi
+                                            </h4>
+
+                                            <div class="space-y-2">
+                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                    <span class="font-bold text-slate-500">Lokasi</span>
+                                                    <span class="font-black text-[#1E293B] text-right">
+                                                        {{ formatValue(getValue(item, 'lokasi')) }}
+                                                    </span>
+                                                </div>
+
+                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                    <span class="font-bold text-slate-500">Kecamatan</span>
+                                                    <span class="font-black text-[#1E293B] text-right">
+                                                        {{ formatValue(getValue(item, 'kecamatan')) }}
+                                                    </span>
+                                                </div>
+
+                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                    <span class="font-bold text-slate-500">Kota</span>
+                                                    <span class="font-black text-[#1E293B] text-right">
+                                                        {{ formatValue(getValue(item, 'kota')) }}
+                                                    </span>
+                                                </div>
+
+                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                    <span class="font-bold text-slate-500">Provinsi</span>
+                                                    <span class="font-black text-[#1E293B] text-right">
+                                                        {{ formatValue(getValue(item, 'provinsi')) }}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-
-                                        <div class="text-sm text-gray-500">
-                                            {{ item.cabang?.kode_cabang || '-' }}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <template v-if="parseResult(item)">
-                                    <div class="mb-3 grid grid-cols-2 gap-2 md:grid-cols-3">
-
-                                        <template v-if="props.scanType === 'printer'">
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Tanggal</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).tanggal) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Nama Mesin</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).nama_mesin) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Lokasi</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).lokasi) }}
-                                                </div>
-                                            </div>
-                                        </template>
-
-                                        <template v-else-if="props.scanType === 'electricity'">
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Tanggal</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).tanggal) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-green-50 p-2 text-sm">
-                                                <div class="text-green-600">kWh</div>
-                                                <div class="font-bold text-green-700">
-                                                    {{ formatValue(getImportantData(item).kwh) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Nomor Meter</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).nomor_meter) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-yellow-50 p-2 text-sm">
-                                                <div class="text-yellow-600">Nomor Barcode</div>
-                                                <div class="font-bold text-yellow-700">
-                                                    {{ formatValue(getImportantData(item).barcode) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-gray-50 p-2 text-sm md:col-span-3">
-                                                <div class="text-gray-400">Alamat Lengkap</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).alamat_lengkap) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Kecamatan</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).kecamatan) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Kota</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).kota) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Provinsi</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).provinsi) }}
-                                                </div>
-                                            </div>
-                                        </template>
-
-                                        <template v-else>
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Tanggal</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).tanggal) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Nama Toko</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).nama_toko) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">No Pesanan</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).nomor_pesanan) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Total Pembayaran</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).total_pembayaran) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Metode Pembayaran</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).metode_pembayaran) }}
-                                                </div>
-                                            </div>
-
-                                            <div class="rounded bg-gray-50 p-2 text-sm">
-                                                <div class="text-gray-400">Status</div>
-                                                <div class="font-semibold">
-                                                    {{ formatValue(getImportantData(item).status_pembayaran) }}
-                                                </div>
-                                            </div>
-                                        </template>
-
                                     </div>
 
                                     <div
-                                        v-if="props.scanType === 'printer' && extractCounters(parseResult(item).teks_terbaca).length"
-                                        class="mb-3"
+                                        v-if="item.error_message"
+                                        class="rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-600"
                                     >
-                                        <div
-                                            v-if="getTotal(extractCounters(parseResult(item).teks_terbaca))"
-                                            class="mb-4 rounded-xl bg-green-100 p-4"
-                                        >
-                                            <div class="text-sm font-medium text-green-700">
-                                                Total Keseluruhan
-                                            </div>
-
-                                            <div class="mt-1 text-3xl font-bold text-green-800">
-                                                {{
-                                                    getTotal(extractCounters(parseResult(item).teks_terbaca))
-                                                        .value.toLocaleString('id-ID')
-                                                }}
-                                            </div>
-                                        </div>
-
-                                        <h3 class="mb-2 font-semibold text-gray-700">
-                                            📊 Data Counter
-                                        </h3>
-
-                                        <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-                                            <div
-                                                v-for="c in getDetailCounters(extractCounters(parseResult(item).teks_terbaca))"
-                                                :key="c.code"
-                                                class="flex justify-between rounded bg-blue-50 p-3 text-sm"
-                                            >
-                                                <div>
-                                                    <div class="font-semibold text-gray-700">
-                                                        {{ c.label }}
-                                                    </div>
-                                                    <div class="text-xs text-gray-400">
-                                                        Kode {{ c.code }}
-                                                    </div>
-                                                </div>
-
-                                                <span class="font-bold text-blue-700">
-                                                    {{ c.value.toLocaleString('id-ID') }}
-                                                </span>
-                                            </div>
-                                        </div>
+                                        {{ item.error_message }}
                                     </div>
 
-                                    <div class="mt-4 rounded bg-gray-50 p-3 text-sm text-gray-600">
-                                        <div class="mb-1 font-semibold text-gray-700">
-                                            Ringkasan
-                                        </div>
-                                        {{ parseResult(item).ringkasan || '-' }}
-                                    </div>
-                                </template>
-
-                                <template v-else>
-                                    <div v-if="item.status === 'pending' || item.status === 'processing'" class="text-blue-500">
+                                    <div
+                                        v-if="item.status === 'pending' || item.status === 'processing'"
+                                        class="rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-600"
+                                    >
                                         Gambar sedang dianalisis...
                                     </div>
-
-                                    <div v-else class="text-red-500">
-                                        Data hasil analisis tidak valid
-                                    </div>
-                                </template>
-
+                                </div>
                             </div>
                         </div>
 
-                        <div v-if="dataList.length === 0" class="py-10 text-center text-gray-500">
-                            Belum ada data hasil upload.
+                        <div v-if="dataList.length === 0" class="py-16 text-center text-sm font-bold text-slate-400">
+                            Belum ada data hasil upload token listrik.
                         </div>
-
                     </div>
-
                 </div>
             </div>
         </div>
