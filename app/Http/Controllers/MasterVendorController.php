@@ -61,7 +61,7 @@ class MasterVendorController extends Controller
 
         return redirect()
             ->route('master-vendor.index')
-            ->with('success', 'Master vendor berhasil ditambahkan.');
+            ->with('message', ['text' => 'Master Vendor berhasil Ditambahkan!', 'type' => 'success']);
     }
 
     public function update(Request $request, MasterVendor $masterVendor)
@@ -88,7 +88,7 @@ class MasterVendorController extends Controller
 
         return redirect()
             ->route('master-vendor.index')
-            ->with('success', 'Master vendor berhasil diperbarui.');
+            ->with('message', ['text' => 'Master Vendor berhasil Diperbarui!', 'type' => 'success']);
     }
 
     public function destroy(MasterVendor $masterVendor)
@@ -97,6 +97,6 @@ class MasterVendorController extends Controller
 
         return redirect()
             ->route('master-vendor.index')
-            ->with('success', 'Master vendor berhasil dihapus.');
+            ->with('message', ['text' => 'Master Vendor berhasil Dihapus!', 'type' => 'success']);
     }
 }

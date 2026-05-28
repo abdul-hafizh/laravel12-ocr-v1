@@ -2,6 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm, Link } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
+import Multiselect from 'vue-multiselect'
+import 'vue-multiselect/dist/vue-multiselect.css'
 
 const props = defineProps({
     mesins: Object,
@@ -213,6 +215,7 @@ const executeDelete = () => {
 </script>
 
 <template>
+
     <Head title="Master Mesin" />
 
     <AuthenticatedLayout>
@@ -222,38 +225,33 @@ const executeDelete = () => {
             </h2>
         </template>
 
-        <div class="space-y-6">
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
-                <div class="flex flex-col md:flex-row flex-1 gap-4 max-w-3xl">
-                    <div class="relative flex-1">
+        <div class="space-y-6 w-full">
+            <div
+                class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
+                <div class="flex flex-col md:flex-row flex-1 gap-4 max-w-3xl min-w-0">
+                    <div class="relative flex-1 min-w-0">
                         <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="3" stroke-linecap="round" />
+                                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="3"
+                                    stroke-linecap="round" />
                             </svg>
                         </span>
 
-                        <input
-                            v-model="search"
-                            type="text"
+                        <input v-model="search" type="text"
                             placeholder="Cari nama mesin / merk / tipe / serial number..."
-                            class="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 transition-all"
-                        />
+                            class="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 transition-all" />
                     </div>
 
-                    <select
-                        v-model="masterCabangId"
-                        class="bg-slate-50 border-none rounded-xl text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#2DD4BF]/20"
-                    >
+                    <select v-model="masterCabangId"
+                        class="bg-slate-50 border-none rounded-xl text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#2DD4BF]/20">
                         <option value="">Semua Cabang</option>
                         <option v-for="c in cabangs" :key="c.id" :value="c.id">
                             {{ c.nama_cabang }}
                         </option>
                     </select>
 
-                    <select
-                        v-model="masterVendorId"
-                        class="bg-slate-50 border-none rounded-xl text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#2DD4BF]/20"
-                    >
+                    <select v-model="masterVendorId"
+                        class="bg-slate-50 border-none rounded-xl text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#2DD4BF]/20">
                         <option value="">Semua Vendor</option>
                         <option v-for="v in vendors" :key="v.id" :value="v.id">
                             {{ v.nama_vendor }}
@@ -261,169 +259,149 @@ const executeDelete = () => {
                     </select>
                 </div>
 
-                <button
-                    @click="openCreate"
-                    class="px-5 py-2.5 bg-[#1E293B] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.15em] hover:bg-[#2DD4BF] transition-all shadow-lg shadow-black/5 flex items-center justify-center"
-                >
+                <button @click="openCreate"
+                    class="px-5 py-2.5 bg-[#1E293B] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.15em] hover:bg-[#2DD4BF] transition-all shadow-lg shadow-black/5 flex items-center justify-center">
                     <span class="mr-2 text-sm">+</span> Tambah Mesin
                 </button>
             </div>
 
-            <div class="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
+            <div class="bg-white rounded-[2rem] border border-slate-200 shadow-sm w-full overflow-hidden">
+                <div class="w-full overflow-x-auto">
+                    <table class="min-w-[1400px] w-full text-left border-collapse table-fixed">
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-100">
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Mesin
+                                <th rowspan="2"
+                                    class="sticky left-0 z-20 bg-slate-50 w-[200px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Mesin & No Seri</th>
+                                <th rowspan="2"
+                                    class="w-[150px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Vendor & Cabang</th>
+                                <th rowspan="2"
+                                    class="w-[120px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
+                                    Min / Maks</th>
+                                <th rowspan="2"
+                                    class="w-[150px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
+                                    Harga Transaksi</th>
+                                <th colspan="4"
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center border-b">
+                                    HPP / KLIK [Rp]</th>
+                                <th rowspan="2"
+                                    class="w-[100px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
+                                    Min Charge</th>
+                                <th rowspan="2"
+                                    class="w-[80px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
+                                    Free Klik</th>
+                                <th rowspan="2"
+                                    class="w-[180px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Maintenance Part</th>
+                                <th rowspan="2"
+                                    class="w-[100px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+                                    Status</th>
+                                <th rowspan="2"
+                                    class="w-[100px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
+                                    Aksi</th>
+                            </tr>
+                            <tr class="bg-slate-50 border-b border-slate-100">
+                                <th class="px-4 py-2 text-[9px] font-black text-slate-500 uppercase text-right">Color A3
                                 </th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Vendor
+                                <th class="px-4 py-2 text-[9px] font-black text-slate-500 uppercase text-right">Color A4
                                 </th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Serial Number
+                                <th class="px-4 py-2 text-[9px] font-black text-slate-500 uppercase text-right">BW A3
                                 </th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Cabang
-                                </th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
-                                    Min / Maks
-                                </th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
-                                    Harga Transaksi
-                                </th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Maintenance Part
-                                </th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
-                                    Status
-                                </th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
-                                    Aksi
+                                <th class="px-4 py-2 text-[9px] font-black text-slate-500 uppercase text-right">BW A4
                                 </th>
                             </tr>
                         </thead>
 
                         <tbody class="divide-y divide-slate-50">
                             <template v-if="mesins.data.length > 0">
-                                <tr
-                                    v-for="item in mesins.data"
-                                    :key="item.id"
-                                    class="group hover:bg-slate-50/50 transition-colors"
-                                >
-                                    <td class="px-6 py-4">
-                                        <div class="text-sm font-bold text-[#1E293B] uppercase tracking-tight">
-                                            {{ item.nama_mesin }}
-                                        </div>
-                                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                                            {{ item.merk || '-' }} - {{ item.tipe || '-' }}
-                                        </div>
-                                    </td>
-
-                                    <td class="px-6 py-4">
-                                        <div class="text-[11px] font-black text-[#1E293B] uppercase">
-                                            {{ item.vendor?.nama_vendor || '-' }}
-                                        </div>
-                                        <div class="text-[9px] font-bold text-slate-400 uppercase">
-                                            {{ item.vendor?.kode_vendor || '-' }}
-                                        </div>
-                                    </td>
-
-                                    <td class="px-6 py-4">
-                                        <span class="text-[11px] font-black text-[#2DD4BF] bg-[#2DD4BF]/5 border border-[#2DD4BF]/10 px-2.5 py-1 rounded-lg uppercase tracking-tighter">
+                                <tr v-for="item in mesins.data" :key="item.id"
+                                    class="group hover:bg-slate-50/50 transition-colors">
+                                    <td
+                                        class="sticky left-0 z-10 bg-white group-hover:bg-slate-50/50 px-6 py-4 truncate border-r border-slate-100">
+                                        <div class="text-sm font-bold text-[#1E293B] uppercase tracking-tight">{{
+                                            item.nama_mesin }}</div>
+                                        <span
+                                            class="text-[11px] font-black text-[#2DD4BF] bg-[#2DD4BF]/5 border border-[#2DD4BF]/10 px-2.5 py-1 rounded-lg uppercase tracking-tighter">
                                             {{ item.serial_number || '-' }}
                                         </span>
                                     </td>
-
-                                    <td class="px-6 py-4 text-[11px] font-black text-slate-600 uppercase">
-                                        {{ item.cabang?.nama_cabang || '-' }}
-                                    </td>
-
-                                    <td class="px-6 py-4 text-right">
-                                        <div class="text-[11px] font-black text-[#1E293B]">
-                                            Maks: {{ formatCurrency(item.harga_maksimum) }}
-                                        </div>
-                                        <div class="text-[8px] font-black text-emerald-500 uppercase">
-                                            Min: {{ formatCurrency(item.harga_minimum) }}
-                                        </div>
-                                    </td>
-
-                                    <td class="px-6 py-4 text-right">
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            BW: {{ formatCurrency(item.harga_bw) }}
-                                        </div>
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Color: {{ formatCurrency(item.harga_color) }}
-                                        </div>
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Long: {{ formatCurrency(item.harga_long_sheet) }}
-                                        </div>
-                                    </td>
-
                                     <td class="px-6 py-4">
-                                        <div v-if="item.maintenance_parts && item.maintenance_parts.length" class="space-y-1">
-                                            <div
-                                                v-for="(part, index) in item.maintenance_parts"
-                                                :key="index"
-                                                class="text-[10px] font-black text-slate-500 uppercase"
-                                            >
-                                                {{ part.nama_part }}:
-                                                <span class="text-[#1E293B]">
-                                                    {{ formatCurrency(part.harga_part) }}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <div v-else class="text-[10px] font-black text-slate-300 uppercase">
-                                            Tidak ada part
-                                        </div>
+                                        <div class="text-[11px] font-black text-[#1E293B] uppercase truncate">{{
+                                            item.vendor?.nama_vendor || '-' }}</div>
+                                        <div class="text-[10px] font-bold text-slate-400 uppercase truncate">{{
+                                            item.cabang?.nama_cabang || '-' }}</div>
                                     </td>
-
+                                    <td class="px-6 py-4 text-right">
+                                        <div class="text-[11px] font-black text-[#1E293B]">Maks: {{
+                                            formatCurrency(item.harga_maksimum) }}</div>
+                                        <div class="text-[8px] font-black text-emerald-500 uppercase">Min: {{
+                                            formatCurrency(item.harga_minimum) }}</div>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <div class="text-[10px] font-black text-slate-600">BW: {{
+                                            formatCurrency(item.harga_bw) }}</div>
+                                        <div class="text-[10px] font-black text-slate-600">Color: {{
+                                            formatCurrency(item.harga_color) }}</div>
+                                        <div class="text-[10px] font-black text-slate-600">Long Sheet: {{
+                                            formatCurrency(item.harga_long_sheet) }}</div>
+                                    </td>
+                                    <td class="px-6 py-4 text-[10px] font-black text-right">{{
+                                        Math.round(item.harga_color_a3) }}</td>
+                                    <td class="px-6 py-4 text-[10px] font-black text-right">{{
+                                        Math.round(item.harga_color_a4) }}</td>
+                                    <td class="px-6 py-4 text-[10px] font-black text-right">{{
+                                        Math.round(item.harga_bw_a3) }}</td>
+                                    <td class="px-6 py-4 text-[10px] font-black text-right">{{
+                                        Math.round(item.harga_bw_a4) }}</td>
+                                    <td class="px-6 py-4 text-[10px] font-black text-right">{{
+                                        Math.round(item.minimum_charge ||
+                                            '-') }}</td>
+                                    <td class="px-6 py-4 text-[10px] font-black text-right">{{
+                                        Math.round(item.free_klik_percent) }}%</td>
+                                    <td class="px-6 py-4 text-[10px]">
+                                        <div v-if="item.maintenance_parts?.length" class="truncate">Ada {{
+                                            item.maintenance_parts.length }} Part</div>
+                                        <div v-else class="text-slate-300">Tidak ada</div>
+                                    </td>
                                     <td class="px-6 py-4 text-center">
                                         <span
                                             :class="item.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'"
-                                            class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest italic border border-current/10"
-                                        >
+                                            class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest italic border border-current/10">
                                             {{ item.is_active ? 'Active' : 'Nonactive' }}
                                         </span>
                                     </td>
-
                                     <td class="px-6 py-4 text-right">
                                         <div class="flex justify-end gap-1">
-                                            <button
-                                                @click="openEdit(item)"
-                                                class="p-2 text-slate-300 hover:text-[#2DD4BF] transition-colors"
-                                            >
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-                                                </svg>
-                                            </button>
-
-                                            <button
-                                                @click="confirmDelete(item.id)"
-                                                class="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-                                            >
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-                                                </svg>
-                                            </button>
+                                            <button @click="openEdit(item)"
+                                                class="p-2 text-slate-300 hover:text-[#2DD4BF] transition-colors"><svg
+                                                    class="w-5 h-5" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg></button>
+                                            <button @click="confirmDelete(item.id)"
+                                                class="p-2 text-slate-300 hover:text-rose-500 transition-colors"><svg
+                                                    class="w-5 h-5" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg></button>
                                         </div>
                                     </td>
                                 </tr>
                             </template>
-
                             <tr v-else>
-                                <td colspan="9" class="px-6 py-20 text-center">
-                                    <h4 class="text-[13px] font-black text-[#1E293B] uppercase italic tracking-tighter">
-                                        No Data <span class="text-[#2DD4BF]">Mesin</span> Found
-                                    </h4>
-                                </td>
+                                <td colspan="12" class="px-6 py-20 text-center">No Data Mesin Found</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <div class="px-6 py-5 bg-slate-50/80 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div
+                    class="px-6 py-5 bg-slate-50/80 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div class="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
                         Showing
                         <span class="text-[#1E293B]">{{ mesins.from || 0 }}</span>
@@ -436,45 +414,34 @@ const executeDelete = () => {
 
                     <nav v-if="mesins.links && mesins.links.length > 0" class="flex flex-wrap gap-1.5">
                         <template v-for="(link, k) in mesins.links" :key="k">
-                            <div
-                                v-if="link.url === null"
+                            <div v-if="link.url === null"
                                 class="px-3 py-2 text-[10px] font-black text-slate-300 border border-slate-100 rounded-xl bg-white/50 cursor-not-allowed uppercase tracking-tighter"
-                                v-html="link.label"
-                            />
+                                v-html="link.label" />
 
-                            <Link
-                                v-else
-                                :href="link.url"
+                            <Link v-else :href="link.url"
                                 class="px-3 py-2 text-[10px] font-black rounded-xl transition-all duration-200 border uppercase tracking-tighter"
                                 :class="{
                                     'bg-[#1E293B] text-white border-[#1E293B] shadow-lg shadow-black/10 scale-105 z-10': link.active,
                                     'bg-white text-slate-600 border-slate-200 hover:border-[#2DD4BF] hover:text-[#2DD4BF]': !link.active,
-                                }"
-                                v-html="link.label"
-                                preserve-scroll
-                            />
+                                }" v-html="link.label" preserve-scroll />
                         </template>
                     </nav>
                 </div>
             </div>
         </div>
 
-        <div
-            v-if="showModal"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
-        >
-            <div class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-4xl p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <div v-if="showModal"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <div
+                class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-4xl p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-8 border-b border-slate-100 pb-4 text-slate-800">
                     <h3 class="text-xl font-black uppercase italic tracking-tighter">
                         {{ isEdit ? 'Edit' : 'Tambah' }}
                         <span class="text-[#2DD4BF]">Mesin</span>
                     </h3>
 
-                    <button
-                        type="button"
-                        @click="closeModal"
-                        class="text-slate-300 hover:text-rose-500 uppercase text-[10px] font-black"
-                    >
+                    <button type="button" @click="closeModal"
+                        class="text-slate-300 hover:text-rose-500 uppercase text-[10px] font-black">
                         Close
                     </button>
                 </div>
@@ -485,15 +452,9 @@ const executeDelete = () => {
                             Cabang Penempatan
                         </label>
 
-                        <select
-                            v-model="form.master_cabang_id"
-                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                        >
-                            <option value="">Pilih Cabang</option>
-                            <option v-for="c in cabangs" :key="c.id" :value="c.id">
-                                {{ c.nama_cabang }}
-                            </option>
-                        </select>
+                        <multiselect v-model="form.master_cabang_id" :options="cabangs.map(c => c.id)"
+                            :custom-label="id => cabangs.find(c => c.id == id)?.nama_cabang" placeholder="Pilih Cabang">
+                        </multiselect>
 
                         <div v-if="form.errors.master_cabang_id" class="text-[10px] font-bold text-rose-500">
                             {{ form.errors.master_cabang_id }}
@@ -505,10 +466,8 @@ const executeDelete = () => {
                             Vendor
                         </label>
 
-                        <select
-                            v-model="form.master_vendor_id"
-                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                        >
+                        <select v-model="form.master_vendor_id"
+                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
                             <option value="">Pilih Vendor</option>
                             <option v-for="v in vendors" :key="v.id" :value="v.id">
                                 {{ v.nama_vendor }}
@@ -526,11 +485,8 @@ const executeDelete = () => {
                                 Nama Mesin
                             </label>
 
-                            <input
-                                v-model="form.nama_mesin"
-                                type="text"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                            />
+                            <input v-model="form.nama_mesin" type="text"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
 
                             <div v-if="form.errors.nama_mesin" class="text-[10px] font-bold text-rose-500">
                                 {{ form.errors.nama_mesin }}
@@ -542,11 +498,8 @@ const executeDelete = () => {
                                 Serial Number
                             </label>
 
-                            <input
-                                v-model="form.serial_number"
-                                type="text"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold uppercase focus:ring-2 focus:ring-[#2DD4BF]/20"
-                            />
+                            <input v-model="form.serial_number" type="text"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold uppercase focus:ring-2 focus:ring-[#2DD4BF]/20" />
 
                             <div v-if="form.errors.serial_number" class="text-[10px] font-bold text-rose-500">
                                 {{ form.errors.serial_number }}
@@ -560,11 +513,8 @@ const executeDelete = () => {
                                 Merk
                             </label>
 
-                            <input
-                                v-model="form.merk"
-                                type="text"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                            />
+                            <input v-model="form.merk" type="text"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
 
                         <div class="space-y-1.5">
@@ -572,11 +522,8 @@ const executeDelete = () => {
                                 Tipe
                             </label>
 
-                            <input
-                                v-model="form.tipe"
-                                type="text"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                            />
+                            <input v-model="form.tipe" type="text"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
                     </div>
 
@@ -586,12 +533,8 @@ const executeDelete = () => {
                                 Harga Minimum
                             </label>
 
-                            <input
-                                v-model="form.harga_minimum"
-                                type="number"
-                                min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                            />
+                            <input v-model="form.harga_minimum" type="number" min="0"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
 
                         <div class="space-y-1.5">
@@ -599,12 +542,8 @@ const executeDelete = () => {
                                 Harga Maksimum
                             </label>
 
-                            <input
-                                v-model="form.harga_maksimum"
-                                type="number"
-                                min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                            />
+                            <input v-model="form.harga_maksimum" type="number" min="0"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
                     </div>
 
@@ -614,12 +553,8 @@ const executeDelete = () => {
                                 Harga BW
                             </label>
 
-                            <input
-                                v-model="form.harga_bw"
-                                type="number"
-                                min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                            />
+                            <input v-model="form.harga_bw" type="number" min="0"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
 
                         <div class="space-y-1.5">
@@ -627,12 +562,8 @@ const executeDelete = () => {
                                 Harga Color
                             </label>
 
-                            <input
-                                v-model="form.harga_color"
-                                type="number"
-                                min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                            />
+                            <input v-model="form.harga_color" type="number" min="0"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
 
                         <div class="space-y-1.5">
@@ -640,12 +571,8 @@ const executeDelete = () => {
                                 Harga Long Sheet
                             </label>
 
-                            <input
-                                v-model="form.harga_long_sheet"
-                                type="number"
-                                min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                            />
+                            <input v-model="form.harga_long_sheet" type="number" min="0"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
                     </div>
 
@@ -654,28 +581,32 @@ const executeDelete = () => {
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                                 BW A3
                             </label>
-                            <input v-model="form.harga_bw_a3" type="number" min="0" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                            <input v-model="form.harga_bw_a3" type="number" min="0"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
 
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                                 BW A4
                             </label>
-                            <input v-model="form.harga_bw_a4" type="number" min="0" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                            <input v-model="form.harga_bw_a4" type="number" min="0"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
 
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                                 Color A3
                             </label>
-                            <input v-model="form.harga_color_a3" type="number" min="0" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                            <input v-model="form.harga_color_a3" type="number" min="0"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
 
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                                 Color A4
                             </label>
-                            <input v-model="form.harga_color_a4" type="number" min="0" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                            <input v-model="form.harga_color_a4" type="number" min="0"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
                     </div>
 
@@ -684,28 +615,33 @@ const executeDelete = () => {
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                                 Free Klik %
                             </label>
-                            <input v-model="form.free_klik_percent" type="number" min="0" step="0.0001" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                            <input v-model="form.free_klik_percent" type="number" min="0" step="0.0001"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
 
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                                 Minimum Charge
                             </label>
-                            <input v-model="form.minimum_charge" type="number" min="0" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                            <input v-model="form.minimum_charge" type="number" min="0"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
 
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                                 Tipe Minimum Charge
                             </label>
-                            <input v-model="form.minimum_charge_type" type="text" placeholder="Contoh: monthly / per transaksi" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                            <input v-model="form.minimum_charge_type" type="text"
+                                placeholder="Contoh: monthly / per transaksi"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                         </div>
 
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                                 Status Kepemilikan
                             </label>
-                            <select v-model="form.status_kepemilikan" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
+                            <select v-model="form.status_kepemilikan"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
                                 <option value="">Pilih Status</option>
                                 <option value="milik">Milik</option>
                                 <option value="sewa">Sewa</option>
@@ -718,12 +654,8 @@ const executeDelete = () => {
                             Harga Setelah Minimum Charge
                         </label>
 
-                        <input
-                            v-model="form.harga_setelah_minimum_charge"
-                            type="number"
-                            min="0"
-                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                        />
+                        <input v-model="form.harga_setelah_minimum_charge" type="number" min="0"
+                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                     </div>
 
                     <div class="space-y-1.5">
@@ -731,12 +663,9 @@ const executeDelete = () => {
                             Keterangan
                         </label>
 
-                        <textarea
-                            v-model="form.keterangan"
-                            rows="3"
+                        <textarea v-model="form.keterangan" rows="3"
                             class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                            placeholder="Opsional"
-                        />
+                            placeholder="Opsional" />
                     </div>
 
                     <div class="space-y-3">
@@ -745,52 +674,32 @@ const executeDelete = () => {
                                 Maintenance Part
                             </label>
 
-                            <button
-                                type="button"
-                                @click="addPart"
-                                class="px-3 py-2 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase hover:bg-[#2DD4BF] transition-all"
-                            >
+                            <button type="button" @click="addPart"
+                                class="px-3 py-2 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase hover:bg-[#2DD4BF] transition-all">
                                 + Tambah Part
                             </button>
                         </div>
 
-                        <div
-                            v-if="form.maintenance_parts.length === 0"
-                            class="p-4 bg-slate-50 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest text-center"
-                        >
+                        <div v-if="form.maintenance_parts.length === 0"
+                            class="p-4 bg-slate-50 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
                             Belum ada maintenance part.
                         </div>
 
-                        <div
-                            v-for="(part, index) in form.maintenance_parts"
-                            :key="index"
-                            class="grid grid-cols-12 gap-3 items-center bg-slate-50 p-3 rounded-2xl"
-                        >
+                        <div v-for="(part, index) in form.maintenance_parts" :key="index"
+                            class="grid grid-cols-12 gap-3 items-center bg-slate-50 p-3 rounded-2xl">
                             <div class="col-span-12 md:col-span-5">
-                                <input
-                                    v-model="part.nama_part"
-                                    type="text"
-                                    placeholder="Nama Part"
-                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                                />
+                                <input v-model="part.nama_part" type="text" placeholder="Nama Part"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                             </div>
 
                             <div class="col-span-9 md:col-span-5">
-                                <input
-                                    v-model="part.harga_part"
-                                    type="number"
-                                    min="0"
-                                    placeholder="Harga Part"
-                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                                />
+                                <input v-model="part.harga_part" type="number" min="0" placeholder="Harga Part"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                             </div>
 
                             <div class="col-span-3 md:col-span-2 text-right">
-                                <button
-                                    type="button"
-                                    @click="removePart(index)"
-                                    class="w-full px-3 py-2 bg-rose-500 text-white rounded-xl text-[9px] font-black uppercase"
-                                >
+                                <button type="button" @click="removePart(index)"
+                                    class="w-full px-3 py-2 bg-rose-500 text-white rounded-xl text-[9px] font-black uppercase">
                                     Hapus
                                 </button>
                             </div>
@@ -804,25 +713,22 @@ const executeDelete = () => {
 
                         <label class="relative inline-flex cursor-pointer items-center">
                             <input type="checkbox" v-model="form.is_active" class="peer sr-only" />
-                            <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2DD4BF]"></div>
+                            <div
+                                class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2DD4BF]">
+                            </div>
                         </label>
                     </div>
 
-                    <button
-                        type="submit"
-                        :disabled="form.processing"
-                        class="w-full py-4 bg-[#2DD4BF] text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-[#2DD4BF]/20 hover:bg-[#4f46e5] transition-all disabled:opacity-60"
-                    >
+                    <button type="submit" :disabled="form.processing"
+                        class="w-full py-4 bg-[#2DD4BF] text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-[#2DD4BF]/20 hover:bg-[#4f46e5] transition-all disabled:opacity-60">
                         {{ form.processing ? 'Saving...' : 'Simpan Data Mesin' }}
                     </button>
                 </form>
             </div>
         </div>
 
-        <div
-            v-if="showDeleteModal"
-            class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
-        >
+        <div v-if="showDeleteModal"
+            class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
             <div class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-sm p-8 shadow-2xl text-center">
                 <h3 class="text-xl font-black text-[#1E293B] uppercase italic tracking-tighter mb-2">
                     Confirm <span class="text-rose-500">Delete</span>
@@ -833,18 +739,13 @@ const executeDelete = () => {
                 </p>
 
                 <div class="flex gap-3">
-                    <button
-                        @click="closeDeleteModal"
-                        class="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest"
-                    >
+                    <button @click="closeDeleteModal"
+                        class="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest">
                         Batal
                     </button>
 
-                    <button
-                        @click="executeDelete"
-                        :disabled="isDeleting"
-                        class="flex-1 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-60"
-                    >
+                    <button @click="executeDelete" :disabled="isDeleting"
+                        class="flex-1 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-60">
                         {{ isDeleting ? 'Menghapus...' : 'Hapus' }}
                     </button>
                 </div>
