@@ -23,7 +23,7 @@ class SummaryController extends Controller
 
         $summary = $this->getElectricitySummaryData($month, $search, $cabangId);
 
-        $cabangs = DB::table('v_image_scan_results')
+        $cabangs = DB::table('v_image_scan_electricity')
             ->select('cabang_id', 'nama_cabang', 'kode_cabang')
             ->where('scan_type', 'electricity')
             ->whereNotNull('cabang_id')
@@ -94,7 +94,7 @@ class SummaryController extends Controller
         $startDate = Carbon::parse($month . '-01')->startOfMonth();
         $endDate = Carbon::parse($month . '-01')->endOfMonth();
 
-        $query = DB::table('v_image_scan_results')
+        $query = DB::table('v_image_scan_electricity')
             ->where('scan_type', 'electricity')
             ->where('status', 'success')
             ->whereBetween('created_at', [$startDate, $endDate]);
@@ -108,6 +108,8 @@ class SummaryController extends Controller
                 $q->where('nama_cabang', 'like', "%{$search}%")
                     ->orWhere('kode_cabang', 'like', "%{$search}%")
                     ->orWhere('nomor_meter', 'like', "%{$search}%")
+                    ->orWhere('barcode', 'like', "%{$search}%")
+                    ->orWhere('nama_pelanggan', 'like', "%{$search}%")
                     ->orWhere('user_phone', 'like', "%{$search}%");
             });
         }
@@ -116,11 +118,13 @@ class SummaryController extends Controller
             ->orderBy('cabang_id')
             ->orderBy('created_at')
             ->get()
-            ->groupBy('cabang_id');
+            ->groupBy(function ($item) {
+                return $item->cabang_id . '-' . ($item->master_token_listrik_id ?? 'no-master');
+            });
 
         $summary = [];
 
-        foreach ($rows as $groupCabangId => $items) {
+        foreach ($rows as $groupKey => $items) {
             $awal = $items->first();
             $akhir = $items->last();
 
@@ -129,21 +133,22 @@ class SummaryController extends Controller
 
             $pemakaianKwh = max($kwhAwal - $kwhAkhir, 0);
 
-            $masterToken = DB::table('master_token_listriks')
-                ->where('master_cabang_id', $groupCabangId)
-                ->where('is_active', 1)
-                ->first();
+            $hargaPerKwh = $this->toFloat($awal->harga_per_kwh ?? 0);
 
-            $nominalDefault = $this->toFloat($masterToken->nominal_default ?? 0);
-
-            $estimasiPemakaianRupiah = $pemakaianKwh * $nominalDefault;
-            $estimasiSisaRupiah = $kwhAkhir * $nominalDefault;
+            $estimasiPemakaianRupiah = $pemakaianKwh * $hargaPerKwh;
+            $estimasiSisaRupiah = $kwhAkhir * $hargaPerKwh;
 
             $summary[] = [
-                'cabang_id' => $groupCabangId,
+                'cabang_id' => $awal->cabang_id,
                 'nama_cabang' => $awal->nama_cabang,
                 'kode_cabang' => $awal->kode_cabang,
+
+                'master_token_listrik_id' => $awal->master_token_listrik_id,
+                'nama_pelanggan' => $awal->nama_pelanggan,
+                'daya' => $awal->daya,
                 'nomor_meter' => $awal->nomor_meter,
+                'barcode' => $awal->barcode,
+                'status_master_token' => $awal->status_master_token,
 
                 'periode' => $month,
 
@@ -154,23 +159,47 @@ class SummaryController extends Controller
                 'kwh_akhir' => round($kwhAkhir, 2),
                 'pemakaian_kwh' => round($pemakaianKwh, 2),
 
-                'nominal_default' => round($nominalDefault, 2),
-                'estimasi_harga_per_kwh' => round($nominalDefault, 2),
+                'harga_per_kwh' => round($hargaPerKwh, 2),
+                'estimasi_harga_per_kwh' => round($hargaPerKwh, 2),
                 'estimasi_pemakaian_rupiah' => round($estimasiPemakaianRupiah, 2),
                 'estimasi_sisa_rupiah' => round($estimasiSisaRupiah, 2),
 
-                'rekomendasi_topup_bulan_depan' => round($estimasiPemakaianRupiah, 2),
+                'rekomendasi_topup_bulan_depan' => round(
+                    max($estimasiPemakaianRupiah - $estimasiSisaRupiah, 0),
+                    2
+                ),
 
                 'jumlah_foto' => $items->count(),
-                'status_summary' => $this->getStatusSummary($items, $kwhAwal, $kwhAkhir, $nominalDefault),
+                'status_summary' => $this->getStatusSummary(
+                    $items,
+                    $kwhAwal,
+                    $kwhAkhir,
+                    $hargaPerKwh,
+                    $awal->master_token_listrik_id,
+                    $awal->token_is_active
+                ),
             ];
         }
 
         return $summary;
     }
 
-    private function getStatusSummary($items, float $kwhAwal, float $kwhAkhir, float $hargaPerKwh): string
-    {
+    private function getStatusSummary(
+        $items,
+        float $kwhAwal,
+        float $kwhAkhir,
+        float $hargaPerKwh,
+        $masterTokenId = null,
+        $tokenIsActive = null
+    ): string {
+        if (empty($masterTokenId)) {
+            return 'Master tidak ditemukan';
+        }
+
+        if ((int) $tokenIsActive === 0) {
+            return 'Master tidak aktif';
+        }
+
         if ($items->count() < 2) {
             return 'Belum lengkap';
         }

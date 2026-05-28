@@ -213,7 +213,7 @@ const getStatusClass = (status) => {
                                                 <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">IDPEL</span>
                                                     <span class="font-black text-[#1E293B] text-right">
-                                                        {{ formatValue(getValue(item, 'nomor_meter')) }}
+                                                        {{ formatValue(getValue(item, 'nomor_token')) }}
                                                     </span>
                                                 </div>
 

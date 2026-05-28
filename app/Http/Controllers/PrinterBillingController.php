@@ -19,13 +19,15 @@ class PrinterBillingController extends Controller
                 $q->where('serial_number', 'like', "%{$search}%")
                     ->orWhere('nama_mesin_scan', 'like', "%{$search}%")
                     ->orWhere('nama_mesin_master', 'like', "%{$search}%")
-                    ->orWhere('vendor', 'like', "%{$search}%")
-                    ->orWhere('nama_cabang', 'like', "%{$search}%");
+                    ->orWhere('vendor_name', 'like', "%{$search}%")
+                    ->orWhere('kode_vendor', 'like', "%{$search}%")
+                    ->orWhere('nama_cabang', 'like', "%{$search}%")
+                    ->orWhere('kode_cabang', 'like', "%{$search}%");
             });
         }
 
-        if ($request->filled('vendor')) {
-            $query->where('vendor', $request->vendor);
+        if ($request->filled('vendor_name')) {
+            $query->where('vendor_name', $request->vendor_name);
         }
 
         if ($request->filled('billing_status')) {
@@ -42,21 +44,27 @@ class PrinterBillingController extends Controller
                 ->paginate(10)
                 ->withQueryString(),
 
-            'vendors' => DB::table('master_mesins')
-                ->whereNotNull('vendor')
-                ->select('vendor')
-                ->distinct()
-                ->orderBy('vendor')
-                ->pluck('vendor'),
+            'vendors' => DB::table('dbo.master_vendors')
+                ->where('is_active', true)
+                ->orderBy('nama_vendor')
+                ->get([
+                    'id',
+                    'kode_vendor',
+                    'nama_vendor',
+                ]),
 
-            'cabangs' => DB::table('master_cabangs')
+            'cabangs' => DB::table('dbo.master_cabangs')
                 ->where('is_active', true)
                 ->orderBy('nama_cabang')
-                ->get(['id', 'kode_cabang', 'nama_cabang']),
+                ->get([
+                    'id',
+                    'kode_cabang',
+                    'nama_cabang',
+                ]),
 
             'filters' => $request->only([
                 'search',
-                'vendor',
+                'vendor_name',
                 'billing_status',
                 'cabang_id',
             ]),

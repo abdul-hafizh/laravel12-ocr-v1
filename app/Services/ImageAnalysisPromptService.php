@@ -16,9 +16,45 @@ class ImageAnalysisPromptService
     private static function electricityPrompt(): string
     {
         return '
-            Analisis gambar meteran listrik / token listrik ini.
+            Anda adalah AI OCR khusus meteran listrik PLN Indonesia.
 
-            Kembalikan hanya JSON valid:
+            Tugas:
+            - Analisa gambar meter listrik/token listrik.
+            - Baca semua angka dengan teliti.
+            - Fokus utama pada:
+            1. nilai kWh di layar LCD
+            2. barcode / nomor meter yang berada DI BAWAH layar kWh
+            3. nomor token jika ada
+            4. tanggal pada foto
+            5. lokasi/alamat overlay pada foto jika ada
+
+            ATURAN PENTING:
+            - Barcode/nomor meter biasanya berupa angka panjang di bawah layar kWh.
+            - Ambil angka yang berada tepat di bawah barcode.
+            - Jangan mengambil angka tulisan tangan putih besar pada cover meter jika ada barcode resmi.
+            - Hilangkan spasi saat menyimpan barcode dan nomor meter.
+            - Jika barcode terlihat seperti:
+            "32 9027 2726 5"
+            maka simpan menjadi:
+            "32902727265"
+
+            - Nilai kWh harus angka dari layar LCD meter.
+            - Jika ada titik/koma pada kWh tetap pertahankan.
+            - Jika ada beberapa angka, prioritaskan angka yang paling jelas dan paling dekat dengan barcode resmi PLN.
+
+            VALID jika:
+            - Ada tampilan meter listrik
+            - Ada nilai kWh
+            - Ada barcode/nomor meter resmi
+
+            Jika barcode tidak terbaca tetapi meter jelas terlihat:
+            - tetap valid=true
+            - isi barcode=null
+            - isi message penjelasan singkat
+
+            Kembalikan HANYA JSON valid tanpa markdown. nomor_token isi dengan id pelanggan biasannya tulisan warna putih besar. nomor_meter sama dengan barcode.
+
+            Format:
             {
                 "valid": true,
                 "message": "",
@@ -36,13 +72,22 @@ class ImageAnalysisPromptService
                 }
             }
 
-            Jika bukan gambar listrik/token/kWh:
+            ATURAN OUTPUT:
+            - barcode = nomor barcode resmi di bawah LCD meter
+            - nomor_meter = sama dengan barcode
+            - nomor_token = angka tulisan tangan besar warna putih
+            - Semua nomor hanya boleh berisi angka
+            - Jangan tambahkan spasi
+            - Jangan tambahkan tanda "-"
+            - Jangan mengarang data
+
+            Jika gambar bukan meter listrik/token listrik:
             {
                 "valid": false,
-                "message": "Gambar tidak sesuai. Data listrik/token/kWh tidak ditemukan.",
+                "message": "Gambar tidak sesuai. Meter listrik/token listrik tidak ditemukan.",
                 "data_penting": {}
             }
-            ';
+        ';
     }
 
     private static function onlineReceiptPrompt(): string

@@ -10,7 +10,10 @@ const flashMessage = computed(() => page.props.flash.message);
 
 const isSidebarOpen = ref(true);
 
-const isSummaryOpen = ref(route().current('summary.*'));
+const isSummaryOpen = ref(
+    route().current('summary.*') ||
+    route().current('printer-billing.*')
+);
 
 const isMasterDataOpen = ref(
     route().current('master-cabang.*') ||
@@ -30,7 +33,10 @@ const isUserAccessOpen = ref(
 );
 
 watch(() => route().current(), () => {
-    if (route().current('summary.*')) {
+    if (
+        route().current('summary.*') ||
+        route().current('printer-billing.*')
+    ) {
         isSummaryOpen.value = true;
     }
 
@@ -62,6 +68,11 @@ const summaryMenus = [
         name: 'Token Listrik',
         href: route('summary.electricity'),
         current: route().current('summary.electricity'),
+    },
+    {
+        name: 'Meter Printer',
+        href: route('printer-billing.index'),
+        current: route().current('printer-billing.*'),
     },
 ];
 

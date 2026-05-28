@@ -133,7 +133,7 @@ const badgeClass = (status) => {
                     <input
                         v-model="search"
                         type="text"
-                        placeholder="Cari cabang, meter, atau phone..."
+                        placeholder="Cari cabang, barcode, pelanggan, meter, atau phone..."
                         class="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
                         @keyup.enter="applyFilter"
                     />
@@ -209,6 +209,7 @@ const badgeClass = (status) => {
                         <thead class="bg-slate-50 border-b border-slate-100">
                             <tr>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Cabang</th>
+                                <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Pelanggan</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">kWh Awal</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">kWh Akhir</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Pemakaian</th>
@@ -234,6 +235,21 @@ const badgeClass = (status) => {
                                             Foto: {{ item.jumlah_foto }} · Periode: {{ item.periode }}
                                         </p>
                                     </div>
+                                </td>
+
+                                <td class="px-6 py-5">
+                                    <p class="font-bold text-[#1E293B]">
+                                        {{ item.nama_pelanggan || '-' }}
+                                    </p>
+                                    <p class="text-xs text-slate-400 mt-1">
+                                        Daya: {{ item.daya || '-' }}
+                                    </p>
+                                    <p class="text-xs text-slate-400 mt-1">
+                                        Barcode: {{ item.barcode || '-' }}
+                                    </p>
+                                    <p class="text-xs text-slate-400 mt-1">
+                                        {{ item.status_master_token || '-' }}
+                                    </p>
                                 </td>
 
                                 <td class="px-6 py-5 font-semibold text-slate-600">
@@ -262,7 +278,7 @@ const badgeClass = (status) => {
 
                                 <td class="px-6 py-5">
                                     <p class="font-black text-[#2DD4BF]">
-                                        {{ formatRupiah(item.rekomendasi_topup_bulan_depan - item.estimasi_sisa_rupiah) }}
+                                        {{ formatRupiah(item.rekomendasi_topup_bulan_depan) }}
                                     </p>
                                     <p class="text-xs text-slate-400 mt-1">
                                         Sisa estimasi: {{ formatRupiah(item.estimasi_sisa_rupiah) }}
@@ -280,7 +296,7 @@ const badgeClass = (status) => {
                             </tr>
 
                             <tr v-if="summary.length === 0">
-                                <td colspan="7" class="px-6 py-16 text-center">
+                                <td colspan="8" class="px-6 py-16 text-center">
                                     <p class="text-slate-400 font-semibold">
                                         Belum ada data summary token listrik pada periode ini.
                                     </p>
