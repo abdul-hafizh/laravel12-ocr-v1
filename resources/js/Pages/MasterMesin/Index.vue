@@ -6,11 +6,14 @@ import { ref, watch } from 'vue';
 const props = defineProps({
     mesins: Object,
     cabangs: Array,
+    vendors: Array,
     filters: Object,
 });
 
 const search = ref(props.filters.search || '');
 const masterCabangId = ref(props.filters.master_cabang_id || '');
+const masterVendorId = ref(props.filters.master_vendor_id || '');
+
 const showModal = ref(false);
 const isEdit = ref(false);
 const selectedId = ref(null);
@@ -27,12 +30,13 @@ const formatCurrency = (value) => {
     }).format(value || 0);
 };
 
-watch([search, masterCabangId], ([searchValue, cabangValue]) => {
+watch([search, masterCabangId, masterVendorId], ([searchValue, cabangValue, vendorValue]) => {
     router.get(
         route('master-mesin.index'),
         {
             search: searchValue,
             master_cabang_id: cabangValue,
+            master_vendor_id: vendorValue,
             page: 1,
         },
         {
@@ -44,15 +48,30 @@ watch([search, masterCabangId], ([searchValue, cabangValue]) => {
 
 const form = useForm({
     master_cabang_id: '',
+    master_vendor_id: '',
     nama_mesin: '',
     merk: '',
     tipe: '',
     serial_number: '',
+
     harga_minimum: 0,
     harga_maksimum: 0,
+
     harga_bw: 0,
     harga_color: 0,
     harga_long_sheet: 0,
+
+    harga_color_a3: 0,
+    harga_color_a4: 0,
+    harga_bw_a3: 0,
+    harga_bw_a4: 0,
+
+    free_klik_percent: 0,
+    minimum_charge: 0,
+    minimum_charge_type: '',
+    harga_setelah_minimum_charge: 0,
+    status_kepemilikan: '',
+
     keterangan: '',
     is_active: true,
     maintenance_parts: [],
@@ -63,15 +82,30 @@ const resetForm = () => {
     form.clearErrors();
 
     form.master_cabang_id = '';
+    form.master_vendor_id = '';
     form.nama_mesin = '';
     form.merk = '';
     form.tipe = '';
     form.serial_number = '';
+
     form.harga_minimum = 0;
     form.harga_maksimum = 0;
+
     form.harga_bw = 0;
     form.harga_color = 0;
     form.harga_long_sheet = 0;
+
+    form.harga_color_a3 = 0;
+    form.harga_color_a4 = 0;
+    form.harga_bw_a3 = 0;
+    form.harga_bw_a4 = 0;
+
+    form.free_klik_percent = 0;
+    form.minimum_charge = 0;
+    form.minimum_charge_type = '';
+    form.harga_setelah_minimum_charge = 0;
+    form.status_kepemilikan = '';
+
     form.keterangan = '';
     form.is_active = true;
     form.maintenance_parts = [];
@@ -90,15 +124,30 @@ const openEdit = (item) => {
     form.clearErrors();
 
     form.master_cabang_id = item.master_cabang_id || '';
+    form.master_vendor_id = item.master_vendor_id || '';
     form.nama_mesin = item.nama_mesin || '';
     form.merk = item.merk || '';
     form.tipe = item.tipe || '';
     form.serial_number = item.serial_number || '';
+
     form.harga_minimum = Number(item.harga_minimum || 0);
     form.harga_maksimum = Number(item.harga_maksimum || 0);
+
     form.harga_bw = Number(item.harga_bw || 0);
     form.harga_color = Number(item.harga_color || 0);
     form.harga_long_sheet = Number(item.harga_long_sheet || 0);
+
+    form.harga_color_a3 = Number(item.harga_color_a3 || 0);
+    form.harga_color_a4 = Number(item.harga_color_a4 || 0);
+    form.harga_bw_a3 = Number(item.harga_bw_a3 || 0);
+    form.harga_bw_a4 = Number(item.harga_bw_a4 || 0);
+
+    form.free_klik_percent = Number(item.free_klik_percent || 0);
+    form.minimum_charge = Number(item.minimum_charge || 0);
+    form.minimum_charge_type = item.minimum_charge_type || '';
+    form.harga_setelah_minimum_charge = Number(item.harga_setelah_minimum_charge || 0);
+    form.status_kepemilikan = item.status_kepemilikan || '';
+
     form.keterangan = item.keterangan || '';
     form.is_active = Boolean(item.is_active);
 
@@ -200,6 +249,16 @@ const executeDelete = () => {
                             {{ c.nama_cabang }}
                         </option>
                     </select>
+
+                    <select
+                        v-model="masterVendorId"
+                        class="bg-slate-50 border-none rounded-xl text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#2DD4BF]/20"
+                    >
+                        <option value="">Semua Vendor</option>
+                        <option v-for="v in vendors" :key="v.id" :value="v.id">
+                            {{ v.nama_vendor }}
+                        </option>
+                    </select>
                 </div>
 
                 <button
@@ -217,6 +276,9 @@ const executeDelete = () => {
                             <tr class="bg-slate-50 border-b border-slate-100">
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     Mesin
+                                </th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Vendor
                                 </th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     Serial Number
@@ -255,6 +317,15 @@ const executeDelete = () => {
                                         </div>
                                         <div class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
                                             {{ item.merk || '-' }} - {{ item.tipe || '-' }}
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-4">
+                                        <div class="text-[11px] font-black text-[#1E293B] uppercase">
+                                            {{ item.vendor?.nama_vendor || '-' }}
+                                        </div>
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase">
+                                            {{ item.vendor?.kode_vendor || '-' }}
                                         </div>
                                     </td>
 
@@ -342,7 +413,7 @@ const executeDelete = () => {
                             </template>
 
                             <tr v-else>
-                                <td colspan="8" class="px-6 py-20 text-center">
+                                <td colspan="9" class="px-6 py-20 text-center">
                                     <h4 class="text-[13px] font-black text-[#1E293B] uppercase italic tracking-tighter">
                                         No Data <span class="text-[#2DD4BF]">Mesin</span> Found
                                     </h4>
@@ -426,6 +497,26 @@ const executeDelete = () => {
 
                         <div v-if="form.errors.master_cabang_id" class="text-[10px] font-bold text-rose-500">
                             {{ form.errors.master_cabang_id }}
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                            Vendor
+                        </label>
+
+                        <select
+                            v-model="form.master_vendor_id"
+                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
+                        >
+                            <option value="">Pilih Vendor</option>
+                            <option v-for="v in vendors" :key="v.id" :value="v.id">
+                                {{ v.nama_vendor }}
+                            </option>
+                        </select>
+
+                        <div v-if="form.errors.master_vendor_id" class="text-[10px] font-bold text-rose-500">
+                            {{ form.errors.master_vendor_id }}
                         </div>
                     </div>
 
@@ -556,6 +647,83 @@ const executeDelete = () => {
                                 class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
                             />
                         </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                BW A3
+                            </label>
+                            <input v-model="form.harga_bw_a3" type="number" min="0" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                BW A4
+                            </label>
+                            <input v-model="form.harga_bw_a4" type="number" min="0" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Color A3
+                            </label>
+                            <input v-model="form.harga_color_a3" type="number" min="0" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Color A4
+                            </label>
+                            <input v-model="form.harga_color_a4" type="number" min="0" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Free Klik %
+                            </label>
+                            <input v-model="form.free_klik_percent" type="number" min="0" step="0.0001" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Minimum Charge
+                            </label>
+                            <input v-model="form.minimum_charge" type="number" min="0" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Tipe Minimum Charge
+                            </label>
+                            <input v-model="form.minimum_charge_type" type="text" placeholder="Contoh: monthly / per transaksi" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Status Kepemilikan
+                            </label>
+                            <select v-model="form.status_kepemilikan" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
+                                <option value="">Pilih Status</option>
+                                <option value="milik">Milik</option>
+                                <option value="sewa">Sewa</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                            Harga Setelah Minimum Charge
+                        </label>
+
+                        <input
+                            v-model="form.harga_setelah_minimum_charge"
+                            type="number"
+                            min="0"
+                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
+                        />
                     </div>
 
                     <div class="space-y-1.5">

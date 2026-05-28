@@ -16,6 +16,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\DashboardScanController;
 use App\Http\Controllers\SummaryController;
+use App\Http\Controllers\PrinterBillingController;
 
 Route::get('/', function () { return redirect()->route('login'); });
 
@@ -46,6 +47,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/summary/electricity', [SummaryController::class, 'electricity'])->name('summary.electricity');
     Route::post('/summary/electricity/send-wa', [SummaryController::class, 'sendElectricityWa'])->middleware(['auth', 'verified'])->name('summary.electricity.send-wa');
+    Route::get('/printer-billing', [PrinterBillingController::class, 'index'])->name('printer-billing.index');
 });
 
 require __DIR__.'/auth.php';
