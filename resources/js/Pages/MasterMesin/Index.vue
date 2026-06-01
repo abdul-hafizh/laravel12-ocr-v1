@@ -55,24 +55,22 @@ const form = useForm({
     merk: '',
     tipe: '',
     serial_number: '',
-
-    harga_minimum: 0,
-    harga_maksimum: 0,
-
-    harga_bw: 0,
-    harga_color: 0,
-    harga_long_sheet: 0,
+    minimum_charge_size: '',
 
     harga_color_a3: 0,
     harga_color_a4: 0,
     harga_bw_a3: 0,
     harga_bw_a4: 0,
 
+    minimum_charge_click: 0,
+    minimum_charge_nominal: 0,
+
+    over_click_color_a3: 0,
+    over_click_color_a4: 0,
+    over_click_bw_a3: 0,
+    over_click_bw_a4: 0,
+
     free_klik_percent: 0,
-    minimum_charge: 0,
-    minimum_charge_type: '',
-    harga_setelah_minimum_charge: 0,
-    status_kepemilikan: '',
 
     keterangan: '',
     is_active: true,
@@ -90,23 +88,20 @@ const resetForm = () => {
     form.tipe = '';
     form.serial_number = '';
 
-    form.harga_minimum = 0;
-    form.harga_maksimum = 0;
-
-    form.harga_bw = 0;
-    form.harga_color = 0;
-    form.harga_long_sheet = 0;
-
     form.harga_color_a3 = 0;
     form.harga_color_a4 = 0;
     form.harga_bw_a3 = 0;
     form.harga_bw_a4 = 0;
+    form.minimum_charge_size = '';
 
     form.free_klik_percent = 0;
-    form.minimum_charge = 0;
-    form.minimum_charge_type = '';
-    form.harga_setelah_minimum_charge = 0;
-    form.status_kepemilikan = '';
+    form.minimum_charge_click = 0;
+    form.minimum_charge_nominal = 0;
+
+    form.over_click_color_a3 = 0;
+    form.over_click_color_a4 = 0;
+    form.over_click_bw_a3 = 0;
+    form.over_click_bw_a4 = 0;
 
     form.keterangan = '';
     form.is_active = true;
@@ -131,24 +126,22 @@ const openEdit = (item) => {
     form.merk = item.merk || '';
     form.tipe = item.tipe || '';
     form.serial_number = item.serial_number || '';
-
-    form.harga_minimum = Number(item.harga_minimum || 0);
-    form.harga_maksimum = Number(item.harga_maksimum || 0);
-
-    form.harga_bw = Number(item.harga_bw || 0);
-    form.harga_color = Number(item.harga_color || 0);
-    form.harga_long_sheet = Number(item.harga_long_sheet || 0);
+    form.minimum_charge_size = item.minimum_charge_size || '';
 
     form.harga_color_a3 = Number(item.harga_color_a3 || 0);
     form.harga_color_a4 = Number(item.harga_color_a4 || 0);
     form.harga_bw_a3 = Number(item.harga_bw_a3 || 0);
     form.harga_bw_a4 = Number(item.harga_bw_a4 || 0);
 
+    form.minimum_charge_click = Number(item.minimum_charge_click || 0);
+    form.minimum_charge_nominal = Number(item.minimum_charge_nominal || 0);
+
+    form.over_click_color_a3 = Number(item.over_click_color_a3 || 0);
+    form.over_click_color_a4 = Number(item.over_click_color_a4 || 0);
+    form.over_click_bw_a3 = Number(item.over_click_bw_a3 || 0);
+    form.over_click_bw_a4 = Number(item.over_click_bw_a4 || 0);
+
     form.free_klik_percent = Number(item.free_klik_percent || 0);
-    form.minimum_charge = Number(item.minimum_charge || 0);
-    form.minimum_charge_type = item.minimum_charge_type || '';
-    form.harga_setelah_minimum_charge = Number(item.harga_setelah_minimum_charge || 0);
-    form.status_kepemilikan = item.status_kepemilikan || '';
 
     form.keterangan = item.keterangan || '';
     form.is_active = Boolean(item.is_active);
@@ -267,7 +260,7 @@ const executeDelete = () => {
 
             <div class="bg-white rounded-[2rem] border border-slate-200 shadow-sm w-full overflow-hidden">
                 <div class="w-full overflow-x-auto">
-                    <table class="min-w-[1400px] w-full text-left border-collapse table-fixed">
+                    <table class="min-w-[900px] w-full text-left border-collapse table-fixed">
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-100">
                                 <th rowspan="2"
@@ -275,15 +268,9 @@ const executeDelete = () => {
                                     Mesin & No Seri</th>
                                 <th rowspan="2"
                                     class="w-[150px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Vendor & Cabang</th>
-                                <th rowspan="2"
-                                    class="w-[120px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
-                                    Min / Maks</th>
-                                <th rowspan="2"
-                                    class="w-[150px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
-                                    Harga Transaksi</th>
+                                    Vendor & Cabang</th>                                
                                 <th colspan="4"
-                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center border-b">
+                                    class="px-2 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center border-b">
                                     HPP / KLIK [Rp]</th>
                                 <th rowspan="2"
                                     class="w-[100px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
@@ -292,9 +279,6 @@ const executeDelete = () => {
                                     class="w-[80px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
                                     Free Klik</th>
                                 <th rowspan="2"
-                                    class="w-[180px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Maintenance Part</th>
-                                <th rowspan="2"
                                     class="w-[100px] px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
                                     Status</th>
                                 <th rowspan="2"
@@ -302,13 +286,13 @@ const executeDelete = () => {
                                     Aksi</th>
                             </tr>
                             <tr class="bg-slate-50 border-b border-slate-100">
-                                <th class="px-4 py-2 text-[9px] font-black text-slate-500 uppercase text-right">Color A3
+                                <th class="px-2 py-2 text-[9px] font-black text-slate-500 uppercase text-right">Color A3
                                 </th>
-                                <th class="px-4 py-2 text-[9px] font-black text-slate-500 uppercase text-right">Color A4
+                                <th class="px-2 py-2 text-[9px] font-black text-slate-500 uppercase text-right">Color A4
                                 </th>
-                                <th class="px-4 py-2 text-[9px] font-black text-slate-500 uppercase text-right">BW A3
+                                <th class="px-2 py-2 text-[9px] font-black text-slate-500 uppercase text-right">BW A3
                                 </th>
-                                <th class="px-4 py-2 text-[9px] font-black text-slate-500 uppercase text-right">BW A4
+                                <th class="px-2 py-2 text-[9px] font-black text-slate-500 uppercase text-right">BW A4
                                 </th>
                             </tr>
                         </thead>
@@ -332,38 +316,22 @@ const executeDelete = () => {
                                         <div class="text-[10px] font-bold text-slate-400 uppercase truncate">{{
                                             item.cabang?.nama_cabang || '-' }}</div>
                                     </td>
-                                    <td class="px-6 py-4 text-right">
-                                        <div class="text-[11px] font-black text-[#1E293B]">Maks: {{
-                                            formatCurrency(item.harga_maksimum) }}</div>
-                                        <div class="text-[8px] font-black text-emerald-500 uppercase">Min: {{
-                                            formatCurrency(item.harga_minimum) }}</div>
-                                    </td>
-                                    <td class="px-6 py-4 text-right">
-                                        <div class="text-[10px] font-black text-slate-600">BW: {{
-                                            formatCurrency(item.harga_bw) }}</div>
-                                        <div class="text-[10px] font-black text-slate-600">Color: {{
-                                            formatCurrency(item.harga_color) }}</div>
-                                        <div class="text-[10px] font-black text-slate-600">Long Sheet: {{
-                                            formatCurrency(item.harga_long_sheet) }}</div>
-                                    </td>
-                                    <td class="px-6 py-4 text-[10px] font-black text-right">{{
+                                    <td class="px-2 py-4 text-[10px] font-black text-right">{{
                                         Math.round(item.harga_color_a3) }}</td>
-                                    <td class="px-6 py-4 text-[10px] font-black text-right">{{
+                                    <td class="px-2 py-4 text-[10px] font-black text-right">{{
                                         Math.round(item.harga_color_a4) }}</td>
-                                    <td class="px-6 py-4 text-[10px] font-black text-right">{{
+                                    <td class="px-2 py-4 text-[10px] font-black text-right">{{
                                         Math.round(item.harga_bw_a3) }}</td>
-                                    <td class="px-6 py-4 text-[10px] font-black text-right">{{
+                                    <td class="px-2 py-4 text-[10px] font-black text-right">{{
                                         Math.round(item.harga_bw_a4) }}</td>
                                     <td class="px-6 py-4 text-[10px] font-black text-right">{{
-                                        Math.round(item.minimum_charge ||
-                                            '-') }}</td>
+                                            item.minimum_charge_click
+                                                ? Number(item.minimum_charge_click).toLocaleString('id-ID') + (item.minimum_charge_size ? ' ' + item.minimum_charge_size : '')
+                                                : '-'
+                                        }}
+                                        </td>
                                     <td class="px-6 py-4 text-[10px] font-black text-right">{{
                                         Math.round(item.free_klik_percent) }}%</td>
-                                    <td class="px-6 py-4 text-[10px]">
-                                        <div v-if="item.maintenance_parts?.length" class="truncate">Ada {{
-                                            item.maintenance_parts.length }} Part</div>
-                                        <div v-else class="text-slate-300">Tidak ada</div>
-                                    </td>
                                     <td class="px-6 py-4 text-center">
                                         <span
                                             :class="item.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'"
@@ -394,7 +362,7 @@ const executeDelete = () => {
                                 </tr>
                             </template>
                             <tr v-else>
-                                <td colspan="12" class="px-6 py-20 text-center">No Data Mesin Found</td>
+                                <td colspan="11" class="px-6 py-20 text-center">No Data Mesin Found</td>
                             </tr>
                         </tbody>
                     </table>
@@ -527,135 +495,107 @@ const executeDelete = () => {
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Harga Minimum
-                            </label>
+                    <div class="bg-slate-50 rounded-3xl p-5 space-y-4">
+                        <h4 class="text-[11px] font-black text-[#1E293B] uppercase tracking-widest">
+                            Harga Dasar Per Klik
+                        </h4>
 
-                            <input v-model="form.harga_minimum" type="number" min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase">Color A3</label>
+                                <input v-model="form.harga_color_a3" type="number" min="0"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
+                            </div>
 
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Harga Maksimum
-                            </label>
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase">Color A4</label>
+                                <input v-model="form.harga_color_a4" type="number" min="0"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
+                            </div>
 
-                            <input v-model="form.harga_maksimum" type="number" min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                        </div>
-                    </div>
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase">BW A3</label>
+                                <input v-model="form.harga_bw_a3" type="number" min="0"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
+                            </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Harga BW
-                            </label>
-
-                            <input v-model="form.harga_bw" type="number" min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                        </div>
-
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Harga Color
-                            </label>
-
-                            <input v-model="form.harga_color" type="number" min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                        </div>
-
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Harga Long Sheet
-                            </label>
-
-                            <input v-model="form.harga_long_sheet" type="number" min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase">BW A4</label>
+                                <input v-model="form.harga_bw_a4" type="number" min="0"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
+                            </div>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                BW A3
-                            </label>
-                            <input v-model="form.harga_bw_a3" type="number" min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                        </div>
+                    <div class="bg-slate-50 rounded-3xl p-5 space-y-4">
+                        <h4 class="text-[11px] font-black text-[#1E293B] uppercase tracking-widest">
+                            Minimum Charge
+                        </h4>
 
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                BW A4
-                            </label>
-                            <input v-model="form.harga_bw_a4" type="number" min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase">Ukuran</label>
+                                <select v-model="form.minimum_charge_size"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold">
+                                    <option value="">Tanpa Ukuran</option>
+                                    <option value="A4">A4</option>
+                                    <option value="A3">A3</option>
+                                </select>
+                            </div>
 
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Color A3
-                            </label>
-                            <input v-model="form.harga_color_a3" type="number" min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                        </div>
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase">Minimum Charge</label>
+                                <input v-model="form.minimum_charge_click" type="number" min="0"
+                                    placeholder="Contoh: 30000"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
+                            </div>
 
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Color A4
-                            </label>
-                            <input v-model="form.harga_color_a4" type="number" min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                        </div>
-                    </div>
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase">Minimum Nominal</label>
+                                <input v-model="form.minimum_charge_nominal" type="number" min="0"
+                                    placeholder="Contoh: 1350000"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
+                            </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Free Klik %
-                            </label>
-                            <input v-model="form.free_klik_percent" type="number" min="0" step="0.0001"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                        </div>
-
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Minimum Charge
-                            </label>
-                            <input v-model="form.minimum_charge" type="number" min="0"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                        </div>
-
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Tipe Minimum Charge
-                            </label>
-                            <input v-model="form.minimum_charge_type" type="text"
-                                placeholder="Contoh: monthly / per transaksi"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                        </div>
-
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Status Kepemilikan
-                            </label>
-                            <select v-model="form.status_kepemilikan"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
-                                <option value="">Pilih Status</option>
-                                <option value="milik">Milik</option>
-                                <option value="sewa">Sewa</option>
-                            </select>
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase">Free Klik %</label>
+                                <input v-model="form.free_klik_percent" type="number" min="0" step="0.0001"
+                                    placeholder="Contoh: 1"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
+                            </div>
                         </div>
                     </div>
 
-                    <div class="space-y-1.5">
-                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                            Harga Setelah Minimum Charge
-                        </label>
+                    <div class="bg-slate-50 rounded-3xl p-5 space-y-4">
+                        <h4 class="text-[11px] font-black text-[#1E293B] uppercase tracking-widest">
+                            Harga Setelah Melebihi Minimum
+                        </h4>
 
-                        <input v-model="form.harga_setelah_minimum_charge" type="number" min="0"
-                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase">Over Color A3</label>
+                                <input v-model="form.over_click_color_a3" type="number" min="0"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
+                            </div>
+
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase">Over Color A4</label>
+                                <input v-model="form.over_click_color_a4" type="number" min="0"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
+                            </div>
+
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase">Over BW A3</label>
+                                <input v-model="form.over_click_bw_a3" type="number" min="0"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
+                            </div>
+
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase">Over BW A4</label>
+                                <input v-model="form.over_click_bw_a4" type="number" min="0"
+                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
+                            </div>
+                        </div>
                     </div>
 
                     <div class="space-y-1.5">

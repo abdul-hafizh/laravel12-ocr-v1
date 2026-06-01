@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, Link } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 
 const props = defineProps({
     billings: Object,
@@ -10,10 +10,39 @@ const props = defineProps({
     filters: Object,
 });
 
+const getDefaultPeriod = () => {
+    const now = new Date();
+
+    const end = new Date(now.getFullYear(), now.getMonth(), 28);
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 28);
+
+    const formatDate = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+
+        return `${y}-${m}-${d}`;
+    };
+
+    return {
+        start_date: formatDate(start),
+        end_date: formatDate(end),
+    };
+};
+
+const defaultPeriod = getDefaultPeriod();
+
 const search = ref(props.filters.search || '');
 const vendor = ref(props.filters.vendor || '');
-const billingStatus = ref(props.filters.billing_status || '');
 const cabangId = ref(props.filters.cabang_id || '');
+
+const startDate = ref(
+    props.filters.start_date || defaultPeriod.start_date
+);
+
+const endDate = ref(
+    props.filters.end_date || defaultPeriod.end_date
+);
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -39,14 +68,16 @@ const formatDate = (value) => {
     });
 };
 
-watch([search, vendor, billingStatus, cabangId], ([searchValue, vendorValue, statusValue, cabangValue]) => {
+const applyFilter = () => {
     router.get(
-        route('printer-billing.index'),
+        route('summary.printer-billing'),
         {
-            search: searchValue,
-            vendor: vendorValue,
-            billing_status: statusValue,
-            cabang_id: cabangValue,
+            search: search.value,
+            vendor: vendor.value,
+            cabang_id: cabangId.value,
+            start_date: startDate.value,
+            end_date: endDate.value,
+            month: endDate.value.substring(0, 7),
             page: 1,
         },
         {
@@ -54,7 +85,49 @@ watch([search, vendor, billingStatus, cabangId], ([searchValue, vendorValue, sta
             replace: true,
         }
     );
-});
+};
+
+const resetFilter = () => {
+    search.value = '';
+    vendor.value = '';
+    cabangId.value = '';
+    startDate.value = defaultPeriod.start_date;
+    endDate.value = defaultPeriod.end_date;
+
+    router.get(
+        route('summary.printer-billing'),
+        {
+            start_date: startDate.value,
+            end_date: endDate.value,
+            month: endDate.value.substring(0, 7),
+        },
+        {
+            preserveState: true,
+            replace: true,
+        }
+    );
+};
+
+const sendWa = () => {
+    if (!confirm('Kirim file Excel billing printer ini ke semua user Finance?')) {
+        return;
+    }
+
+    router.post(
+        route('summary.printer-billing.send-wa'),
+        {
+            search: search.value,
+            vendor: vendor.value,
+            cabang_id: cabangId.value,
+            start_date: startDate.value,
+            end_date: endDate.value,
+            month: endDate.value.substring(0, 7),
+        },
+        {
+            preserveScroll: true,
+        }
+    );
+};
 </script>
 
 <template>
@@ -62,51 +135,100 @@ watch([search, vendor, billingStatus, cabangId], ([searchValue, vendorValue, sta
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-bold text-2xl text-[#1E293B] tracking-tight">
-                Billing <span class="text-[#2DD4BF]">Meter Printer</span>
-            </h2>
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                <div>
+                    <h2 class="font-bold text-2xl text-[#1E293B] leading-tight">
+                        Billing <span class="text-[#2DD4BF]">Meter Printer</span>
+                    </h2>
+                    <p class="text-sm text-slate-400 font-medium mt-1">
+                        Periode billing printer/mesin
+                    </p>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    <button
+                        type="button"
+                        @click="sendWa"
+                        class="px-5 py-3 bg-[#2DD4BF] text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-[#26bba8] transition-all shadow-sm"
+                    >
+                        Kirim WA Finance
+                    </button>
+                </div>
+            </div>
         </template>
 
         <div class="space-y-6">
             <div class="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="relative md:col-span-2">
+                        <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </span>
+
+                        <input
+                            v-model="search"
+                            type="text"
+                            placeholder="Cari serial, mesin, vendor, cabang..."
+                            class="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
+                            @keyup.enter="applyFilter"
+                        />
+                    </div>
+
                     <input
-                        v-model="search"
-                        type="text"
-                        placeholder="Cari serial / mesin / vendor / cabang..."
-                        class="bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
+                        v-model="startDate"
+                        type="date"
+                        class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
                     />
 
+                    <input
+                        v-model="endDate"
+                        type="date"
+                        class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
+                    />                    
+                </div>
+
+                <div class="flex grid-cols-1 md:grid-cols-4 mt-4">
                     <select
                         v-model="vendor"
-                        class="bg-slate-50 border-none rounded-xl text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#2DD4BF]/20"
+                        class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
                     >
                         <option value="">Semua Vendor</option>
-                        <option v-for="v in vendors" :key="v" :value="v">
-                            {{ v }}
+                        <option
+                            v-for="v in vendors"
+                            :key="v.id"
+                            :value="v.id"
+                        >
+                            {{ v.kode_vendor }} - {{ v.nama_vendor }}
                         </option>
                     </select>
 
                     <select
                         v-model="cabangId"
-                        class="bg-slate-50 border-none rounded-xl text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#2DD4BF]/20"
+                        class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
                     >
                         <option value="">Semua Cabang</option>
                         <option v-for="c in cabangs" :key="c.id" :value="c.id">
-                            {{ c.nama_cabang }}
+                            {{ c.kode_cabang }} - {{ c.nama_cabang }}
                         </option>
                     </select>
 
-                    <select
-                        v-model="billingStatus"
-                        class="bg-slate-50 border-none rounded-xl text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#2DD4BF]/20"
+                    <button
+                        type="button"
+                        @click="applyFilter"
+                        class="px-6 py-3 bg-[#2DD4BF] text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:shadow-lg hover:shadow-teal-200 transition-all"
                     >
-                        <option value="">Semua Status</option>
-                        <option value="OK">OK</option>
-                        <option value="MASTER_MESIN_TIDAK_DITEMUKAN">
-                            Master Tidak Ditemukan
-                        </option>
-                    </select>
+                        Filter
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="resetFilter"
+                        class="px-5 py-3 bg-white border border-slate-200 text-slate-500 rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all"
+                    >
+                        Reset
+                    </button>
                 </div>
             </div>
 
@@ -143,7 +265,7 @@ watch([search, vendor, billingStatus, cabangId], ([searchValue, vendorValue, sta
                             <template v-if="billings.data.length > 0">
                                 <tr
                                     v-for="item in billings.data"
-                                    :key="item.scan_id"
+                                    :key="item.id"
                                     class="hover:bg-slate-50/60 transition"
                                 >
                                     <td class="px-6 py-4">
@@ -155,7 +277,7 @@ watch([search, vendor, billingStatus, cabangId], ([searchValue, vendorValue, sta
 
                                             <div>
                                                 <div class="text-[11px] font-black text-[#1E293B]">
-                                                    #{{ item.scan_id }}
+                                                    #{{ item.id }}
                                                 </div>
                                                 <div class="text-[9px] font-bold text-slate-400 uppercase">
                                                     {{ formatDate(item.created_at) }}
@@ -169,11 +291,13 @@ watch([search, vendor, billingStatus, cabangId], ([searchValue, vendorValue, sta
 
                                     <td class="px-6 py-4">
                                         <div class="text-sm font-black text-[#1E293B] uppercase">
-                                            {{ item.nama_mesin_master || item.nama_mesin_scan || '-' }}
+                                            {{ item.master_nama_mesin || item.nama_mesin || '-' }}
                                         </div>
+
                                         <div class="text-[10px] font-bold text-slate-400 uppercase">
-                                            Scan: {{ item.nama_mesin_scan || '-' }}
+                                            Scan: {{ item.nama_mesin || '-' }}
                                         </div>
+
                                         <div class="mt-1 inline-block text-[10px] font-black text-[#2DD4BF] bg-[#2DD4BF]/5 border border-[#2DD4BF]/10 px-2 py-1 rounded-lg uppercase">
                                             {{ item.serial_number || '-' }}
                                         </div>
@@ -181,49 +305,57 @@ watch([search, vendor, billingStatus, cabangId], ([searchValue, vendorValue, sta
 
                                     <td class="px-6 py-4">
                                         <div class="text-[11px] font-black text-[#1E293B] uppercase">
-                                            {{ item.vendor_name || item.vendor || '-' }}
+                                            {{ item.nama_vendor || '-' }}
                                         </div>
+
                                         <div class="text-[10px] font-bold text-slate-400 uppercase">
                                             {{ item.kode_vendor || '-' }}
                                         </div>
+
                                         <div class="mt-1 text-[10px] font-black text-slate-500 uppercase">
-                                            {{ item.nama_cabang || '-' }}
+                                            {{ item.kode_cabang || '-' }} - {{ item.nama_cabang || '-' }}
                                         </div>
                                     </td>
 
                                     <td class="px-6 py-4 text-right">
                                         <div class="text-[10px] font-black text-slate-600">
-                                            BW A3: {{ formatNumber(item.total_bw_a3) }}
+                                            BW A3: {{ formatNumber(item.bw_a3) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            BW A4: {{ formatNumber(item.total_bw_a4) }}
+                                            BW A4: {{ formatNumber(item.bw_a4) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Color A3: {{ formatNumber(item.total_color_a3) }}
+                                            Color A3: {{ formatNumber(item.color_a3) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Color A4: {{ formatNumber(item.total_color_a4) }}
+                                            Color A4: {{ formatNumber(item.color_a4) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Long: {{ formatNumber(item.total_long_sheet) }}
+                                            Long BW: {{ formatNumber(item.bw_long_sheet) }}
+                                        </div>
+                                        <div class="text-[10px] font-black text-slate-600">
+                                            Long Color: {{ formatNumber(item.color_long_sheet) }}
                                         </div>
                                     </td>
 
                                     <td class="px-6 py-4 text-right">
                                         <div class="text-[10px] font-black text-slate-600">
-                                            BW A3: {{ formatCurrency(item.subtotal_bw_a3) }}
+                                            BW A3: {{ formatCurrency(item.billing_detail?.biaya_bw_a3) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            BW A4: {{ formatCurrency(item.subtotal_bw_a4) }}
+                                            BW A4: {{ formatCurrency(item.billing_detail?.biaya_bw_a4) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Color A3: {{ formatCurrency(item.subtotal_color_a3) }}
+                                            Color A3: {{ formatCurrency(item.billing_detail?.biaya_color_a3) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Color A4: {{ formatCurrency(item.subtotal_color_a4) }}
+                                            Color A4: {{ formatCurrency(item.billing_detail?.biaya_color_a4) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Long: {{ formatCurrency(item.subtotal_long_sheet) }}
+                                            Long BW: {{ formatCurrency(item.billing_detail?.biaya_bw_long_sheet) }}
+                                        </div>
+                                        <div class="text-[10px] font-black text-slate-600">
+                                            Long Color: {{ formatCurrency(item.billing_detail?.biaya_color_long_sheet) }}
                                         </div>
                                     </td>
 
@@ -233,18 +365,27 @@ watch([search, vendor, billingStatus, cabangId], ([searchValue, vendorValue, sta
                                         </div>
 
                                         <div class="text-[9px] font-bold text-slate-400 uppercase">
-                                            Free Klik: {{ item.free_klik_percent || 0 }}%
+                                            Subtotal: {{ formatCurrency(item.billing_detail?.subtotal) }}
+                                        </div>
+
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase">
+                                            Free Klik: {{ formatNumber(item.billing_detail?.free_klik) }}
+                                        </div>
+
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase">
+                                            Min: {{ formatNumber(item.billing_detail?.minimum_charge_click) }}
+                                            {{ item.billing_detail?.minimum_charge_size || '' }}
                                         </div>
                                     </td>
 
                                     <td class="px-6 py-4 text-center">
                                         <span
                                             class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border"
-                                            :class="item.billing_status === 'OK'
+                                            :class="item.master_mesin_id
                                                 ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                                                 : 'bg-rose-50 text-rose-600 border-rose-100'"
                                         >
-                                            {{ item.billing_status }}
+                                            {{ item.master_mesin_id ? 'OK' : 'Belum Mapping' }}
                                         </span>
                                     </td>
                                 </tr>

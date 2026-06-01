@@ -14,23 +14,22 @@ class MasterMesin extends Model
         'merk',
         'tipe',
         'serial_number',
-
-        'harga_minimum',
-        'harga_maksimum',
-
-        'harga_bw',
-        'harga_color',
-        'harga_long_sheet',
+        'minimum_charge_size',
 
         'harga_color_a3',
         'harga_color_a4',
         'harga_bw_a3',
         'harga_bw_a4',
 
+        'minimum_charge_click',
+        'minimum_charge_nominal',
+
+        'over_click_color_a3',
+        'over_click_color_a4',
+        'over_click_bw_a3',
+        'over_click_bw_a4',
+
         'free_klik_percent',
-        'minimum_charge',
-        'minimum_charge_type',
-        'harga_setelah_minimum_charge',
         'status_kepemilikan',
 
         'keterangan',
@@ -38,23 +37,20 @@ class MasterMesin extends Model
     ];
 
     protected $casts = [
-        'harga_minimum' => 'decimal:2',
-        'harga_maksimum' => 'decimal:2',
-
-        'harga_bw' => 'decimal:2',
-        'harga_color' => 'decimal:2',
-        'harga_long_sheet' => 'decimal:2',
-
         'harga_color_a3' => 'decimal:2',
         'harga_color_a4' => 'decimal:2',
         'harga_bw_a3' => 'decimal:2',
         'harga_bw_a4' => 'decimal:2',
 
-        'minimum_charge' => 'decimal:2',
-        'harga_setelah_minimum_charge' => 'decimal:2',
+        'minimum_charge_click' => 'decimal:2',
+        'minimum_charge_nominal' => 'decimal:2',
+
+        'over_click_color_a3' => 'decimal:2',
+        'over_click_color_a4' => 'decimal:2',
+        'over_click_bw_a3' => 'decimal:2',
+        'over_click_bw_a4' => 'decimal:2',
 
         'free_klik_percent' => 'decimal:4',
-
         'is_active' => 'boolean',
     ];
 

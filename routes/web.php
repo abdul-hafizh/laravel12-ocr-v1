@@ -47,7 +47,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/summary/electricity', [SummaryController::class, 'electricity'])->name('summary.electricity');
     Route::post('/summary/electricity/send-wa', [SummaryController::class, 'sendElectricityWa'])->middleware(['auth', 'verified'])->name('summary.electricity.send-wa');
-    Route::get('/printer-billing', [PrinterBillingController::class, 'index'])->name('printer-billing.index');
+    Route::get('/summary/printer-billing', [SummaryController::class, 'printerBilling'])->middleware(['auth', 'verified'])->name('summary.printer-billing');
+    Route::post('/summary/printer-billing/send-wa', [SummaryController::class, 'sendPrinterBillingWa'])->middleware(['auth', 'verified'])->name('summary.printer-billing.send-wa');
 });
 
 require __DIR__.'/auth.php';

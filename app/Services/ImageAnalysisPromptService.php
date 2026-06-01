@@ -184,19 +184,57 @@ class ImageAnalysisPromptService
         return '
             Analisis gambar mesin cetak / printer / fotocopy / check counter.
 
+            Fokus utama:
+            - Baca serial number mesin.
+            - Baca nama / tipe mesin jika terlihat.
+            - Baca tanggal dan lokasi jika ada watermark / tulisan pada gambar.
+            - Baca semua counter berdasarkan kode counter.
+
             Syarat valid:
             - Harus terlihat serial number mesin.
-            - Harus terlihat counter Black & White.
-            - Harus terlihat counter Full Color.
-            - Harus terlihat counter Long Sheet.
+            - Harus terlihat minimal salah satu counter Black & White atau Full Color.
             - Jika serial number tidak ada, kembalikan valid false.
 
-            Mapping:
-            - total_black_white = total_black_white_large + total_black_white_small
-            - total_color = total_full_color_large + total_full_color_small
-            - total_long_sheet ambil dari Total (Long Sheet)
+            Mapping counter Canon / mesin fotocopy:
+            - Kode 112 Total (Black & White/Large) = bw_a3
+            - Kode 113 Total (Black & White/Small) = bw_a4
+            - Kode 122 Total (Full Color + Single Color/Large) = color_a3
+            - Kode 123 Total (Full Color + Single Color/Small) = color_a4
+            - Kode 471 Total (Long Sheet) = long_sheet_total
+            - Kode 473 Total (Black & White/Long Sheet) = bw_long_sheet
+            - Kode 475 Total (Full Color + Single Color/Long Sheet) = color_long_sheet
+            - Kode 101 Total 1 = total_counter_mesin
+
+            Aturan ukuran:
+            - Large artinya A3.
+            - Small artinya A4.
+            - Long Sheet dihitung terpisah, tetapi untuk acuan harga nanti menggunakan harga A3.
+            - Jangan gabungkan A3 dan A4.
+            - Jangan gabungkan BW dan Color.
             - Semua angka harus integer.
             - Hilangkan nol di depan.
+            - Jika ada counter yang tidak terlihat, isi 0.
+
+            Mapping untuk billing:
+            - bw_a3 akan dicocokkan dengan harga_bw_a3 pada master mesin.
+            - bw_a4 akan dicocokkan dengan harga_bw_a4 pada master mesin.
+            - color_a3 akan dicocokkan dengan harga_color_a3 pada master mesin.
+            - color_a4 akan dicocokkan dengan harga_color_a4 pada master mesin.
+            - bw_long_sheet dan color_long_sheet menggunakan harga A3 sesuai jenisnya.
+            - total_long_sheet adalah counter total long sheet dari kode 471.
+            - total_bw = bw_a3 + bw_a4.
+            - total_color = color_a3 + color_a4.
+            - total = total_bw + total_color + total_long_sheet.
+
+            Contoh pembacaan:
+            - 112 Total (Black & White/Large) bernilai 00027624 maka bw_a3 = 27624.
+            - 113 Total (Black & White/Small) bernilai 00033680 maka bw_a4 = 33680.
+            - 122 Total (Full Color + Single Color/Large) bernilai 01047569 maka color_a3 = 1047569.
+            - 123 Total (Full Color + Single Color/Small) bernilai 00616046 maka color_a4 = 616046.
+            - 471 Total (Long Sheet) bernilai 00000094 maka total_long_sheet = 94.
+            - 473 Total (Black & White/Long Sheet) bernilai 00000000 maka bw_long_sheet = 0.
+            - 475 Total (Full Color + Single Color/Long Sheet) bernilai 00000094 maka color_long_sheet = 94.
+            - 101 Total 1 bernilai 01724919 maka total_counter_mesin = 1724919.
 
             Kembalikan hanya JSON valid:
             {
@@ -207,13 +245,19 @@ class ImageAnalysisPromptService
                     "lokasi": "Tebet",
                     "nama_mesin": "iPR C710",
                     "serial_number": "2NT02555",
-                    "total_black_white_large": 0,
-                    "total_black_white_small": 0,
-                    "total_full_color_large": 0,
-                    "total_full_color_small": 0,
+
+                    "bw_a3": 0,
+                    "bw_a4": 0,
+                    "color_a3": 0,
+                    "color_a4": 0,
+
                     "total_long_sheet": 0,
-                    "total_black_white": 0,
+                    "bw_long_sheet": 0,
+                    "color_long_sheet": 0,
+
+                    "total_bw": 0,
                     "total_color": 0,
+                    "total_counter_mesin": 0,
                     "total": 0
                 }
             }
@@ -226,6 +270,6 @@ class ImageAnalysisPromptService
                 "message": "Serial number atau data counter mesin tidak ditemukan.",
                 "data_penting": {}
             }
-            ';
+        ';
     }
 }

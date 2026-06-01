@@ -128,22 +128,20 @@ class MasterMesinController extends Controller
                 'unique:master_mesins,serial_number' . ($ignoreId ? ',' . $ignoreId : ''),
             ],
 
-            'harga_minimum' => ['required', 'numeric', 'min:0'],
-            'harga_maksimum' => ['required', 'numeric', 'min:0'],
-
-            'harga_bw' => ['required', 'numeric', 'min:0'],
-            'harga_color' => ['required', 'numeric', 'min:0'],
-            'harga_long_sheet' => ['required', 'numeric', 'min:0'],
-
             'harga_color_a3' => ['nullable', 'numeric', 'min:0'],
             'harga_color_a4' => ['nullable', 'numeric', 'min:0'],
             'harga_bw_a3' => ['nullable', 'numeric', 'min:0'],
             'harga_bw_a4' => ['nullable', 'numeric', 'min:0'],
 
             'free_klik_percent' => ['nullable', 'numeric', 'min:0'],
-            'minimum_charge' => ['nullable', 'numeric', 'min:0'],
-            'minimum_charge_type' => ['nullable', 'string', 'max:255'],
-            'harga_setelah_minimum_charge' => ['nullable', 'numeric', 'min:0'],
+            'minimum_charge_click' => ['nullable', 'numeric', 'min:0'],
+            'minimum_charge_nominal' => ['nullable', 'numeric', 'min:0'],
+            'minimum_charge_size' => ['nullable', 'in:A3,A4'],
+
+            'over_click_color_a3' => ['nullable', 'numeric', 'min:0'],
+            'over_click_color_a4' => ['nullable', 'numeric', 'min:0'],
+            'over_click_bw_a3' => ['nullable', 'numeric', 'min:0'],
+            'over_click_bw_a4' => ['nullable', 'numeric', 'min:0'],
             'status_kepemilikan' => ['nullable', 'string', 'max:255'],
 
             'keterangan' => ['nullable', 'string'],

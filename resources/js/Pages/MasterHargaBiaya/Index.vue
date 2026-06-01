@@ -454,6 +454,20 @@ const getLabel = (options, value) => {
                         </div>
                     </div>
 
+                    <div class="space-y-1.5">
+                        <label
+                            class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                            Keterangan
+                        </label>
+
+                        <textarea
+                            v-model="form.keterangan"
+                            rows="3"
+                            placeholder="Masukkan keterangan biaya..."
+                            class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold resize-none focus:ring-2 focus:ring-[#2DD4BF]/20">
+                        </textarea>
+                    </div>
+
                     <div class="flex items-center justify-between bg-slate-900 p-4 rounded-2xl">
                         <span class="text-[10px] font-black text-white uppercase tracking-widest">Status Aktif
                             Data</span>

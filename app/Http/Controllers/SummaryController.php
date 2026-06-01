@@ -18,10 +18,22 @@ class SummaryController extends Controller
     public function electricity(Request $request)
     {
         $month = $request->input('month', now()->format('Y-m'));
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        if (!$startDate || !$endDate) {
+            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+            $startDateCarbon = Carbon::parse($month . '-28')->subMonthNoOverflow()->startOfDay();
+
+            $startDate = $startDateCarbon->toDateString();
+            $endDate = $endDateCarbon->toDateString();
+        }
+
         $search = $request->input('search');
         $cabangId = $request->input('cabang_id');
 
-        $summary = $this->getElectricitySummaryData($month, $search, $cabangId);
+        $summary = $this->getElectricitySummaryData($startDate, $endDate, $search, $cabangId);
 
         $cabangs = DB::table('v_image_scan_electricity')
             ->select('cabang_id', 'nama_cabang', 'kode_cabang')
@@ -36,8 +48,200 @@ class SummaryController extends Controller
             'cabangs' => $cabangs,
             'filters' => [
                 'month' => $month,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
                 'search' => $search,
                 'cabang_id' => $cabangId,
+            ],
+        ]);
+    }
+
+    public function printerBilling(Request $request)
+    {
+        $month = $request->input('month', now()->format('Y-m'));
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        if (!$startDate || !$endDate) {
+            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+            $startDateCarbon = Carbon::parse($month . '-28')
+                ->subMonthNoOverflow()
+                ->startOfDay();
+
+            $startDate = $startDateCarbon->toDateString();
+            $endDate = $endDateCarbon->toDateString();
+        }
+
+        $query = DB::table('dbo.v_image_scan_printers as p')
+            ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
+            ->select([
+                'p.*',
+
+                'mm.harga_color_a3',
+                'mm.harga_color_a4',
+                'mm.harga_bw_a3',
+                'mm.harga_bw_a4',
+
+                'mm.minimum_charge_click',
+                'mm.minimum_charge_size',
+                'mm.minimum_charge_nominal',
+
+                'mm.over_click_color_a3',
+                'mm.over_click_color_a4',
+                'mm.over_click_bw_a3',
+                'mm.over_click_bw_a4',
+
+                'mm.free_klik_percent',
+                'mm.keterangan as master_keterangan',
+            ])
+            ->whereBetween('p.created_at', [
+                Carbon::parse($startDate)->startOfDay(),
+                Carbon::parse($endDate)->endOfDay(),
+            ]);
+
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+
+            $query->where(function ($q) use ($search) {
+                $q->where('p.serial_number', 'like', "%{$search}%")
+                    ->orWhere('p.nama_mesin', 'like', "%{$search}%")
+                    ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
+                    ->orWhere('p.nama_vendor', 'like', "%{$search}%")
+                    ->orWhere('p.kode_vendor', 'like', "%{$search}%")
+                    ->orWhere('p.nama_cabang', 'like', "%{$search}%")
+                    ->orWhere('p.kode_cabang', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('vendor')) {
+            $query->where('p.master_vendor_id', $request->vendor);
+        }
+
+        if ($request->filled('cabang_id')) {
+            $query->where('p.cabang_id', $request->cabang_id);
+        }
+
+        $billings = $query
+            ->orderByDesc('p.created_at')
+            ->paginate(10)
+            ->withQueryString();
+
+        $billings->getCollection()->transform(function ($item) {
+            $bwA3 = (int) ($item->bw_a3 ?? 0);
+            $bwA4 = (int) ($item->bw_a4 ?? 0);
+            $colorA3 = (int) ($item->color_a3 ?? 0);
+            $colorA4 = (int) ($item->color_a4 ?? 0);
+
+            $bwLongSheet = (int) ($item->bw_long_sheet ?? 0);
+            $colorLongSheet = (int) ($item->color_long_sheet ?? 0);
+
+            $hargaBwA3 = (float) ($item->harga_bw_a3 ?? 0);
+            $hargaBwA4 = (float) ($item->harga_bw_a4 ?? 0);
+            $hargaColorA3 = (float) ($item->harga_color_a3 ?? 0);
+            $hargaColorA4 = (float) ($item->harga_color_a4 ?? 0);
+
+            $minimumClick = (int) ($item->minimum_charge_click ?? 0);
+            $minimumSize = $item->minimum_charge_size ?? null;
+            $minimumNominal = (float) ($item->minimum_charge_nominal ?? 0);
+            $freePercent = (float) ($item->free_klik_percent ?? 0);
+
+            $biayaBwA3 = $bwA3 * $hargaBwA3;
+            $biayaBwA4 = $bwA4 * $hargaBwA4;
+            $biayaColorA3 = $colorA3 * $hargaColorA3;
+            $biayaColorA4 = $colorA4 * $hargaColorA4;
+
+            $biayaBwLongSheet = $bwLongSheet * $hargaBwA3;
+            $biayaColorLongSheet = $colorLongSheet * $hargaColorA3;
+
+            $subtotal = $biayaBwA3
+                + $biayaBwA4
+                + $biayaColorA3
+                + $biayaColorA4
+                + $biayaBwLongSheet
+                + $biayaColorLongSheet;
+
+            if ($minimumSize === 'A3') {
+                $minimumBasisClick = $bwA3 + $colorA3 + $bwLongSheet + $colorLongSheet;
+            } elseif ($minimumSize === 'A4') {
+                $minimumBasisClick = $bwA4 + $colorA4;
+            } else {
+                $minimumBasisClick = $bwA3 + $bwA4 + $colorA3 + $colorA4 + $bwLongSheet + $colorLongSheet;
+            }
+
+            $freeKlik = 0;
+            if ($freePercent > 0) {
+                $freeKlik = floor($minimumBasisClick * ($freePercent / 100));
+            }
+
+            $subtotalSetelahFree = $subtotal;
+
+            if ($freeKlik > 0 && $minimumBasisClick > 0) {
+                $nilaiPerKlikRataRata = $subtotal / $minimumBasisClick;
+                $subtotalSetelahFree = max(0, $subtotal - ($freeKlik * $nilaiPerKlikRataRata));
+            }
+
+            $totalTagihan = $subtotalSetelahFree;
+
+            if ($minimumClick > 0 && $minimumNominal > 0 && $minimumBasisClick < $minimumClick) {
+                $totalTagihan = $minimumNominal;
+            }
+
+            $item->billing_detail = [
+                'biaya_bw_a3' => $biayaBwA3,
+                'biaya_bw_a4' => $biayaBwA4,
+                'biaya_color_a3' => $biayaColorA3,
+                'biaya_color_a4' => $biayaColorA4,
+                'biaya_bw_long_sheet' => $biayaBwLongSheet,
+                'biaya_color_long_sheet' => $biayaColorLongSheet,
+                'subtotal' => $subtotal,
+                'minimum_basis_click' => $minimumBasisClick,
+                'minimum_charge_click' => $minimumClick,
+                'minimum_charge_size' => $minimumSize,
+                'minimum_charge_nominal' => $minimumNominal,
+                'free_klik' => $freeKlik,
+                'subtotal_setelah_free' => $subtotalSetelahFree,
+                'total_tagihan' => $totalTagihan,
+            ];
+
+            $item->total_tagihan = $totalTagihan;
+
+            return $item;
+        });
+
+        if ($request->boolean('debug')) {
+            dd($billings->items());
+        }
+
+        return Inertia::render('Summary/Printer', [
+            'billings' => $billings,
+
+            'vendors' => DB::table('dbo.master_vendors')
+                ->where('is_active', true)
+                ->orderBy('nama_vendor')
+                ->get([
+                    'id',
+                    'kode_vendor',
+                    'nama_vendor',
+                ]),
+
+            'cabangs' => DB::table('dbo.master_cabangs')
+                ->where('is_active', true)
+                ->orderBy('nama_cabang')
+                ->get([
+                    'id',
+                    'kode_cabang',
+                    'nama_cabang',
+                ]),
+
+            'filters' => [
+                'search' => $request->input('search'),
+                'vendor' => $request->input('vendor'),
+                'billing_status' => $request->input('billing_status'),
+                'cabang_id' => $request->input('cabang_id'),
+                'month' => $month,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
             ],
         ]);
     }
@@ -45,16 +249,30 @@ class SummaryController extends Controller
     public function sendElectricityWa(Request $request)
     {
         $month = $request->input('month', now()->format('Y-m'));
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        if (!$startDate || !$endDate) {
+            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+            $startDateCarbon = Carbon::parse($month . '-28')->subMonthNoOverflow()->startOfDay();
+
+            $startDate = $startDateCarbon->toDateString();
+            $endDate = $endDateCarbon->toDateString();
+        }
+
         $search = $request->input('search');
         $cabangId = $request->input('cabang_id');
 
-        $summary = $this->getElectricitySummaryData($month, $search, $cabangId);
+        $summary = $this->getElectricitySummaryData($startDate, $endDate, $search, $cabangId);
 
         if (count($summary) === 0) {
             return back()->with('error', 'Tidak ada data summary untuk dikirim.');
         }
 
-        $fileName = 'summary-token-listrik-' . $month . '-' . now()->format('His') . '.xlsx';
+        $periodeLabel = Carbon::parse($startDate)->format('d-m-Y') . '_sd_' . Carbon::parse($endDate)->format('d-m-Y');
+
+        $fileName = 'summary-token-listrik-' . $periodeLabel . '-' . now()->format('His') . '.xlsx';
         $filePath = 'exports/' . $fileName;
 
         $excelFile = Excel::raw(
@@ -82,17 +300,19 @@ class SummaryController extends Controller
             SendSms::sendDocumentWA(
                 $user->phone,
                 $fileUrl,
-                "Summary Token Listrik periode {$month}"
+                "Summary Token Listrik periode {$periodeLabel}"
             );
         }
 
         return back()->with('success', 'File Excel summary berhasil dikirim ke semua finance.');
     }
 
-    private function getElectricitySummaryData($month, $search = null, $cabangId = null): array
+    private function getElectricitySummaryData($startDate, $endDate, $search = null, $cabangId = null): array
     {
-        $startDate = Carbon::parse($month . '-01')->startOfMonth();
-        $endDate = Carbon::parse($month . '-01')->endOfMonth();
+        $startDate = Carbon::parse($startDate)->startOfDay();
+        $endDate = Carbon::parse($endDate)->endOfDay();
+
+        $periode = $startDate->format('d-m-Y') . ' s/d ' . $endDate->format('d-m-Y');
 
         $query = DB::table('v_image_scan_electricity')
             ->where('scan_type', 'electricity')
@@ -150,7 +370,7 @@ class SummaryController extends Controller
                 'barcode' => $awal->barcode,
                 'status_master_token' => $awal->status_master_token,
 
-                'periode' => $month,
+                'periode' => $periode,
 
                 'tanggal_awal' => $awal->created_at,
                 'tanggal_akhir' => $akhir->created_at,

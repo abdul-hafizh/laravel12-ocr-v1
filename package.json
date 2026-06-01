@@ -20,6 +20,6 @@
         "vue": "^3.4.0"
     },
     "dependencies": {
-        "vue-multiselect": "^3.0.0-beta.3"
+        "vue-multiselect": "^3.5.0"
     }
 }

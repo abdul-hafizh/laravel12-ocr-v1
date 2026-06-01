@@ -22,8 +22,30 @@ const props = defineProps({
     },
 });
 
+const getDefaultPeriod = () => {
+    const now = new Date();
+
+    const end = new Date(now.getFullYear(), now.getMonth(), 28);
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 28);
+
+    const formatDate = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
+    return {
+        start_date: formatDate(start),
+        end_date: formatDate(end),
+    };
+};
+
+const defaultPeriod = getDefaultPeriod();
+
 const search = ref(props.filters.search || '');
-const month = ref(props.filters.month || '');
+const startDate = ref(props.filters.start_date || defaultPeriod.start_date);
+const endDate = ref(props.filters.end_date || defaultPeriod.end_date);
 const cabangId = ref(props.filters.cabang_id || '');
 
 const formatRupiah = (value) => {
@@ -50,7 +72,8 @@ const sendWa = () => {
         route('summary.electricity.send-wa'),
         {
             search: search.value,
-            month: month.value,
+            start_date: startDate.value,
+            end_date: endDate.value,
             cabang_id: cabangId.value,
         },
         {
@@ -64,7 +87,8 @@ const applyFilter = () => {
         route('summary.electricity'),
         {
             search: search.value,
-            month: month.value,
+            start_date: startDate.value,
+            end_date: endDate.value,
             cabang_id: cabangId.value,
         },
         {
@@ -77,8 +101,12 @@ const applyFilter = () => {
 const resetFilter = () => {
     search.value = '';
     cabangId.value = '';
+    startDate.value = defaultPeriod.start_date;
+    endDate.value = defaultPeriod.end_date;
+
     router.get(route('summary.electricity'), {
-        month: month.value,
+        start_date: startDate.value,
+        end_date: endDate.value,
     });
 };
 
@@ -123,7 +151,7 @@ const badgeClass = (status) => {
         </template>
 
         <div class="space-y-8">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div class="relative md:col-span-1">
                     <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -141,8 +169,16 @@ const badgeClass = (status) => {
 
                 <div>
                     <input
-                        v-model="month"
-                        type="month"
+                        v-model="startDate"
+                        type="date"
+                        class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
+                    />
+                </div>
+
+                <div>
+                    <input
+                        v-model="endDate"
+                        type="date"
                         class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
                     />
                 </div>
@@ -182,27 +218,6 @@ const badgeClass = (status) => {
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Cabang</p>
-                    <h3 class="text-3xl font-black text-[#1E293B] mt-2">{{ summary.length }}</h3>
-                </div>
-
-                <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Pemakaian Estimasi</p>
-                    <h3 class="text-3xl font-black text-[#1E293B] mt-2">
-                        {{ formatRupiah(summary.reduce((total, item) => total + Number(item.estimasi_pemakaian_rupiah || 0), 0)) }}
-                    </h3>
-                </div>
-
-                <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Rekomendasi Top-up</p>
-                    <h3 class="text-3xl font-black text-[#2DD4BF] mt-2">
-                        {{ formatRupiah(summary.reduce((total, item) => total + Number(item.rekomendasi_topup_bulan_depan - item.estimasi_sisa_rupiah || 0), 0)) }}
-                    </h3>
-                </div>
-            </div>
-
             <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -214,8 +229,7 @@ const badgeClass = (status) => {
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">kWh Akhir</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Pemakaian</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Estimasi Rupiah</th>
-                                <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Top-up Bulan Depan</th>
-                                <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Bulan Depan</th>
                             </tr>
                         </thead>
 
@@ -232,7 +246,7 @@ const badgeClass = (status) => {
                                             {{ item.kode_cabang }} · Meter: {{ item.nomor_meter || '-' }}
                                         </p>
                                         <p class="text-xs text-slate-400 mt-1">
-                                            Foto: {{ item.jumlah_foto }} · Periode: {{ item.periode }}
+                                            Jumlah Foto: {{ item.jumlah_foto }}
                                         </p>
                                     </div>
                                 </td>
@@ -243,9 +257,6 @@ const badgeClass = (status) => {
                                     </p>
                                     <p class="text-xs text-slate-400 mt-1">
                                         Daya: {{ item.daya || '-' }}
-                                    </p>
-                                    <p class="text-xs text-slate-400 mt-1">
-                                        Barcode: {{ item.barcode || '-' }}
                                     </p>
                                     <p class="text-xs text-slate-400 mt-1">
                                         {{ item.status_master_token || '-' }}
@@ -284,19 +295,10 @@ const badgeClass = (status) => {
                                         Sisa estimasi: {{ formatRupiah(item.estimasi_sisa_rupiah) }}
                                     </p>
                                 </td>
-
-                                <td class="px-6 py-5">
-                                    <span
-                                        :class="badgeClass(item.status_summary)"
-                                        class="inline-flex px-3 py-1 rounded-full border text-xs font-bold"
-                                    >
-                                        {{ item.status_summary }}
-                                    </span>
-                                </td>
                             </tr>
 
                             <tr v-if="summary.length === 0">
-                                <td colspan="8" class="px-6 py-16 text-center">
+                                <td colspan="7" class="px-6 py-16 text-center">
                                     <p class="text-slate-400 font-semibold">
                                         Belum ada data summary token listrik pada periode ini.
                                     </p>
