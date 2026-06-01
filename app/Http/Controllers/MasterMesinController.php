@@ -78,7 +78,7 @@ class MasterMesinController extends Controller
             }
         }
 
-        return back()->with('success', 'Master mesin berhasil ditambahkan.');
+        return back()->with('message', ['text' => 'Master Mesin berhasil Ditambahkan!', 'type' => 'success']);
     }
 
     public function update(Request $request, MasterMesin $masterMesin)
@@ -101,14 +101,14 @@ class MasterMesinController extends Controller
             }
         }
 
-        return back()->with('success', 'Master mesin berhasil diperbarui.');
+        return back()->with('message', ['text' => 'Master Mesin berhasil Diperbarui!', 'type' => 'success']);
     }
 
     public function destroy(MasterMesin $masterMesin)
     {
         $masterMesin->delete();
 
-        return back()->with('success', 'Master mesin berhasil dihapus.');
+        return back()->with('message', ['text' => 'Master Mesin berhasil Dihapus!', 'type' => 'success']);
     }
 
     private function validateData(Request $request, ?int $ignoreId = null): array

@@ -9,6 +9,19 @@ const title = 'Hasil Upload Struk Online';
 const dataList = ref([]);
 const loading = ref(false);
 
+const showImageModal = ref(false);
+const selectedImageUrl = ref('');
+
+const openImagePreview = (url) => {
+    selectedImageUrl.value = url;
+    showImageModal.value = true;
+};
+
+const isZoomed = ref(false);
+const toggleZoom = () => {
+    isZoomed.value = !isZoomed.value;
+};
+
 const getData = async () => {
     loading.value = true;
 
@@ -89,6 +102,7 @@ const getStatusClass = (status) => {
 </script>
 
 <template>
+
     <Head :title="title" />
 
     <AuthenticatedLayout>
@@ -111,10 +125,8 @@ const getStatusClass = (status) => {
                             </p>
                         </div>
 
-                        <button
-                            @click="getData"
-                            class="px-4 py-2 rounded-xl bg-[#1E293B] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#2DD4BF] transition"
-                        >
+                        <button @click="getData"
+                            class="px-4 py-2 rounded-xl bg-[#1E293B] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#2DD4BF] transition">
                             Refresh
                         </button>
                     </div>
@@ -124,52 +136,52 @@ const getStatusClass = (status) => {
                     </div>
 
                     <div v-else class="grid gap-5">
-                        <div
-                            v-for="item in dataList"
-                            :key="item.id"
-                            class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
-                        >
+                        <div v-for="item in dataList" :key="item.id"
+                            class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                             <div class="flex flex-col gap-5 lg:flex-row">
-                                <div class="w-full lg:w-40 flex-shrink-0">
-                                    <img
-                                        :src="item.image_path ? '/storage/' + item.image_path : '/no-image.png'"
-                                        class="h-40 w-full lg:w-40 rounded-2xl border border-slate-200 object-cover"
-                                    />
+                                <div class="w-full lg:w-40 flex-shrink-0 cursor-pointer"
+                                    @click="openImagePreview(item.image_path ? '/storage/' + item.image_path : '/no-image.png')">
+                                    <img :src="item.image_path ? '/storage/' + item.image_path : '/no-image.png'"
+                                        class="h-40 w-full lg:w-40 rounded-2xl border border-slate-200 object-cover hover:opacity-80 transition-opacity" />
                                 </div>
 
                                 <div class="flex-1 space-y-5">
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <span class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
+                                        <span
+                                            class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
                                             ID Scan: #{{ item.id }}
                                         </span>
 
-                                        <span
-                                            class="rounded-full px-3 py-1 text-[10px] font-black uppercase"
-                                            :class="getStatusClass(item.status)"
-                                        >
+                                        <span class="rounded-full px-3 py-1 text-[10px] font-black uppercase"
+                                            :class="getStatusClass(item.status)">
                                             {{ item.status }}
                                         </span>
 
-                                        <span class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
+                                        <span
+                                            class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
                                             {{ formatDate(item.created_at) }}
                                         </span>
                                     </div>
 
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                                         <div class="rounded-2xl bg-slate-50 p-4">
-                                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <div
+                                                class="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                                 User Upload
                                             </div>
                                             <div class="mt-1 text-sm font-black text-[#1E293B]">
                                                 {{ item.user_name || item.user?.name || '-' }}
                                             </div>
                                             <div class="text-xs font-bold text-slate-400">
-                                                {{ item.user_phone || item.user?.phone || item.user_email || item.user?.email || '-' }}
+                                                {{ item.user_phone || item.user?.phone || item.user_email ||
+                                                    item.user?.email ||
+                                                    '-' }}
                                             </div>
                                         </div>
 
                                         <div class="rounded-2xl bg-slate-50 p-4">
-                                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <div
+                                                class="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                                 Cabang
                                             </div>
                                             <div class="mt-1 text-sm font-black text-[#1E293B]">
@@ -181,7 +193,8 @@ const getStatusClass = (status) => {
                                         </div>
 
                                         <div class="rounded-2xl bg-emerald-50 p-4 border border-emerald-100">
-                                            <div class="text-[10px] font-black uppercase tracking-widest text-emerald-600">
+                                            <div
+                                                class="text-[10px] font-black uppercase tracking-widest text-emerald-600">
                                                 Total Pembayaran
                                             </div>
                                             <div class="mt-1 text-xl font-black text-emerald-700">
@@ -192,40 +205,46 @@ const getStatusClass = (status) => {
 
                                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                         <div class="rounded-2xl border border-slate-200 p-4">
-                                            <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                            <h4
+                                                class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
                                                 Informasi Transaksi
                                             </h4>
 
                                             <div class="space-y-2">
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Jenis Struk</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'jenis_struk')) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Bank / Aplikasi</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'bank_atau_aplikasi')) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Status</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'status_transaksi')) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Tanggal</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'tanggal_transaksi')) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Waktu</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'waktu_transaksi')) }}
@@ -235,33 +254,38 @@ const getStatusClass = (status) => {
                                         </div>
 
                                         <div class="rounded-2xl border border-slate-200 p-4">
-                                            <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                            <h4
+                                                class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
                                                 Detail Pembayaran
                                             </h4>
 
                                             <div class="space-y-2">
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Rekening Sumber</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'rekening_sumber')) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Nama Rekening</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'nama_rekening_sumber')) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Metode Pembayaran</span>
                                                     <span class="font-black text-[#1E293B] text-right">
                                                         {{ formatValue(getValue(item, 'metode_pembayaran')) }}
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between gap-4 rounded-xl bg-emerald-50 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between gap-4 rounded-xl bg-emerald-50 p-3 text-sm">
                                                     <span class="font-bold text-emerald-600">Total Pembayaran</span>
                                                     <span class="font-black text-emerald-700 text-right">
                                                         {{ formatRupiah(getValue(item, 'total_pembayaran', 0)) }}
@@ -272,7 +296,8 @@ const getStatusClass = (status) => {
                                     </div>
 
                                     <div class="rounded-2xl border border-slate-200 p-4">
-                                        <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                        <h4
+                                            class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
                                             Data Pembelian
                                         </h4>
 
@@ -305,7 +330,8 @@ const getStatusClass = (status) => {
                                                 </span>
                                             </div>
 
-                                            <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm md:col-span-2">
+                                            <div
+                                                class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm md:col-span-2">
                                                 <span class="font-bold text-slate-500">Nomor Referensi</span>
                                                 <span class="font-black text-[#1E293B] text-right break-all">
                                                     {{ formatValue(getValue(item, 'nomor_referensi')) }}
@@ -315,7 +341,8 @@ const getStatusClass = (status) => {
                                     </div>
 
                                     <div class="rounded-2xl border border-slate-200 p-4">
-                                        <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                        <h4
+                                            class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
                                             Data Token Listrik PLN
                                         </h4>
 
@@ -348,7 +375,8 @@ const getStatusClass = (status) => {
                                                 </span>
                                             </div>
 
-                                            <div class="flex justify-between gap-4 rounded-xl bg-emerald-50 p-3 text-sm">
+                                            <div
+                                                class="flex justify-between gap-4 rounded-xl bg-emerald-50 p-3 text-sm">
                                                 <span class="font-bold text-emerald-600">Jumlah kWh</span>
                                                 <span class="font-black text-emerald-700 text-right">
                                                     {{ formatValue(getValue(item, 'jumlah_kwh')) }}
@@ -365,7 +393,8 @@ const getStatusClass = (status) => {
                                     </div>
 
                                     <div class="rounded-2xl border border-slate-200 p-4">
-                                        <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                        <h4
+                                            class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
                                             Rincian Biaya PLN
                                         </h4>
 
@@ -405,7 +434,8 @@ const getStatusClass = (status) => {
                                                 </span>
                                             </div>
 
-                                            <div class="flex justify-between gap-4 rounded-xl bg-emerald-50 p-3 text-sm">
+                                            <div
+                                                class="flex justify-between gap-4 rounded-xl bg-emerald-50 p-3 text-sm">
                                                 <span class="font-bold text-emerald-600">RP Stroom / Token</span>
                                                 <span class="font-black text-emerald-700 text-right">
                                                     {{ formatRupiah(getValue(item, 'rp_stroom_token')) }}
@@ -421,24 +451,18 @@ const getStatusClass = (status) => {
                                         </div>
                                     </div>
 
-                                    <div
-                                        v-if="getValue(item, 'catatan', null)"
-                                        class="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-600"
-                                    >
+                                    <div v-if="getValue(item, 'catatan', null)"
+                                        class="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-600">
                                         {{ getValue(item, 'catatan') }}
                                     </div>
 
-                                    <div
-                                        v-if="item.error_message"
-                                        class="rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-600"
-                                    >
+                                    <div v-if="item.error_message"
+                                        class="rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-600">
                                         {{ item.error_message }}
                                     </div>
 
-                                    <div
-                                        v-if="item.status === 'pending' || item.status === 'processing'"
-                                        class="rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-600"
-                                    >
+                                    <div v-if="item.status === 'pending' || item.status === 'processing'"
+                                        class="rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-600">
                                         Gambar sedang dianalisis...
                                     </div>
                                 </div>
@@ -450,6 +474,22 @@ const getStatusClass = (status) => {
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+        <div v-if="showImageModal"
+            class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
+            @click="showImageModal = false">
+
+            <div class="relative w-full h-full overflow-auto flex items-start justify-center p-10" @click.stop>
+
+                <button @click="showImageModal = false"
+                    class="fixed top-6 right-6 text-white bg-white/10 hover:bg-white/20 p-3 rounded-full backdrop-blur-md font-black uppercase text-xs">
+                    Tutup [ESC]
+                </button>
+
+                <img :src="selectedImageUrl"
+                    class="w-full max-w-2xl h-auto object-contain cursor-zoom-in hover:scale-[2] transition-transform duration-300 origin-top"
+                    @click="toggleZoom" />
             </div>
         </div>
     </AuthenticatedLayout>

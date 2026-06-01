@@ -571,7 +571,7 @@ const userAccessMenus = [
         </aside>
 
         <div
-            class="flex-1 flex flex-col transition-all duration-300"
+            class="flex-1 flex flex-col transition-all duration-300 min-w-0"
             :class="[isSidebarOpen ? 'ms-72' : 'ms-20']"
         >
             <header

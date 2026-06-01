@@ -80,7 +80,7 @@ class MasterCabangController extends Controller
 
         return redirect()
             ->route('master-cabang.index')
-            ->with('success', 'Master cabang berhasil ditambahkan.');
+            ->with('message', ['text' => 'Data berhasil disimpan!', 'type' => 'success']);
     }
 
     public function update(Request $request, MasterCabang $masterCabang)
@@ -109,7 +109,7 @@ class MasterCabangController extends Controller
 
         return redirect()
             ->route('master-cabang.index')
-            ->with('success', 'Master cabang berhasil diperbarui.');
+            ->with('message', ['text' => 'Data berhasil diperbaharui!', 'type' => 'success']);
     }
 
     public function destroy(MasterCabang $masterCabang)
@@ -118,6 +118,6 @@ class MasterCabangController extends Controller
 
         return redirect()
             ->route('master-cabang.index')
-            ->with('success', 'Master cabang berhasil dihapus.');
+            ->with('message', ['text' => 'Data berhasil Dihapus!', 'type' => 'success']);
     }
 }

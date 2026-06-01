@@ -27,6 +27,14 @@ const getData = async () => {
     }
 };
 
+const showImageModal = ref(false);
+const selectedImageUrl = ref('');
+
+const openImagePreview = (url) => {
+    selectedImageUrl.value = url;
+    showImageModal.value = true;
+};
+
 onMounted(getData);
 
 const parseResult = (item) => {
@@ -110,6 +118,7 @@ const getStatusClass = (status) => {
 </script>
 
 <template>
+
     <Head :title="title" />
 
     <AuthenticatedLayout>
@@ -132,10 +141,8 @@ const getStatusClass = (status) => {
                             </p>
                         </div>
 
-                        <button
-                            @click="getData"
-                            class="px-4 py-2 rounded-xl bg-[#1E293B] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#2DD4BF] transition"
-                        >
+                        <button @click="getData"
+                            class="px-4 py-2 rounded-xl bg-[#1E293B] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#2DD4BF] transition">
                             Refresh
                         </button>
                     </div>
@@ -145,52 +152,52 @@ const getStatusClass = (status) => {
                     </div>
 
                     <div v-else class="grid gap-5">
-                        <div
-                            v-for="item in dataList"
-                            :key="item.id"
-                            class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
-                        >
+                        <div v-for="item in dataList" :key="item.id"
+                            class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                             <div class="flex flex-col gap-5 lg:flex-row">
-                                <div class="w-full lg:w-40 flex-shrink-0">
-                                    <img
-                                        :src="item.image_path ? '/storage/' + item.image_path : '/no-image.png'"
-                                        class="h-40 w-full lg:w-40 rounded-2xl border border-slate-200 object-cover"
-                                    />
+                                <div class="w-full lg:w-40 flex-shrink-0 cursor-pointer"
+                                    @click="openImagePreview(item.image_path ? '/storage/' + item.image_path : '/no-image.png')">
+                                    <img :src="item.image_path ? '/storage/' + item.image_path : '/no-image.png'"
+                                        class="h-40 w-full lg:w-40 rounded-2xl border border-slate-200 object-cover hover:opacity-80 transition-opacity" />
                                 </div>
 
                                 <div class="flex-1 space-y-5">
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <span class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
+                                        <span
+                                            class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
                                             ID Scan: #{{ item.id }}
                                         </span>
 
-                                        <span
-                                            class="rounded-full px-3 py-1 text-[10px] font-black uppercase"
-                                            :class="getStatusClass(item.status)"
-                                        >
+                                        <span class="rounded-full px-3 py-1 text-[10px] font-black uppercase"
+                                            :class="getStatusClass(item.status)">
                                             {{ item.status }}
                                         </span>
 
-                                        <span class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
+                                        <span
+                                            class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
                                             {{ formatDate(item.created_at) }}
                                         </span>
                                     </div>
 
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                                         <div class="rounded-2xl bg-slate-50 p-4">
-                                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <div
+                                                class="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                                 User Upload
                                             </div>
                                             <div class="mt-1 text-sm font-black text-[#1E293B]">
                                                 {{ item.user_name || item.user?.name || '-' }}
                                             </div>
                                             <div class="text-xs font-bold text-slate-400">
-                                                {{ item.user_phone || item.user?.phone || item.user_email || item.user?.email || '-' }}
+                                                {{ item.user_phone || item.user?.phone || item.user_email ||
+                                                    item.user?.email ||
+                                                    '-' }}
                                             </div>
                                         </div>
 
                                         <div class="rounded-2xl bg-slate-50 p-4">
-                                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <div
+                                                class="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                                 Cabang
                                             </div>
                                             <div class="mt-1 text-sm font-black text-[#1E293B]">
@@ -202,7 +209,8 @@ const getStatusClass = (status) => {
                                         </div>
 
                                         <div class="rounded-2xl bg-[#2DD4BF]/10 p-4 border border-[#2DD4BF]/20">
-                                            <div class="text-[10px] font-black uppercase tracking-widest text-[#0F766E]">
+                                            <div
+                                                class="text-[10px] font-black uppercase tracking-widest text-[#0F766E]">
                                                 Serial Number
                                             </div>
                                             <div class="mt-1 text-lg font-black text-[#1E293B] uppercase">
@@ -213,7 +221,8 @@ const getStatusClass = (status) => {
 
                                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                         <div class="rounded-2xl border border-slate-200 p-4">
-                                            <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                            <h4
+                                                class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
                                                 Informasi Mesin
                                             </h4>
 
@@ -239,7 +248,8 @@ const getStatusClass = (status) => {
                                                     </span>
                                                 </div>
 
-                                                <div class="flex justify-between rounded-xl bg-[#2DD4BF]/10 p-3 text-sm">
+                                                <div
+                                                    class="flex justify-between rounded-xl bg-[#2DD4BF]/10 p-3 text-sm">
                                                     <span class="font-bold text-[#0F766E]">Serial Number</span>
                                                     <span class="font-black text-[#1E293B] uppercase">
                                                         {{ getSerialNumber(item) }}
@@ -249,7 +259,8 @@ const getStatusClass = (status) => {
                                         </div>
 
                                         <div class="rounded-2xl border border-slate-200 p-4">
-                                            <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                            <h4
+                                                class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
                                                 Summary Counter
                                             </h4>
 
@@ -286,7 +297,8 @@ const getStatusClass = (status) => {
                                     </div>
 
                                     <div class="rounded-2xl border border-slate-200 p-4">
-                                        <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                                        <h4
+                                            class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
                                             Detail Counter
                                         </h4>
 
@@ -321,10 +333,8 @@ const getStatusClass = (status) => {
                                         </div>
                                     </div>
 
-                                    <div
-                                        v-if="item.error_message"
-                                        class="rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-600"
-                                    >
+                                    <div v-if="item.error_message"
+                                        class="rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-600">
                                         {{ item.error_message }}
                                     </div>
                                 </div>
@@ -336,6 +346,20 @@ const getStatusClass = (status) => {
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>|
+
+        <div v-if="showImageModal"
+            class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            @click="showImageModal = false">
+
+            <div class="relative max-w-4xl w-full" @click.stop>
+                <button @click="showImageModal = false"
+                    class="absolute -top-10 right-0 text-white hover:text-slate-300 font-bold">
+                    TUTUP [X]
+                </button>
+
+                <img :src="selectedImageUrl" class="w-full h-auto max-h-[80vh] object-contain rounded-2xl shadow-2xl" />
             </div>
         </div>
     </AuthenticatedLayout>
