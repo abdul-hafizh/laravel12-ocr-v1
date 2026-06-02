@@ -65,6 +65,7 @@ class SummaryController extends Controller
 
         if (!$startDate || !$endDate) {
             $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+
             $startDateCarbon = Carbon::parse($month . '-28')
                 ->subMonthNoOverflow()
                 ->startOfDay();
@@ -72,6 +73,9 @@ class SummaryController extends Controller
             $startDate = $startDateCarbon->toDateString();
             $endDate = $endDateCarbon->toDateString();
         }
+
+        $periodeStart = Carbon::parse($startDate)->startOfDay();
+        $periodeEnd = Carbon::parse($endDate)->endOfDay();
 
         $query = DB::table('dbo.v_image_scan_printers as p')
             ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
@@ -96,8 +100,19 @@ class SummaryController extends Controller
                 'mm.keterangan as master_keterangan',
             ])
             ->whereBetween('p.created_at', [
-                Carbon::parse($startDate)->startOfDay(),
-                Carbon::parse($endDate)->endOfDay(),
+                $periodeStart,
+                $periodeEnd,
+            ])
+            ->whereRaw("
+                p.created_at = (
+                    SELECT MAX(p2.created_at)
+                    FROM dbo.v_image_scan_printers p2
+                    WHERE p2.serial_number = p.serial_number
+                    AND p2.created_at BETWEEN ? AND ?
+                )
+            ", [
+                $periodeStart,
+                $periodeEnd,
             ]);
 
         if ($request->filled('search')) {
@@ -127,83 +142,225 @@ class SummaryController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $billings->getCollection()->transform(function ($item) {
-            $bwA3 = (int) ($item->bw_a3 ?? 0);
-            $bwA4 = (int) ($item->bw_a4 ?? 0);
-            $colorA3 = (int) ($item->color_a3 ?? 0);
-            $colorA4 = (int) ($item->color_a4 ?? 0);
+        $billings->getCollection()->transform(function ($item) use ($periodeStart) {
+            $previousScan = DB::table('dbo.v_image_scan_printers')
+                ->where('serial_number', $item->serial_number)
+                ->where('created_at', '<=', $periodeStart)
+                ->orderByDesc('created_at')
+                ->first();
 
-            $bwLongSheet = (int) ($item->bw_long_sheet ?? 0);
-            $colorLongSheet = (int) ($item->color_long_sheet ?? 0);
+            $getCounter = function ($value) {
+                return (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
+            };
 
-            $hargaBwA3 = (float) ($item->harga_bw_a3 ?? 0);
-            $hargaBwA4 = (float) ($item->harga_bw_a4 ?? 0);
+            $currentBwA3 = $getCounter($item->bw_a3 ?? 0);
+            $currentBwA4 = $getCounter($item->bw_a4 ?? 0);
+            $currentColorA3 = $getCounter($item->color_a3 ?? 0);
+            $currentColorA4 = $getCounter($item->color_a4 ?? 0);
+            $currentBwLongSheet = $getCounter($item->bw_long_sheet ?? 0);
+            $currentColorLongSheet = $getCounter($item->color_long_sheet ?? 0);
+
+            $previousBwA3 = $getCounter($previousScan->bw_a3 ?? 0);
+            $previousBwA4 = $getCounter($previousScan->bw_a4 ?? 0);
+            $previousColorA3 = $getCounter($previousScan->color_a3 ?? 0);
+            $previousColorA4 = $getCounter($previousScan->color_a4 ?? 0);
+            $previousBwLongSheet = $getCounter($previousScan->bw_long_sheet ?? 0);
+            $previousColorLongSheet = $getCounter($previousScan->color_long_sheet ?? 0);
+
+            if (!$previousScan) {
+                $bwA3 = 0;
+                $bwA4 = 0;
+                $colorA3 = 0;
+                $colorA4 = 0;
+                $bwLongSheet = 0;
+                $colorLongSheet = 0;
+            } else {
+                $bwA3 = max(0, $currentBwA3 - $previousBwA3);
+                $bwA4 = max(0, $currentBwA4 - $previousBwA4);
+                $colorA3 = max(0, $currentColorA3 - $previousColorA3);
+                $colorA4 = max(0, $currentColorA4 - $previousColorA4);
+                $bwLongSheet = max(0, $currentBwLongSheet - $previousBwLongSheet);
+                $colorLongSheet = max(0, $currentColorLongSheet - $previousColorLongSheet);
+            }
+
             $hargaColorA3 = (float) ($item->harga_color_a3 ?? 0);
             $hargaColorA4 = (float) ($item->harga_color_a4 ?? 0);
+            $hargaBwA3 = (float) ($item->harga_bw_a3 ?? 0);
+            $hargaBwA4 = (float) ($item->harga_bw_a4 ?? 0);
 
+            $minimumSize = strtoupper((string) ($item->minimum_charge_size ?? ''));
             $minimumClick = (int) ($item->minimum_charge_click ?? 0);
-            $minimumSize = $item->minimum_charge_size ?? null;
             $minimumNominal = (float) ($item->minimum_charge_nominal ?? 0);
             $freePercent = (float) ($item->free_klik_percent ?? 0);
 
-            $biayaBwA3 = $bwA3 * $hargaBwA3;
-            $biayaBwA4 = $bwA4 * $hargaBwA4;
-            $biayaColorA3 = $colorA3 * $hargaColorA3;
-            $biayaColorA4 = $colorA4 * $hargaColorA4;
+            $overColorA3 = (float) ($item->over_click_color_a3 ?? 0);
+            $overColorA4 = (float) ($item->over_click_color_a4 ?? 0);
+            $overBwA3 = (float) ($item->over_click_bw_a3 ?? 0);
+            $overBwA4 = (float) ($item->over_click_bw_a4 ?? 0);
 
-            $biayaBwLongSheet = $bwLongSheet * $hargaBwA3;
-            $biayaColorLongSheet = $colorLongSheet * $hargaColorA3;
+            $rateColorA3 = $overColorA3 > 0 ? $overColorA3 : $hargaColorA3;
+            $rateColorA4 = $overColorA4 > 0 ? $overColorA4 : $hargaColorA4;
+            $rateBwA3 = $overBwA3 > 0 ? $overBwA3 : $hargaBwA3;
+            $rateBwA4 = $overBwA4 > 0 ? $overBwA4 : $hargaBwA4;
 
-            $subtotal = $biayaBwA3
+            $totalA3Click = $bwA3 + $colorA3 + $bwLongSheet + $colorLongSheet;
+            $totalA4Click = $bwA4 + $colorA4;
+
+            $totalPemakaianClick =
+                $bwA3
+                + $bwA4
+                + $colorA3
+                + $colorA4
+                + $bwLongSheet
+                + $colorLongSheet;
+
+            if ($minimumSize === 'A3') {
+                $minimumBasisClick = $totalA3Click;
+            } elseif ($minimumSize === 'A4') {
+                $minimumBasisClick = $totalA4Click;
+            } else {
+                $minimumBasisClick = 0;
+            }
+
+            $hasMinimumRule =
+                in_array($minimumSize, ['A3', 'A4'])
+                && $minimumClick > 0
+                && $minimumNominal > 0;
+
+            $biayaBwA3 = $bwA3 * $rateBwA3;
+            $biayaBwA4 = $bwA4 * $rateBwA4;
+            $biayaColorA3 = $colorA3 * $rateColorA3;
+            $biayaColorA4 = $colorA4 * $rateColorA4;
+            $biayaBwLongSheet = $bwLongSheet * $rateBwA3;
+            $biayaColorLongSheet = $colorLongSheet * $rateColorA3;
+
+            $subtotalBilling =
+                $biayaBwA3
                 + $biayaBwA4
                 + $biayaColorA3
                 + $biayaColorA4
                 + $biayaBwLongSheet
                 + $biayaColorLongSheet;
 
-            if ($minimumSize === 'A3') {
-                $minimumBasisClick = $bwA3 + $colorA3 + $bwLongSheet + $colorLongSheet;
-            } elseif ($minimumSize === 'A4') {
-                $minimumBasisClick = $bwA4 + $colorA4;
-            } else {
-                $minimumBasisClick = $bwA3 + $bwA4 + $colorA3 + $colorA4 + $bwLongSheet + $colorLongSheet;
-            }
+            $subtotalSebelumFree = $subtotalBilling;
 
             $freeKlik = 0;
-            if ($freePercent > 0) {
-                $freeKlik = floor($minimumBasisClick * ($freePercent / 100));
+            $nilaiFreeKlik = 0;
+
+            if ($freePercent > 0 && $totalPemakaianClick > 0 && !$hasMinimumRule) {
+                $freeKlik = floor($totalPemakaianClick * ($freePercent / 100));
+
+                if ($subtotalBilling > 0) {
+                    $nilaiPerKlikRataRata = $subtotalBilling / $totalPemakaianClick;
+                    $nilaiFreeKlik = $freeKlik * $nilaiPerKlikRataRata;
+                }
             }
 
-            $subtotalSetelahFree = $subtotal;
+            $subtotalSetelahFree = max(0, $subtotalBilling - $nilaiFreeKlik);
 
-            if ($freeKlik > 0 && $minimumBasisClick > 0) {
-                $nilaiPerKlikRataRata = $subtotal / $minimumBasisClick;
-                $subtotalSetelahFree = max(0, $subtotal - ($freeKlik * $nilaiPerKlikRataRata));
-            }
-
-            $totalTagihan = $subtotalSetelahFree;
-
-            if ($minimumClick > 0 && $minimumNominal > 0 && $minimumBasisClick < $minimumClick) {
+            if (!$previousScan || $totalPemakaianClick <= 0) {
+                $totalTagihan = 0;
+                $billingRule = 'no_previous_scan';
+            } elseif ($hasMinimumRule && $minimumBasisClick < $minimumClick) {
                 $totalTagihan = $minimumNominal;
+                $billingRule = 'minimum_charge_' . strtolower($minimumSize);
+            } else {
+                $totalTagihan = $subtotalSetelahFree;
+
+                if ($hasMinimumRule && $minimumBasisClick >= $minimumClick) {
+                    $billingRule = 'over_minimum_' . strtolower($minimumSize);
+                } else {
+                    $billingRule = 'standard';
+                }
             }
+
+            $item->counter_detail = [
+                'has_previous_scan' => $previousScan ? true : false,
+                'previous_created_at' => $previousScan->created_at ?? null,
+                'current_created_at' => $item->created_at,
+
+                'current_bw_a3' => $currentBwA3,
+                'previous_bw_a3' => $previousBwA3,
+                'usage_bw_a3' => $bwA3,
+
+                'current_bw_a4' => $currentBwA4,
+                'previous_bw_a4' => $previousBwA4,
+                'usage_bw_a4' => $bwA4,
+
+                'current_color_a3' => $currentColorA3,
+                'previous_color_a3' => $previousColorA3,
+                'usage_color_a3' => $colorA3,
+
+                'current_color_a4' => $currentColorA4,
+                'previous_color_a4' => $previousColorA4,
+                'usage_color_a4' => $colorA4,
+
+                'current_bw_long_sheet' => $currentBwLongSheet,
+                'previous_bw_long_sheet' => $previousBwLongSheet,
+                'usage_bw_long_sheet' => $bwLongSheet,
+
+                'current_color_long_sheet' => $currentColorLongSheet,
+                'previous_color_long_sheet' => $previousColorLongSheet,
+                'usage_color_long_sheet' => $colorLongSheet,
+            ];
 
             $item->billing_detail = [
+                'billing_rule' => $billingRule,
+
+                'total_a3_click' => $totalA3Click,
+                'total_a4_click' => $totalA4Click,
+                'total_pemakaian_click' => $totalPemakaianClick,
+
+                'minimum_charge_size' => $minimumSize,
+                'minimum_charge_click' => $minimumClick,
+                'minimum_charge_nominal' => $minimumNominal,
+                'minimum_basis_click' => $minimumBasisClick,
+                'has_minimum_rule' => $hasMinimumRule,
+
+                'harga_color_a3' => $hargaColorA3,
+                'harga_color_a4' => $hargaColorA4,
+                'harga_bw_a3' => $hargaBwA3,
+                'harga_bw_a4' => $hargaBwA4,
+
+                'over_click_color_a3' => $overColorA3,
+                'over_click_color_a4' => $overColorA4,
+                'over_click_bw_a3' => $overBwA3,
+                'over_click_bw_a4' => $overBwA4,
+
+                'rate_color_a3' => $rateColorA3,
+                'rate_color_a4' => $rateColorA4,
+                'rate_bw_a3' => $rateBwA3,
+                'rate_bw_a4' => $rateBwA4,
+
                 'biaya_bw_a3' => $biayaBwA3,
                 'biaya_bw_a4' => $biayaBwA4,
                 'biaya_color_a3' => $biayaColorA3,
                 'biaya_color_a4' => $biayaColorA4,
                 'biaya_bw_long_sheet' => $biayaBwLongSheet,
                 'biaya_color_long_sheet' => $biayaColorLongSheet,
-                'subtotal' => $subtotal,
-                'minimum_basis_click' => $minimumBasisClick,
-                'minimum_charge_click' => $minimumClick,
-                'minimum_charge_size' => $minimumSize,
-                'minimum_charge_nominal' => $minimumNominal,
-                'free_klik' => $freeKlik,
+
+                'subtotal_sebelum_free' => $subtotalSebelumFree,
                 'subtotal_setelah_free' => $subtotalSetelahFree,
+
+                'free_klik_percent' => $freePercent,
+                'free_klik' => $freeKlik,
+                'nilai_free_klik' => $nilaiFreeKlik,
+
                 'total_tagihan' => $totalTagihan,
             ];
 
+            $item->usage_bw_a3 = $bwA3;
+            $item->usage_bw_a4 = $bwA4;
+            $item->usage_color_a3 = $colorA3;
+            $item->usage_color_a4 = $colorA4;
+            $item->usage_bw_long_sheet = $bwLongSheet;
+            $item->usage_color_long_sheet = $colorLongSheet;
+
+            $item->total_a3_click = $totalA3Click;
+            $item->total_a4_click = $totalA4Click;
+            $item->total_pemakaian_click = $totalPemakaianClick;
+            $item->minimum_basis_click = $minimumBasisClick;
+            $item->billing_rule = $billingRule;
             $item->total_tagihan = $totalTagihan;
 
             return $item;

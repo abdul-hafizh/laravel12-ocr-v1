@@ -50,9 +50,23 @@ const getDashboardData = async () => {
             },
         });
 
-        options.value = res.data.filters;
-        summary.value = res.data.summary;
-        tables.value = res.data.data;
+        options.value = res.data.filters ?? {
+            cabangs: [],
+            user_phones: [],
+        };
+
+        summary.value = res.data.summary ?? {
+            total: 0,
+            electricity: 0,
+            online_receipt: 0,
+            printer: 0,
+        };
+
+        tables.value = res.data.data ?? {
+            electricity: null,
+            online_receipt: null,
+            printer: null,
+        };
     } catch (error) {
         console.error('Gagal mengambil dashboard:', error);
     } finally {
@@ -122,6 +136,53 @@ const formatNumber = (value) => {
     return value;
 };
 
+const getAnalysis = (row) => {
+    return row?.analysis_result ?? {};
+};
+
+const getDataPenting = (row) => {
+    const analysis = getAnalysis(row);
+    return analysis?.data_penting ?? {};
+};
+
+const getImageUrl = (path) => {
+    if (!path) return null;
+
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+        return path;
+    }
+
+    return `/storage/${path}`;
+};
+
+const getStatusClass = (status) => {
+    if (status === 'success') {
+        return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+    }
+
+    if (status === 'failed') {
+        return 'bg-rose-50 text-rose-700 ring-rose-200';
+    }
+
+    if (status === 'processing') {
+        return 'bg-amber-50 text-amber-700 ring-amber-200';
+    }
+
+    return 'bg-slate-50 text-slate-600 ring-slate-200';
+};
+
+const scanTypeLabels = {
+    electricity: 'Token Listrik',
+    online_receipt: 'Struk Online',
+    printer: 'Mesin Cetak',
+};
+
+const scanTypeBadges = {
+    electricity: 'bg-yellow-50 text-yellow-700',
+    online_receipt: 'bg-blue-50 text-blue-700',
+    printer: 'bg-purple-50 text-purple-700',
+};
+
 onMounted(() => {
     getDashboardData();
 });
@@ -143,7 +204,6 @@ onMounted(() => {
         </template>
 
         <div class="space-y-6">
-
             <!-- FILTER -->
             <div class="rounded-3xl border bg-white p-6 shadow-sm">
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-5">
@@ -208,10 +268,10 @@ onMounted(() => {
                             <option value="">Semua Cabang</option>
                             <option
                                 v-for="cabang in options.cabangs"
-                                :key="cabang"
-                                :value="cabang"
+                                :key="cabang.id"
+                                :value="cabang.id"
                             >
-                                {{ cabang }}
+                                {{ cabang.kode_cabang }} - {{ cabang.nama_cabang }}
                             </option>
                         </select>
                     </div>
@@ -238,6 +298,7 @@ onMounted(() => {
 
                 <div class="mt-5 flex gap-3">
                     <button
+                        type="button"
                         @click="applyFilter"
                         class="rounded-xl bg-slate-800 px-5 py-2 text-sm font-bold text-white hover:bg-slate-700"
                     >
@@ -245,6 +306,7 @@ onMounted(() => {
                     </button>
 
                     <button
+                        type="button"
                         @click="resetFilter"
                         class="rounded-xl bg-slate-100 px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200"
                     >
@@ -255,69 +317,143 @@ onMounted(() => {
 
             <!-- SUMMARY -->
             <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <div class="rounded-3xl bg-white p-5 shadow-sm border">
-                    <div class="text-xs font-bold uppercase text-slate-400">Total Upload</div>
-                    <div class="mt-2 text-3xl font-black text-slate-800">{{ summary.total }}</div>
+                <div class="rounded-3xl border bg-white p-5 shadow-sm">
+                    <div class="text-xs font-bold uppercase text-slate-400">
+                        Total Upload
+                    </div>
+                    <div class="mt-2 text-3xl font-black text-slate-800">
+                        {{ formatNumber(summary.total) }}
+                    </div>
                 </div>
 
-                <div class="rounded-3xl bg-white p-5 shadow-sm border">
-                    <div class="text-xs font-bold uppercase text-slate-400">Token Listrik</div>
-                    <div class="mt-2 text-3xl font-black text-green-600">{{ summary.electricity }}</div>
+                <div class="rounded-3xl border bg-white p-5 shadow-sm">
+                    <div class="text-xs font-bold uppercase text-slate-400">
+                        Token Listrik
+                    </div>
+                    <div class="mt-2 text-3xl font-black text-yellow-600">
+                        {{ formatNumber(summary.electricity) }}
+                    </div>
                 </div>
 
-                <div class="rounded-3xl bg-white p-5 shadow-sm border">
-                    <div class="text-xs font-bold uppercase text-slate-400">Struk Online</div>
-                    <div class="mt-2 text-3xl font-black text-blue-600">{{ summary.online_receipt }}</div>
+                <div class="rounded-3xl border bg-white p-5 shadow-sm">
+                    <div class="text-xs font-bold uppercase text-slate-400">
+                        Struk Online
+                    </div>
+                    <div class="mt-2 text-3xl font-black text-blue-600">
+                        {{ formatNumber(summary.online_receipt) }}
+                    </div>
                 </div>
 
-                <div class="rounded-3xl bg-white p-5 shadow-sm border">
-                    <div class="text-xs font-bold uppercase text-slate-400">Mesin Cetak</div>
-                    <div class="mt-2 text-3xl font-black text-purple-600">{{ summary.printer }}</div>
+                <div class="rounded-3xl border bg-white p-5 shadow-sm">
+                    <div class="text-xs font-bold uppercase text-slate-400">
+                        Mesin Cetak
+                    </div>
+                    <div class="mt-2 text-3xl font-black text-purple-600">
+                        {{ formatNumber(summary.printer) }}
+                    </div>
                 </div>
             </div>
 
-            <div v-if="loading" class="rounded-3xl bg-white p-10 text-center text-slate-500 shadow-sm">
+            <div
+                v-if="loading"
+                class="rounded-3xl bg-white p-10 text-center text-slate-500 shadow-sm"
+            >
                 Memuat data dashboard...
             </div>
 
             <template v-else>
-                <!-- TOKEN LISTRIK -->
-                <div class="rounded-3xl border bg-white shadow-sm overflow-hidden">
-                    <div class="border-b p-5">
-                        <h3 class="text-lg font-bold text-slate-800">Token Listrik</h3>
+                <!-- ELECTRICITY -->
+                <div class="rounded-3xl border bg-white p-6 shadow-sm">
+                    <div class="mb-4 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-black text-slate-800">
+                                Token Listrik
+                            </h3>
+                            <p class="text-sm text-slate-400">
+                                Data hasil scan token listrik.
+                            </p>
+                        </div>
+
+                        <span class="rounded-full bg-yellow-50 px-3 py-1 text-xs font-bold text-yellow-700">
+                            {{ formatNumber(tables.electricity?.total ?? 0) }} data
+                        </span>
                     </div>
 
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-slate-50">
+                        <table class="min-w-full text-left text-sm">
+                            <thead class="bg-slate-50 text-xs uppercase text-slate-400">
                                 <tr>
-                                    <th class="px-5 py-3">Tanggal Upload</th>
-                                    <th class="px-5 py-3">User Phone</th>
-                                    <th class="px-5 py-3">Cabang</th>
-                                    <th class="px-5 py-3">kWh</th>
-                                    <th class="px-5 py-3">Barcode</th>
-                                    <th class="px-5 py-3">Nomor Meter</th>
-                                    <th class="px-5 py-3">Lokasi</th>
+                                    <th class="px-4 py-3">Tanggal</th>
+                                    <th class="px-4 py-3">User</th>
+                                    <th class="px-4 py-3">Cabang</th>
+                                    <th class="px-4 py-3">Status</th>
+                                    <th class="px-4 py-3">Tanggal Token</th>
+                                    <th class="px-4 py-3">KWH</th>
+                                    <th class="px-4 py-3">Nomor Meter</th>
+                                    <th class="px-4 py-3">Nomor Token</th>
+                                    <th class="px-4 py-3">Gambar</th>
                                 </tr>
                             </thead>
-
-                            <tbody>
+                            <tbody class="divide-y divide-slate-100">
                                 <tr
-                                    v-for="item in tables.electricity?.data || []"
-                                    :key="item.id"
-                                    class="border-t"
+                                    v-for="row in tables.electricity?.data ?? []"
+                                    :key="row.id"
+                                    class="hover:bg-slate-50"
                                 >
-                                    <td class="px-5 py-3">{{ formatDate(item.created_at) }}</td>
-                                    <td class="px-5 py-3">{{ item.user_phone || '-' }}</td>
-                                    <td class="px-5 py-3">{{ item.nama_cabang || '-' }}</td>
-                                    <td class="px-5 py-3 font-bold text-green-700">{{ item.kwh || '-' }}</td>
-                                    <td class="px-5 py-3">{{ item.barcode || '-' }}</td>
-                                    <td class="px-5 py-3">{{ item.nomor_meter || '-' }}</td>
-                                    <td class="px-5 py-3">{{ item.lokasi || '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        {{ formatDate(row.created_at) }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="font-bold text-slate-700">
+                                            {{ row.user?.name ?? '-' }}
+                                        </div>
+                                        <div class="text-xs text-slate-400">
+                                            {{ row.user?.phone ?? '-' }}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="font-bold text-slate-700">
+                                            {{ row.cabang?.nama_cabang ?? '-' }}
+                                        </div>
+                                        <div class="text-xs text-slate-400">
+                                            {{ row.cabang?.kode_cabang ?? '-' }}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span
+                                            class="rounded-full px-2 py-1 text-xs font-bold ring-1"
+                                            :class="getStatusClass(row.status)"
+                                        >
+                                            {{ row.status }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {{ getDataPenting(row).tanggal ?? '-' }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {{ getDataPenting(row).kwh ?? '-' }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {{ getDataPenting(row).nomor_meter ?? '-' }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {{ getDataPenting(row).nomor_token ?? '-' }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <a
+                                            v-if="getImageUrl(row.image_path)"
+                                            :href="getImageUrl(row.image_path)"
+                                            target="_blank"
+                                            class="font-bold text-blue-600 hover:underline"
+                                        >
+                                            Lihat
+                                        </a>
+                                        <span v-else>-</span>
+                                    </td>
                                 </tr>
 
-                                <tr v-if="(tables.electricity?.data || []).length === 0">
-                                    <td colspan="7" class="px-5 py-8 text-center text-slate-400">
+                                <tr v-if="!tables.electricity?.data?.length">
+                                    <td colspan="9" class="px-4 py-8 text-center text-slate-400">
                                         Tidak ada data token listrik.
                                     </td>
                                 </tr>
@@ -325,113 +461,135 @@ onMounted(() => {
                         </table>
                     </div>
 
-                    <Pagination
-                        :data="tables.electricity"
-                        @change="changePage('electricity', $event)"
-                    />
+                    <div class="mt-4 flex items-center justify-between text-sm text-slate-500">
+                        <div>
+                            Halaman {{ tables.electricity?.current_page ?? 1 }}
+                            dari {{ tables.electricity?.last_page ?? 1 }}
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button
+                                type="button"
+                                :disabled="!tables.electricity?.prev_page_url"
+                                @click="changePage('electricity', (tables.electricity?.current_page ?? 1) - 1)"
+                                class="rounded-lg border px-3 py-1 disabled:opacity-40"
+                            >
+                                Prev
+                            </button>
+
+                            <button
+                                type="button"
+                                :disabled="!tables.electricity?.next_page_url"
+                                @click="changePage('electricity', (tables.electricity?.current_page ?? 1) + 1)"
+                                class="rounded-lg border px-3 py-1 disabled:opacity-40"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- STRUK ONLINE -->
-                <div class="rounded-3xl border bg-white shadow-sm overflow-hidden">
-                    <div class="border-b p-5">
-                        <h3 class="text-lg font-bold text-slate-800">Struk Online</h3>
+                
+                <!-- PRINTER -->
+                <div class="rounded-3xl border bg-white p-6 shadow-sm">
+                    <div class="mb-4 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-black text-slate-800">
+                                Mesin Cetak
+                            </h3>
+                            <p class="text-sm text-slate-400">
+                                Data hasil scan counter mesin cetak.
+                            </p>
+                        </div>
+
+                        <span class="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
+                            {{ formatNumber(tables.printer?.total ?? 0) }} data
+                        </span>
                     </div>
 
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-slate-50">
+                        <table class="min-w-full text-left text-sm">
+                            <thead class="bg-slate-50 text-xs uppercase text-slate-400">
                                 <tr>
-                                    <th class="px-5 py-3">Tanggal Upload</th>
-                                    <th class="px-5 py-3">User Phone</th>
-                                    <th class="px-5 py-3">Cabang</th>
-                                    <th class="px-5 py-3">Nama Toko</th>
-                                    <th class="px-5 py-3">No Pesanan</th>
-                                    <th class="px-5 py-3">Total Bayar</th>
-                                    <th class="px-5 py-3">Metode</th>
-                                    <th class="px-5 py-3">Status</th>
+                                    <th class="px-4 py-3">Tanggal</th>
+                                    <th class="px-4 py-3">User</th>
+                                    <th class="px-4 py-3">Cabang</th>
+                                    <th class="px-4 py-3">Status</th>
+                                    <th class="px-4 py-3">Mesin</th>
+                                    <th class="px-4 py-3">Serial</th>
+                                    <th class="px-4 py-3">BW A3</th>
+                                    <th class="px-4 py-3">BW A4</th>
+                                    <th class="px-4 py-3">Color A3</th>
+                                    <th class="px-4 py-3">Color A4</th>
+                                    <th class="px-4 py-3">Gambar</th>
                                 </tr>
                             </thead>
-
-                            <tbody>
+                            <tbody class="divide-y divide-slate-100">
                                 <tr
-                                    v-for="item in tables.online_receipt?.data || []"
-                                    :key="item.id"
-                                    class="border-t"
+                                    v-for="row in tables.printer?.data ?? []"
+                                    :key="row.id"
+                                    class="hover:bg-slate-50"
                                 >
-                                    <td class="px-5 py-3">{{ formatDate(item.created_at) }}</td>
-                                    <td class="px-5 py-3">{{ item.user_phone || '-' }}</td>
-                                    <td class="px-5 py-3">{{ item.nama_cabang || '-' }}</td>
-                                    <td class="px-5 py-3">{{ item.nama_toko || '-' }}</td>
-                                    <td class="px-5 py-3">{{ item.nomor_pesanan || '-' }}</td>
-                                    <td class="px-5 py-3 font-bold text-blue-700">
-                                        Rp {{ formatNumber(item.total_pembayaran) }}
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        {{ formatDate(row.created_at) }}
                                     </td>
-                                    <td class="px-5 py-3">{{ item.metode_pembayaran || '-' }}</td>
-                                    <td class="px-5 py-3">{{ item.status_pembayaran || '-' }}</td>
-                                </tr>
-
-                                <tr v-if="(tables.online_receipt?.data || []).length === 0">
-                                    <td colspan="8" class="px-5 py-8 text-center text-slate-400">
-                                        Tidak ada data struk online.
+                                    <td class="px-4 py-3">
+                                        <div class="font-bold text-slate-700">
+                                            {{ row.user?.name ?? '-' }}
+                                        </div>
+                                        <div class="text-xs text-slate-400">
+                                            {{ row.user?.phone ?? '-' }}
+                                        </div>
                                     </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <Pagination
-                        :data="tables.online_receipt"
-                        @change="changePage('online_receipt', $event)"
-                    />
-                </div>
-
-                <!-- MESIN CETAK -->
-                <div class="rounded-3xl border bg-white shadow-sm overflow-hidden">
-                    <div class="border-b p-5">
-                        <h3 class="text-lg font-bold text-slate-800">Mesin Cetak</h3>
-                    </div>
-
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-slate-50">
-                                <tr>
-                                    <th class="px-5 py-3">Tanggal Upload</th>
-                                    <th class="px-5 py-3">User Phone</th>
-                                    <th class="px-5 py-3">Cabang</th>
-                                    <th class="px-5 py-3">Tanggal Data</th>
-                                    <th class="px-5 py-3">Nama Mesin</th>
-                                    <th class="px-5 py-3">Lokasi</th>
-                                    <th class="px-5 py-3">BW Large</th>
-                                    <th class="px-5 py-3">BW Small</th>
-                                    <th class="px-5 py-3">Color Large</th>
-                                    <th class="px-5 py-3">Color Small</th>
-                                    <th class="px-5 py-3">Total</th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                <tr
-                                    v-for="item in tables.printer?.data || []"
-                                    :key="item.id"
-                                    class="border-t"
-                                >
-                                    <td class="px-5 py-3">{{ formatDate(item.created_at) }}</td>
-                                    <td class="px-5 py-3">{{ item.user_phone || '-' }}</td>
-                                    <td class="px-5 py-3">{{ item.nama_cabang || '-' }}</td>
-                                    <td class="px-5 py-3">{{ item.tanggal || '-' }}</td>
-                                    <td class="px-5 py-3">{{ item.nama_mesin || '-' }}</td>
-                                    <td class="px-5 py-3">{{ item.lokasi || '-' }}</td>
-                                    <td class="px-5 py-3">{{ formatNumber(item.total_black_white_large) }}</td>
-                                    <td class="px-5 py-3">{{ formatNumber(item.total_black_white_small) }}</td>
-                                    <td class="px-5 py-3">{{ formatNumber(item.total_full_color_large) }}</td>
-                                    <td class="px-5 py-3">{{ formatNumber(item.total_full_color_small) }}</td>
-                                    <td class="px-5 py-3 font-bold text-purple-700">
-                                        {{ formatNumber(item.total_counter) }}
+                                    <td class="px-4 py-3">
+                                        <div class="font-bold text-slate-700">
+                                            {{ row.cabang?.nama_cabang ?? '-' }}
+                                        </div>
+                                        <div class="text-xs text-slate-400">
+                                            {{ row.cabang?.kode_cabang ?? '-' }}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span
+                                            class="rounded-full px-2 py-1 text-xs font-bold ring-1"
+                                            :class="getStatusClass(row.status)"
+                                        >
+                                            {{ row.status }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {{ getDataPenting(row).nama_mesin ?? '-' }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {{ getDataPenting(row).serial_number ?? '-' }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {{ formatNumber(getDataPenting(row).bw_a3) }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {{ formatNumber(getDataPenting(row).bw_a4) }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {{ formatNumber(getDataPenting(row).color_a3) }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {{ formatNumber(getDataPenting(row).color_a4) }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <a
+                                            v-if="getImageUrl(row.image_path)"
+                                            :href="getImageUrl(row.image_path)"
+                                            target="_blank"
+                                            class="font-bold text-blue-600 hover:underline"
+                                        >
+                                            Lihat
+                                        </a>
+                                        <span v-else>-</span>
                                     </td>
                                 </tr>
 
-                                <tr v-if="(tables.printer?.data || []).length === 0">
-                                    <td colspan="11" class="px-5 py-8 text-center text-slate-400">
+                                <tr v-if="!tables.printer?.data?.length">
+                                    <td colspan="11" class="px-4 py-8 text-center text-slate-400">
                                         Tidak ada data mesin cetak.
                                     </td>
                                 </tr>
@@ -439,54 +597,149 @@ onMounted(() => {
                         </table>
                     </div>
 
-                    <Pagination
-                        :data="tables.printer"
-                        @change="changePage('printer', $event)"
-                    />
+                    <div class="mt-4 flex items-center justify-between text-sm text-slate-500">
+                        <div>
+                            Halaman {{ tables.printer?.current_page ?? 1 }}
+                            dari {{ tables.printer?.last_page ?? 1 }}
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button
+                                type="button"
+                                :disabled="!tables.printer?.prev_page_url"
+                                @click="changePage('printer', (tables.printer?.current_page ?? 1) - 1)"
+                                class="rounded-lg border px-3 py-1 disabled:opacity-40"
+                            >
+                                Prev
+                            </button>
+
+                            <button
+                                type="button"
+                                :disabled="!tables.printer?.next_page_url"
+                                @click="changePage('printer', (tables.printer?.current_page ?? 1) + 1)"
+                                class="rounded-lg border px-3 py-1 disabled:opacity-40"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ONLINE RECEIPT -->
+                <div class="rounded-3xl border bg-white p-6 shadow-sm">
+                    <div class="mb-4 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-black text-slate-800">
+                                Struk Online
+                            </h3>
+                            <p class="text-sm text-slate-400">
+                                Data hasil scan struk online.
+                            </p>
+                        </div>
+
+                        <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                            {{ formatNumber(tables.online_receipt?.total ?? 0) }} data
+                        </span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-left text-sm">
+                            <thead class="bg-slate-50 text-xs uppercase text-slate-400">
+                                <tr>
+                                    <th class="px-4 py-3">Tanggal</th>
+                                    <th class="px-4 py-3">User</th>
+                                    <th class="px-4 py-3">Cabang</th>
+                                    <th class="px-4 py-3">Status</th>
+                                    <th class="px-4 py-3">Total</th>
+                                    <th class="px-4 py-3">Gambar</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr
+                                    v-for="row in tables.online_receipt?.data ?? []"
+                                    :key="row.id"
+                                    class="hover:bg-slate-50"
+                                >
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        {{ formatDate(row.created_at) }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="font-bold text-slate-700">
+                                            {{ row.user?.name ?? '-' }}
+                                        </div>
+                                        <div class="text-xs text-slate-400">
+                                            {{ row.user?.phone ?? '-' }}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="font-bold text-slate-700">
+                                            {{ row.cabang?.nama_cabang ?? '-' }}
+                                        </div>
+                                        <div class="text-xs text-slate-400">
+                                            {{ row.cabang?.kode_cabang ?? '-' }}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span
+                                            class="rounded-full px-2 py-1 text-xs font-bold ring-1"
+                                            :class="getStatusClass(row.status)"
+                                        >
+                                            {{ row.status }}
+                                        </span>
+                                    </td>                                    
+                                    <td class="px-4 py-3 font-bold text-slate-700">
+                                        Rp {{ formatNumber(getDataPenting(row).total_pembayaran) }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <a
+                                            v-if="getImageUrl(row.image_path)"
+                                            :href="getImageUrl(row.image_path)"
+                                            target="_blank"
+                                            class="font-bold text-blue-600 hover:underline"
+                                        >
+                                            Lihat
+                                        </a>
+                                        <span v-else>-</span>
+                                    </td>
+                                </tr>
+
+                                <tr v-if="!tables.online_receipt?.data?.length">
+                                    <td colspan="9" class="px-4 py-8 text-center text-slate-400">
+                                        Tidak ada data struk online.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-4 flex items-center justify-between text-sm text-slate-500">
+                        <div>
+                            Halaman {{ tables.online_receipt?.current_page ?? 1 }}
+                            dari {{ tables.online_receipt?.last_page ?? 1 }}
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button
+                                type="button"
+                                :disabled="!tables.online_receipt?.prev_page_url"
+                                @click="changePage('online_receipt', (tables.online_receipt?.current_page ?? 1) - 1)"
+                                class="rounded-lg border px-3 py-1 disabled:opacity-40"
+                            >
+                                Prev
+                            </button>
+
+                            <button
+                                type="button"
+                                :disabled="!tables.online_receipt?.next_page_url"
+                                @click="changePage('online_receipt', (tables.online_receipt?.current_page ?? 1) + 1)"
+                                class="rounded-lg border px-3 py-1 disabled:opacity-40"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </template>
         </div>
     </AuthenticatedLayout>
 </template>
-
-<script>
-export default {
-    components: {
-        Pagination: {
-            props: {
-                data: {
-                    type: Object,
-                    default: null,
-                },
-            },
-            emits: ['change'],
-            template: `
-                <div v-if="data" class="flex items-center justify-between border-t px-5 py-4">
-                    <div class="text-sm text-slate-500">
-                        Halaman {{ data.current_page }} dari {{ data.last_page }}
-                        | Total {{ data.total }} data
-                    </div>
-
-                    <div class="flex gap-2">
-                        <button
-                            :disabled="data.current_page <= 1"
-                            @click="$emit('change', data.current_page - 1)"
-                            class="rounded-lg border px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                            Prev
-                        </button>
-
-                        <button
-                            :disabled="data.current_page >= data.last_page"
-                            @click="$emit('change', data.current_page + 1)"
-                            class="rounded-lg border px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                            Next
-                        </button>
-                    </div>
-                </div>
-            `,
-        },
-    },
-};
-</script>
