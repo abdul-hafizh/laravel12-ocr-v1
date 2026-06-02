@@ -17,6 +17,7 @@ use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\DashboardScanController;
 use App\Http\Controllers\SummaryController;
 use App\Http\Controllers\PrinterBillingController;
+use App\Http\Controllers\EmployeeMeasurementController;
 
 Route::get('/', function () { return redirect()->route('login'); });
 
@@ -49,6 +50,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/summary/electricity/send-wa', [SummaryController::class, 'sendElectricityWa'])->middleware(['auth', 'verified'])->name('summary.electricity.send-wa');
     Route::get('/summary/printer-billing', [SummaryController::class, 'printerBilling'])->middleware(['auth', 'verified'])->name('summary.printer-billing');
     Route::post('/summary/printer-billing/send-wa', [SummaryController::class, 'sendPrinterBillingWa'])->middleware(['auth', 'verified'])->name('summary.printer-billing.send-wa');
+
+    Route::get('/employee-measurements', [EmployeeMeasurementController::class, 'index'] )->name('employee-measurements.index');
+    Route::delete('/employee-measurements/{employeeMeasurement}', [EmployeeMeasurementController::class, 'destroy'])->name('employee-measurements.destroy');
 });
 
 require __DIR__.'/auth.php';
