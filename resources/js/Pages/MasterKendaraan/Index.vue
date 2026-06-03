@@ -67,8 +67,10 @@ const form = useForm({
     tahun_pembelian: '',
     nama_pemilik: '',
     tanggal_jatuh_tempo: '',
+    tanggal_ganti_kaleng: '',
     finance_user_ids: [],
     reminder_hari: [7, 14],
+    reminder_ganti_kaleng_hari: [90, 60, 30],
     keterangan: '',
     is_active: true,
 });
@@ -79,8 +81,11 @@ const openCreate = () => {
     form.reset();
     form.clearErrors();
     showModal.value = true;
+
     form.finance_user_ids = [];
     form.reminder_hari = [7, 14];
+    form.reminder_ganti_kaleng_hari = [90, 60, 30];
+    form.tanggal_ganti_kaleng = '';
     form.keterangan = '';
     form.is_active = true;
 };
@@ -94,9 +99,15 @@ const openEdit = (item) => {
     form.nomor_polisi = item.nomor_polisi || '';
     form.merk = item.merk || '';
     form.tipe = item.tipe || '';
+    form.tanggal_jatuh_tempo = item.tanggal_jatuh_tempo || '';
+    form.tanggal_ganti_kaleng = item.tanggal_ganti_kaleng || '';
+    form.reminder_ganti_kaleng_hari = Array.isArray(item.reminder_ganti_kaleng_hari)
+    ? item.reminder_ganti_kaleng_hari
+    : item.reminder_ganti_kaleng_hari
+        ? [Number(item.reminder_ganti_kaleng_hari)]
+        : [90, 60, 30];
     form.tahun_pembelian = item.tahun_pembelian || '';
     form.nama_pemilik = item.nama_pemilik || '';
-    form.tanggal_jatuh_tempo = item.tanggal_jatuh_tempo || '';
     form.keterangan = item.keterangan || '';
     form.reminder_hari = Array.isArray(item.reminder_hari)
         ? item.reminder_hari
@@ -220,6 +231,9 @@ const executeDelete = () => {
                                     Jatuh Tempo</th>
                                 <th
                                     class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+                                    Ganti Kaleng</th>
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
                                     Status</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     Finance</th>
@@ -273,6 +287,19 @@ const executeDelete = () => {
                                         </div>
                                     </td>
 
+                                    <td class="px-6 py-4 text-center">
+                                        <div class="text-[11px] font-black text-[#1E293B]">
+                                            {{ formatDate(item.tanggal_ganti_kaleng) }}
+                                        </div>
+                                        <div class="text-[8px] font-black text-orange-500 uppercase tracking-tighter">
+                                            H-{{
+                                                Array.isArray(item.reminder_ganti_kaleng_hari)
+                                                    ? item.reminder_ganti_kaleng_hari.join(', H-')
+                                                    : item.reminder_ganti_kaleng_hari
+                                            }} Alert
+                                        </div>
+                                    </td>
+
                                     <!-- Kolom Status -->
                                     <td class="px-6 py-4 text-center">
                                         <span
@@ -315,7 +342,7 @@ const executeDelete = () => {
                             </template>
                             <!-- No Data Found Section -->
                             <tr v-else>
-                                <td colspan="9" class="px-6 py-20 text-center">
+                                <td colspan="10" class="px-6 py-20 text-center">
                                     <div class="flex flex-col items-center justify-center">
                                         <div
                                             class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 border border-slate-100">
@@ -550,6 +577,66 @@ const executeDelete = () => {
                                 placeholder="Masukkan keterangan kendaraan..."
                                 class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"
                             ></textarea>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Tanggal Ganti Kaleng
+                            </label>
+
+                            <input
+                                v-model="form.tanggal_ganti_kaleng"
+                                type="date"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
+                            />
+
+                            <div v-if="form.errors.tanggal_ganti_kaleng" class="text-[10px] font-bold text-rose-500">
+                                {{ form.errors.tanggal_ganti_kaleng }}
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Reminder Ganti Kaleng
+                            </label>
+
+                            <div class="flex flex-wrap gap-3 bg-slate-50 rounded-2xl p-4">
+                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        :value="30"
+                                        v-model="form.reminder_ganti_kaleng_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
+                                    />
+                                    H-30 Hari
+                                </label>
+
+                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        :value="60"
+                                        v-model="form.reminder_ganti_kaleng_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
+                                    />
+                                    H-60 Hari
+                                </label>
+
+                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        :value="90"
+                                        v-model="form.reminder_ganti_kaleng_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
+                                    />
+                                    H-90 Hari
+                                </label>
+                            </div>
+
+                            <div v-if="form.errors.reminder_ganti_kaleng_hari" class="text-[10px] font-bold text-rose-500">
+                                {{ form.errors.reminder_ganti_kaleng_hari }}
+                            </div>
                         </div>
                     </div>
 
