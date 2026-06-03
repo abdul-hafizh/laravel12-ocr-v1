@@ -595,8 +595,9 @@ watch(() => route().current(), () => {
                                     <p class="text-[13px] font-bold text-[#1E293B] leading-none">
                                         {{ $page.props.auth.user.name }}
                                     </p>
-                                    <p class="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter italic">
-                                        {{ $page.props.auth.user.role?.name || 'User' }}
+
+                                    <p class="text-[10px] text-[#2DD4BF] font-black mt-1 uppercase tracking-widest">
+                                        {{ $page.props.auth.user.role?.name || 'USER' }}
                                     </p>
                                 </div>
                             </button>
