@@ -450,7 +450,7 @@ class SummaryController extends Controller
             ->get();
 
         if ($financeUsers->isEmpty()) {
-            return back()->with('error', 'Tidak ada user finance yang memiliki nomor WhatsApp.');
+            return back()->with('message', ['text' => 'Tidak ada user finance yang memiliki nomor WhatsApp.', 'type' => 'error']);
         }
 
         foreach ($financeUsers as $user) {
@@ -461,7 +461,7 @@ class SummaryController extends Controller
             );
         }
 
-        return back()->with('success', 'File Excel summary berhasil dikirim ke semua finance.');
+        return back()->with('message', ['text' => 'File Excel summary berhasil dikirim ke semua finance.', 'type' => 'success']);
     }
 
     private function getElectricitySummaryData($startDate, $endDate, $search = null, $cabangId = null): array

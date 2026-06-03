@@ -22,7 +22,6 @@ const updatePassword = () => {
         onSuccess: () => {
             form.reset();
             showSuccessAlert.value = true;
-            // Menghilangkan alert setelah 5 detik
             setTimeout(() => (showSuccessAlert.value = false), 5000);
         },
         onError: () => {

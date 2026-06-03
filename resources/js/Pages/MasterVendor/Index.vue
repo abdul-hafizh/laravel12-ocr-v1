@@ -363,7 +363,7 @@ const executeDelete = () => {
         <!-- Modal TeamHub: Register/Modify Vendor -->
         <div v-if="showModal"
             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-            <div class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-xl p-8 shadow-2xl relative">
+            <div class=" max-h-[90vh] bg-white rounded-[2rem] border border-slate-200 w-full max-w-xl p-8 shadow-2xl relative overflow-y-auto">
                 <div class="flex justify-between items-center mb-8 border-b border-slate-100 pb-4">
                     <h3 class="text-xl font-black text-[#1E293B] uppercase italic tracking-tighter">
                         {{ isEdit ? 'Modify' : 'Register' }} <span class="text-[#2DD4BF]">Vendor</span>

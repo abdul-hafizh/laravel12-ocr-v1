@@ -38,6 +38,14 @@ const currentPages = ref({
     printer_page: 1,
 });
 
+const showImageModal = ref(false);
+const selectedImageUrl = ref('');
+
+const openImagePreview = (url) => {
+    selectedImageUrl.value = url;
+    showImageModal.value = true;
+};
+
 const getDashboardData = async () => {
     loading.value = true;
 
@@ -189,6 +197,7 @@ onMounted(() => {
 </script>
 
 <template>
+
     <Head title="Dashboard" />
 
     <AuthenticatedLayout>
@@ -211,24 +220,15 @@ onMounted(() => {
                         <label class="mb-1 block text-xs font-bold uppercase text-slate-400">
                             Tanggal
                         </label>
-                        <input
-                            v-model="filters.tanggal"
-                            type="number"
-                            min="1"
-                            max="31"
-                            placeholder="Contoh: 15"
-                            class="w-full rounded-xl border-slate-200 text-sm"
-                        />
+                        <input v-model="filters.tanggal" type="number" min="1" max="31" placeholder="Contoh: 15"
+                            class="w-full rounded-xl border-slate-200 text-sm" />
                     </div>
 
                     <div>
                         <label class="mb-1 block text-xs font-bold uppercase text-slate-400">
                             Bulan
                         </label>
-                        <select
-                            v-model="filters.bulan"
-                            class="w-full rounded-xl border-slate-200 text-sm"
-                        >
+                        <select v-model="filters.bulan" class="w-full rounded-xl border-slate-200 text-sm">
                             <option value="">Semua Bulan</option>
                             <option value="1">Januari</option>
                             <option value="2">Februari</option>
@@ -249,28 +249,17 @@ onMounted(() => {
                         <label class="mb-1 block text-xs font-bold uppercase text-slate-400">
                             Tahun
                         </label>
-                        <input
-                            v-model="filters.tahun"
-                            type="number"
-                            placeholder="Contoh: 2026"
-                            class="w-full rounded-xl border-slate-200 text-sm"
-                        />
+                        <input v-model="filters.tahun" type="number" placeholder="Contoh: 2026"
+                            class="w-full rounded-xl border-slate-200 text-sm" />
                     </div>
 
                     <div>
                         <label class="mb-1 block text-xs font-bold uppercase text-slate-400">
                             Cabang
                         </label>
-                        <select
-                            v-model="filters.cabang"
-                            class="w-full rounded-xl border-slate-200 text-sm"
-                        >
+                        <select v-model="filters.cabang" class="w-full rounded-xl border-slate-200 text-sm">
                             <option value="">Semua Cabang</option>
-                            <option
-                                v-for="cabang in options.cabangs"
-                                :key="cabang.id"
-                                :value="cabang.id"
-                            >
+                            <option v-for="cabang in options.cabangs" :key="cabang.id" :value="cabang.id">
                                 {{ cabang.kode_cabang }} - {{ cabang.nama_cabang }}
                             </option>
                         </select>
@@ -280,16 +269,9 @@ onMounted(() => {
                         <label class="mb-1 block text-xs font-bold uppercase text-slate-400">
                             User Phone
                         </label>
-                        <select
-                            v-model="filters.user_phone"
-                            class="w-full rounded-xl border-slate-200 text-sm"
-                        >
+                        <select v-model="filters.user_phone" class="w-full rounded-xl border-slate-200 text-sm">
                             <option value="">Semua User</option>
-                            <option
-                                v-for="phone in options.user_phones"
-                                :key="phone"
-                                :value="phone"
-                            >
+                            <option v-for="phone in options.user_phones" :key="phone" :value="phone">
                                 {{ phone }}
                             </option>
                         </select>
@@ -297,19 +279,13 @@ onMounted(() => {
                 </div>
 
                 <div class="mt-5 flex gap-3">
-                    <button
-                        type="button"
-                        @click="applyFilter"
-                        class="rounded-xl bg-slate-800 px-5 py-2 text-sm font-bold text-white hover:bg-slate-700"
-                    >
+                    <button type="button" @click="applyFilter"
+                        class="rounded-xl bg-slate-800 px-5 py-2 text-sm font-bold text-white hover:bg-slate-700">
                         Filter
                     </button>
 
-                    <button
-                        type="button"
-                        @click="resetFilter"
-                        class="rounded-xl bg-slate-100 px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200"
-                    >
+                    <button type="button" @click="resetFilter"
+                        class="rounded-xl bg-slate-100 px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200">
                         Reset
                     </button>
                 </div>
@@ -354,10 +330,7 @@ onMounted(() => {
                 </div>
             </div>
 
-            <div
-                v-if="loading"
-                class="rounded-3xl bg-white p-10 text-center text-slate-500 shadow-sm"
-            >
+            <div v-if="loading" class="rounded-3xl bg-white p-10 text-center text-slate-500 shadow-sm">
                 Memuat data dashboard...
             </div>
 
@@ -395,11 +368,8 @@ onMounted(() => {
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
-                                <tr
-                                    v-for="row in tables.electricity?.data ?? []"
-                                    :key="row.id"
-                                    class="hover:bg-slate-50"
-                                >
+                                <tr v-for="row in tables.electricity?.data ?? []" :key="row.id"
+                                    class="hover:bg-slate-50">
                                     <td class="px-4 py-3 whitespace-nowrap">
                                         {{ formatDate(row.created_at) }}
                                     </td>
@@ -420,10 +390,8 @@ onMounted(() => {
                                         </div>
                                     </td>
                                     <td class="px-4 py-3">
-                                        <span
-                                            class="rounded-full px-2 py-1 text-xs font-bold ring-1"
-                                            :class="getStatusClass(row.status)"
-                                        >
+                                        <span class="rounded-full px-2 py-1 text-xs font-bold ring-1"
+                                            :class="getStatusClass(row.status)">
                                             {{ row.status }}
                                         </span>
                                     </td>
@@ -440,14 +408,11 @@ onMounted(() => {
                                         {{ getDataPenting(row).nomor_token ?? '-' }}
                                     </td>
                                     <td class="px-4 py-3">
-                                        <a
-                                            v-if="getImageUrl(row.image_path)"
-                                            :href="getImageUrl(row.image_path)"
-                                            target="_blank"
-                                            class="font-bold text-blue-600 hover:underline"
-                                        >
+                                        <button v-if="getImageUrl(row.image_path)"
+                                            @click="openImagePreview(getImageUrl(row.image_path))"
+                                            class="font-bold text-blue-600 hover:underline">
                                             Lihat
-                                        </a>
+                                        </button>
                                         <span v-else>-</span>
                                     </td>
                                 </tr>
@@ -468,28 +433,22 @@ onMounted(() => {
                         </div>
 
                         <div class="flex gap-2">
-                            <button
-                                type="button"
-                                :disabled="!tables.electricity?.prev_page_url"
+                            <button type="button" :disabled="!tables.electricity?.prev_page_url"
                                 @click="changePage('electricity', (tables.electricity?.current_page ?? 1) - 1)"
-                                class="rounded-lg border px-3 py-1 disabled:opacity-40"
-                            >
+                                class="rounded-lg border px-3 py-1 disabled:opacity-40">
                                 Prev
                             </button>
 
-                            <button
-                                type="button"
-                                :disabled="!tables.electricity?.next_page_url"
+                            <button type="button" :disabled="!tables.electricity?.next_page_url"
                                 @click="changePage('electricity', (tables.electricity?.current_page ?? 1) + 1)"
-                                class="rounded-lg border px-3 py-1 disabled:opacity-40"
-                            >
+                                class="rounded-lg border px-3 py-1 disabled:opacity-40">
                                 Next
                             </button>
                         </div>
                     </div>
                 </div>
 
-                
+
                 <!-- PRINTER -->
                 <div class="rounded-3xl border bg-white p-6 shadow-sm">
                     <div class="mb-4 flex items-center justify-between">
@@ -525,11 +484,7 @@ onMounted(() => {
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
-                                <tr
-                                    v-for="row in tables.printer?.data ?? []"
-                                    :key="row.id"
-                                    class="hover:bg-slate-50"
-                                >
+                                <tr v-for="row in tables.printer?.data ?? []" :key="row.id" class="hover:bg-slate-50">
                                     <td class="px-4 py-3 whitespace-nowrap">
                                         {{ formatDate(row.created_at) }}
                                     </td>
@@ -550,10 +505,8 @@ onMounted(() => {
                                         </div>
                                     </td>
                                     <td class="px-4 py-3">
-                                        <span
-                                            class="rounded-full px-2 py-1 text-xs font-bold ring-1"
-                                            :class="getStatusClass(row.status)"
-                                        >
+                                        <span class="rounded-full px-2 py-1 text-xs font-bold ring-1"
+                                            :class="getStatusClass(row.status)">
                                             {{ row.status }}
                                         </span>
                                     </td>
@@ -576,14 +529,11 @@ onMounted(() => {
                                         {{ formatNumber(getDataPenting(row).color_a4) }}
                                     </td>
                                     <td class="px-4 py-3">
-                                        <a
-                                            v-if="getImageUrl(row.image_path)"
-                                            :href="getImageUrl(row.image_path)"
-                                            target="_blank"
-                                            class="font-bold text-blue-600 hover:underline"
-                                        >
+                                        <button v-if="getImageUrl(row.image_path)"
+                                            @click="openImagePreview(getImageUrl(row.image_path))"
+                                            class="font-bold text-blue-600 hover:underline">
                                             Lihat
-                                        </a>
+                                        </button>
                                         <span v-else>-</span>
                                     </td>
                                 </tr>
@@ -604,21 +554,15 @@ onMounted(() => {
                         </div>
 
                         <div class="flex gap-2">
-                            <button
-                                type="button"
-                                :disabled="!tables.printer?.prev_page_url"
+                            <button type="button" :disabled="!tables.printer?.prev_page_url"
                                 @click="changePage('printer', (tables.printer?.current_page ?? 1) - 1)"
-                                class="rounded-lg border px-3 py-1 disabled:opacity-40"
-                            >
+                                class="rounded-lg border px-3 py-1 disabled:opacity-40">
                                 Prev
                             </button>
 
-                            <button
-                                type="button"
-                                :disabled="!tables.printer?.next_page_url"
+                            <button type="button" :disabled="!tables.printer?.next_page_url"
                                 @click="changePage('printer', (tables.printer?.current_page ?? 1) + 1)"
-                                class="rounded-lg border px-3 py-1 disabled:opacity-40"
-                            >
+                                class="rounded-lg border px-3 py-1 disabled:opacity-40">
                                 Next
                             </button>
                         </div>
@@ -655,11 +599,8 @@ onMounted(() => {
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
-                                <tr
-                                    v-for="row in tables.online_receipt?.data ?? []"
-                                    :key="row.id"
-                                    class="hover:bg-slate-50"
-                                >
+                                <tr v-for="row in tables.online_receipt?.data ?? []" :key="row.id"
+                                    class="hover:bg-slate-50">
                                     <td class="px-4 py-3 whitespace-nowrap">
                                         {{ formatDate(row.created_at) }}
                                     </td>
@@ -680,25 +621,20 @@ onMounted(() => {
                                         </div>
                                     </td>
                                     <td class="px-4 py-3">
-                                        <span
-                                            class="rounded-full px-2 py-1 text-xs font-bold ring-1"
-                                            :class="getStatusClass(row.status)"
-                                        >
+                                        <span class="rounded-full px-2 py-1 text-xs font-bold ring-1"
+                                            :class="getStatusClass(row.status)">
                                             {{ row.status }}
                                         </span>
-                                    </td>                                    
+                                    </td>
                                     <td class="px-4 py-3 font-bold text-slate-700">
                                         Rp {{ formatNumber(getDataPenting(row).total_pembayaran) }}
                                     </td>
                                     <td class="px-4 py-3">
-                                        <a
-                                            v-if="getImageUrl(row.image_path)"
-                                            :href="getImageUrl(row.image_path)"
-                                            target="_blank"
-                                            class="font-bold text-blue-600 hover:underline"
-                                        >
+                                        <button v-if="getImageUrl(row.image_path)"
+                                            @click="openImagePreview(getImageUrl(row.image_path))"
+                                            class="font-bold text-blue-600 hover:underline">
                                             Lihat
-                                        </a>
+                                        </button>
                                         <span v-else>-</span>
                                     </td>
                                 </tr>
@@ -719,27 +655,38 @@ onMounted(() => {
                         </div>
 
                         <div class="flex gap-2">
-                            <button
-                                type="button"
-                                :disabled="!tables.online_receipt?.prev_page_url"
+                            <button type="button" :disabled="!tables.online_receipt?.prev_page_url"
                                 @click="changePage('online_receipt', (tables.online_receipt?.current_page ?? 1) - 1)"
-                                class="rounded-lg border px-3 py-1 disabled:opacity-40"
-                            >
+                                class="rounded-lg border px-3 py-1 disabled:opacity-40">
                                 Prev
                             </button>
 
-                            <button
-                                type="button"
-                                :disabled="!tables.online_receipt?.next_page_url"
+                            <button type="button" :disabled="!tables.online_receipt?.next_page_url"
                                 @click="changePage('online_receipt', (tables.online_receipt?.current_page ?? 1) + 1)"
-                                class="rounded-lg border px-3 py-1 disabled:opacity-40"
-                            >
+                                class="rounded-lg border px-3 py-1 disabled:opacity-40">
                                 Next
                             </button>
                         </div>
                     </div>
                 </div>
             </template>
+        </div>
+
+        <div v-if="showImageModal"
+            class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-md"
+            @click="showImageModal = false">
+
+            <div class="relative w-full h-full overflow-auto flex items-start justify-center p-10" @click.stop>
+
+                <button @click="showImageModal = false"
+                    class="fixed top-6 right-6 text-white bg-white/10 hover:bg-white/20 p-3 rounded-full backdrop-blur-md font-black uppercase text-xs">
+                    Tutup [ESC]
+                </button>
+
+                <img :src="selectedImageUrl"
+                    class="w-full max-w-2xl h-auto object-contain cursor-zoom-in hover:scale-[2] transition-transform duration-300 origin-top"
+                    @click="toggleZoom" />
+            </div>
         </div>
     </AuthenticatedLayout>
 </template>

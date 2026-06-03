@@ -73,7 +73,7 @@ class UserManagementController extends Controller
             'is_delete' => false,
         ]);
 
-        return back()->with('success', 'User berhasil ditambahkan.');
+        return back()->with('message', ['text' => 'Master User berhasil ditambahkan!', 'type' => 'success']);
     }
 
     public function update(Request $request, User $user)
@@ -118,7 +118,7 @@ class UserManagementController extends Controller
 
         $user->update($data);
 
-        return back()->with('success', 'User berhasil diperbarui.');
+        return back()->with('message', ['text' => 'Master User berhasil diperbarui!', 'type' => 'success']);
     }
 
     public function destroy(User $user)
@@ -128,6 +128,6 @@ class UserManagementController extends Controller
             'is_active' => false,
         ]);
 
-        return back()->with('success', 'User berhasil dihapus.');
+        return back()->with('message', ['text' => 'Master User berhasil dihapus!', 'type' => 'success']);
     }
 }

@@ -65,7 +65,7 @@ class MasterHargaBiayaController extends Controller
 
         MasterHargaBiaya::create($validated);
 
-        return back()->with('success', 'Master harga/biaya berhasil ditambahkan.');
+        return back()->with('message', ['text' => 'Master Harga/Biaya berhasil ditambahkan!', 'type' => 'success']);
     }
 
     public function update(Request $request, MasterHargaBiaya $masterHargaBiaya)
@@ -87,13 +87,13 @@ class MasterHargaBiayaController extends Controller
 
         $masterHargaBiaya->update($validated);
 
-        return back()->with('success', 'Master harga/biaya berhasil diperbarui.');
+        return back()->with('message', ['text' => 'Master Harga/Biaya berhasil diperbarui!', 'type' => 'success']);
     }
 
     public function destroy(MasterHargaBiaya $masterHargaBiaya)
     {
         $masterHargaBiaya->delete();
 
-        return back()->with('success', 'Master harga/biaya berhasil dihapus.');
+        return back()->with('message', ['text' => 'Master Harga/Biaya berhasil dihapus!', 'type' => 'success']);
     }
 }
