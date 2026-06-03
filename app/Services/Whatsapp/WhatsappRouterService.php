@@ -66,7 +66,7 @@ class WhatsappRouterService
         if (in_array($cmd, ['RESET', 'ULANG', 'CANCEL', 'BATAL'], true)) {
             DB::table('dbo.wa_sessions')->where('phone', $phone)->delete();
 
-            SendSms::sendMessageWA($phone, $this->menuText());
+            SendSms::sendMessageWA($phone, $this->menuText($user->role_id));
             return;
         }
 
@@ -92,7 +92,16 @@ class WhatsappRouterService
             $menu = $this->detectMenu($message);
 
             if (!$menu) {
-                SendSms::sendMessageWA($phone, $this->menuText());
+                SendSms::sendMessageWA($phone, $this->menuText($user->role_id));
+                return;
+            }
+
+            if (!$this->userCanAccessMenu($user->role_id, $menu)) {
+                SendSms::sendMessageWA(
+                    $phone,
+                    "Maaf, Anda tidak memiliki akses ke menu tersebut.\n\n" .
+                    $this->menuText($user->role_id)
+                );
                 return;
             }
 
@@ -136,23 +145,57 @@ class WhatsappRouterService
             'BIAYA_PART',
             'BIAYA_UMUM' => app(ImageWhatsappService::class)->handle($phone, $message, $session, $data),
 
-            default => SendSms::sendMessageWA($phone, $this->menuText()),
+            default => SendSms::sendMessageWA($phone, $this->menuText($user->role_id)),
         };
     }
 
-    private function menuText(): string
+    private function userCanAccessMenu(?int $roleId, string $menuKey): bool
     {
+        if (!$roleId) {
+            return false;
+        }
+
+        return DB::table('dbo.role_whatsapp_menus')
+            ->where('role_id', $roleId)
+            ->where('menu_key', $menuKey)
+            ->where('is_active', 1)
+            ->exists();
+    }
+
+    private function menuText(?int $roleId = null): string
+    {
+        $menus = [
+            'BMI' => '*1* BMI',
+            'BIAYA_UMUM' => '*2* Biaya Umum',
+            'BIAYA_TOKEN_LISTRIK' => '*3* Biaya Token Listrik',
+            'BIAYA_KLIK_METER' => '*4* Biaya Klik Meter',
+            'BIAYA_PART' => '*5* Biaya Part',
+            'MAINTENANCE_MESIN' => '*6* Maintenance Mesin',
+        ];
+
+        if ($roleId) {
+            $allowedMenus = DB::table('dbo.role_whatsapp_menus')
+                ->where('role_id', $roleId)
+                ->where('is_active', 1)
+                ->pluck('menu_key')
+                ->toArray();
+
+            $menus = array_filter(
+                $menus,
+                fn ($label, $key) => in_array($key, $allowedMenus, true),
+                ARRAY_FILTER_USE_BOTH
+            );
+        }
+
+        if (empty($menus)) {
+            return "Halo 👋\n\nAnda belum memiliki akses menu WhatsApp.\nSilakan hubungi admin.";
+        }
+
         return
             "Halo 👋\n".
             "Silakan pilih menu:\n\n".
-            "*1* BMI\n".
-            "*2* Biaya Umum\n".
-            "*3* Biaya Token Listrik\n".
-            "*4* Biaya Klik Meter\n".
-            "*5* Biaya Part\n".
-            "*6* Maintenance Mesin\n\n".
-            "Ketik angka menu.\n".
-            "Contoh: *1*";
+            implode("\n", $menus) . "\n\n".
+            "Ketik angka menu.\n";
     }
 
     private function detectMenu(string $message): ?string

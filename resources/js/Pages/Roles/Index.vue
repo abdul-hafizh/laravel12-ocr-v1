@@ -1,11 +1,28 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm, Link } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 
 const props = defineProps({
     roles: Object,
     filters: Object,
+    whatsappMenus: {
+        type: Array,
+        default: () => [],
+    },
+});
+
+const defaultWhatsappMenus = [
+    { key: 'BMI', label: '1 - BMI' },
+    { key: 'BIAYA_UMUM', label: '2 - Biaya Umum' },
+    { key: 'BIAYA_TOKEN_LISTRIK', label: '3 - Biaya Token Listrik' },
+    { key: 'BIAYA_KLIK_METER', label: '4 - Biaya Klik Meter' },
+    { key: 'BIAYA_PART', label: '5 - Biaya Part' },
+    { key: 'MAINTENANCE_MESIN', label: '6 - Maintenance Mesin' },
+];
+
+const menuOptions = computed(() => {
+    return props.whatsappMenus?.length ? props.whatsappMenus : defaultWhatsappMenus;
 });
 
 const search = ref(props.filters?.search || '');
@@ -17,6 +34,7 @@ const form = useForm({
     name: '',
     description: '',
     is_active: true,
+    whatsapp_menu_keys: [],
 });
 
 watch(search, (value) => {
@@ -27,12 +45,27 @@ watch(search, (value) => {
     );
 });
 
+const getRoleMenuKeys = (item) => {
+    if (!Array.isArray(item.whatsapp_menus)) {
+        return [];
+    }
+
+    return item.whatsapp_menus
+        .filter((menu) => menu.is_active)
+        .map((menu) => menu.menu_key);
+};
+
+const getMenuLabel = (key) => {
+    return menuOptions.value.find((menu) => menu.key === key)?.label || key;
+};
+
 const openCreate = () => {
     isEdit.value = false;
     selectedId.value = null;
     form.reset();
     form.clearErrors();
     form.is_active = true;
+    form.whatsapp_menu_keys = [];
     showModal.value = true;
 };
 
@@ -40,9 +73,12 @@ const openEdit = (item) => {
     isEdit.value = true;
     selectedId.value = item.id;
     form.clearErrors();
+
     form.name = item.name;
     form.description = item.description || '';
     form.is_active = Boolean(item.is_active);
+    form.whatsapp_menu_keys = getRoleMenuKeys(item);
+
     showModal.value = true;
 };
 
@@ -130,17 +166,34 @@ const executeDelete = () => {
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-100">
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Role</th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Slug</th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Deskripsi</th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Nama Role
+                                </th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Slug
+                                </th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Deskripsi
+                                </th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Menu WA
+                                </th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+                                    Status
+                                </th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
+                                    Aksi
+                                </th>
                             </tr>
                         </thead>
 
                         <tbody class="divide-y divide-slate-50">
                             <template v-if="roles.data.length > 0">
-                                <tr v-for="item in roles.data" :key="item.id" class="group hover:bg-slate-50/50 transition-colors">
+                                <tr
+                                    v-for="item in roles.data"
+                                    :key="item.id"
+                                    class="group hover:bg-slate-50/50 transition-colors"
+                                >
                                     <td class="px-6 py-4 text-sm font-bold text-[#1E293B] uppercase">
                                         {{ item.name }}
                                     </td>
@@ -155,6 +208,28 @@ const executeDelete = () => {
                                         {{ item.description || '-' }}
                                     </td>
 
+                                    <td class="px-6 py-4">
+                                        <div
+                                            v-if="getRoleMenuKeys(item).length"
+                                            class="flex flex-wrap gap-1.5 max-w-md"
+                                        >
+                                            <span
+                                                v-for="key in getRoleMenuKeys(item)"
+                                                :key="key"
+                                                class="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-100 text-[9px] font-black text-slate-500 uppercase tracking-wider"
+                                            >
+                                                {{ getMenuLabel(key) }}
+                                            </span>
+                                        </div>
+
+                                        <span
+                                            v-else
+                                            class="text-[10px] font-black text-rose-400 uppercase tracking-widest"
+                                        >
+                                            Tidak ada akses
+                                        </span>
+                                    </td>
+
                                     <td class="px-6 py-4 text-center">
                                         <span
                                             :class="item.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'"
@@ -166,11 +241,17 @@ const executeDelete = () => {
 
                                     <td class="px-6 py-4 text-right">
                                         <div class="flex justify-end gap-1">
-                                            <button @click="openEdit(item)" class="p-2 text-slate-300 hover:text-[#2DD4BF] transition-colors">
+                                            <button
+                                                @click="openEdit(item)"
+                                                class="p-2 text-slate-300 hover:text-[#2DD4BF] transition-colors text-[11px] font-black uppercase"
+                                            >
                                                 Edit
                                             </button>
 
-                                            <button @click="confirmDelete(item.id)" class="p-2 text-slate-300 hover:text-rose-500 transition-colors">
+                                            <button
+                                                @click="confirmDelete(item.id)"
+                                                class="p-2 text-slate-300 hover:text-rose-500 transition-colors text-[11px] font-black uppercase"
+                                            >
                                                 Hapus
                                             </button>
                                         </div>
@@ -179,7 +260,7 @@ const executeDelete = () => {
                             </template>
 
                             <tr v-else>
-                                <td colspan="5" class="px-6 py-20 text-center">
+                                <td colspan="6" class="px-6 py-20 text-center">
                                     <h4 class="text-[13px] font-black text-[#1E293B] uppercase italic tracking-tighter">
                                         No Data <span class="text-[#2DD4BF]">Role</span> Found
                                     </h4>
@@ -221,7 +302,10 @@ const executeDelete = () => {
             </div>
         </div>
 
-        <div v-if="showDeleteModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div
+            v-if="showDeleteModal"
+            class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+        >
             <div class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-sm p-8 shadow-2xl text-center">
                 <h3 class="text-xl font-black text-[#1E293B] uppercase italic tracking-tighter mb-2">
                     Confirm <span class="text-rose-500">Delete</span>
@@ -232,52 +316,133 @@ const executeDelete = () => {
                 </p>
 
                 <div class="flex gap-3">
-                    <button @click="showDeleteModal = false" :disabled="isDeleting" class="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                    <button
+                        @click="showDeleteModal = false"
+                        :disabled="isDeleting"
+                        class="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                    >
                         Batal
                     </button>
 
-                    <button @click="executeDelete" :disabled="isDeleting" class="flex-1 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">
-                        Ya, Hapus
+                    <button
+                        @click="executeDelete"
+                        :disabled="isDeleting"
+                        class="flex-1 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest"
+                    >
+                        {{ isDeleting ? 'Deleting...' : 'Ya, Hapus' }}
                     </button>
                 </div>
             </div>
         </div>
 
-        <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-            <div class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-xl p-8 shadow-2xl relative">
+        <div
+            v-if="showModal"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+        >
+            <div class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-2xl p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-8 border-b border-slate-100 pb-4">
                     <h3 class="text-xl font-black text-[#1E293B] uppercase italic tracking-tighter">
                         {{ isEdit ? 'Modify' : 'Register' }} <span class="text-[#2DD4BF]">Role</span>
                     </h3>
 
-                    <button @click="closeModal" class="text-slate-300 hover:text-rose-500 transition-colors uppercase text-[10px] font-black tracking-widest">
+                    <button
+                        @click="closeModal"
+                        class="text-slate-300 hover:text-rose-500 transition-colors uppercase text-[10px] font-black tracking-widest"
+                    >
                         Close
                     </button>
                 </div>
 
                 <form @submit.prevent="submit" class="space-y-5">
                     <div class="space-y-1.5">
-                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Role</label>
-                        <input v-model="form.name" type="text" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                            Nama Role
+                        </label>
+
+                        <input
+                            v-model="form.name"
+                            type="text"
+                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
+                        />
+
                         <div v-if="form.errors.name" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
                             {{ form.errors.name }}
                         </div>
                     </div>
 
                     <div class="space-y-1.5">
-                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Deskripsi</label>
-                        <textarea v-model="form.description" rows="3" class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"></textarea>
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                            Deskripsi
+                        </label>
+
+                        <textarea
+                            v-model="form.description"
+                            rows="3"
+                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"
+                        ></textarea>
+
+                        <div v-if="form.errors.description" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
+                            {{ form.errors.description }}
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Hak Akses Menu WhatsApp
+                            </label>
+
+                            <span class="text-[9px] font-black text-[#2DD4BF] uppercase tracking-widest">
+                                {{ form.whatsapp_menu_keys.length }} Menu Dipilih
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                            <label
+                                v-for="menu in menuOptions"
+                                :key="menu.key"
+                                class="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-100 cursor-pointer hover:border-[#2DD4BF]/40 transition-all"
+                                :class="form.whatsapp_menu_keys.includes(menu.key) ? 'border-[#2DD4BF] bg-[#2DD4BF]/5' : ''"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :value="menu.key"
+                                    v-model="form.whatsapp_menu_keys"
+                                    class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
+                                />
+
+                                <div>
+                                    <div class="text-[11px] font-black text-slate-700 uppercase">
+                                        {{ menu.label }}
+                                    </div>
+                                    <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                        {{ menu.key }}
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div v-if="form.errors.whatsapp_menu_keys" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
+                            {{ form.errors.whatsapp_menu_keys }}
+                        </div>
                     </div>
 
                     <div class="flex items-center justify-between bg-slate-900 p-4 rounded-2xl">
-                        <span class="text-[10px] font-black text-white uppercase tracking-widest">Active Role Access</span>
+                        <span class="text-[10px] font-black text-white uppercase tracking-widest">
+                            Active Role Access
+                        </span>
+
                         <label class="relative inline-flex cursor-pointer items-center">
                             <input type="checkbox" v-model="form.is_active" class="peer sr-only" />
                             <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2DD4BF]"></div>
                         </label>
                     </div>
 
-                    <button type="submit" :disabled="form.processing" class="w-full py-4 bg-[#2DD4BF] text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-[#2DD4BF]/20 hover:bg-[#26bba8] transition-all disabled:opacity-50">
+                    <button
+                        type="submit"
+                        :disabled="form.processing"
+                        class="w-full py-4 bg-[#2DD4BF] text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-[#2DD4BF]/20 hover:bg-[#26bba8] transition-all disabled:opacity-50"
+                    >
                         {{ form.processing ? 'Saving...' : 'Execute Data' }}
                     </button>
                 </form>
