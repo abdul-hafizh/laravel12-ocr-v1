@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Role;
 use App\Models\RoleWhatsappMenu;
 use App\Models\RoleUrlPermission;
+use App\Models\RoleActionPermission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -16,6 +17,7 @@ class RoleController extends Controller
         $query = Role::with([
             'whatsappMenus',
             'urlPermissions',
+            'actionPermissions',
         ]);
 
         if ($request->filled('search')) {
@@ -36,10 +38,21 @@ class RoleController extends Controller
             'roles' => $roles,
             'whatsappMenus' => $this->whatsappMenus(),
             'urlMenus' => $this->urlMenus(),
+            'actionPermissions' => $this->actionPermissions(),
             'filters' => [
                 'search' => $request->search,
             ],
         ]);
+    }
+
+    private function actionPermissions(): array
+    {
+        return [
+            [
+                'key' => 'DELETE_IMAGE_SCAN',
+                'label' => 'Hapus Data Hasil Scan',
+            ],
+        ];
     }
 
     private function whatsappMenus(): array
@@ -95,6 +108,9 @@ class RoleController extends Controller
 
             'url_permissions' => ['nullable', 'array'],
             'url_permissions.*' => ['string'],
+            
+            'action_permissions' => ['nullable', 'array'],
+            'action_permissions.*' => ['string'],
         ]);
 
         $role = Role::create([
@@ -106,6 +122,7 @@ class RoleController extends Controller
 
         $this->syncWhatsappMenus($role, $validated['whatsapp_menu_keys'] ?? []);
         $this->syncUrlPermissions($role, $validated['url_permissions'] ?? []);
+        $this->syncActionPermissions($role, $validated['action_permissions'] ?? []);
 
         return back()->with('success', 'Role berhasil ditambahkan.');
     }
@@ -122,6 +139,9 @@ class RoleController extends Controller
 
             'url_permissions' => ['nullable', 'array'],
             'url_permissions.*' => ['string'],
+
+            'action_permissions' => ['nullable', 'array'],
+            'action_permissions.*' => ['string'],
         ]);
 
         $role->update([
@@ -133,6 +153,7 @@ class RoleController extends Controller
 
         $this->syncWhatsappMenus($role, $validated['whatsapp_menu_keys'] ?? []);
         $this->syncUrlPermissions($role, $validated['url_permissions'] ?? []);
+        $this->syncActionPermissions($role, $validated['action_permissions'] ?? []);
 
         return back()->with('success', 'Role berhasil diperbarui.');
     }
@@ -174,6 +195,19 @@ class RoleController extends Controller
             RoleUrlPermission::create([
                 'role_id' => $role->id,
                 'url' => $url,
+                'is_active' => true,
+            ]);
+        }
+    }
+
+    private function syncActionPermissions(Role $role, array $actions): void
+    {
+        $role->actionPermissions()->delete();
+
+        foreach ($actions as $action) {
+            RoleActionPermission::create([
+                'role_id' => $role->id,
+                'action_key' => $action,
                 'is_active' => true,
             ]);
         }

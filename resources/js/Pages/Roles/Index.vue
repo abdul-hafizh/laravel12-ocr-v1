@@ -14,6 +14,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    actionPermissions: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const defaultUrlMenus = [
@@ -68,6 +72,7 @@ const form = useForm({
     is_active: true,
     whatsapp_menu_keys: [],
     url_permissions: [],
+    action_permissions: [],
 });
 
 const getRoleUrlPermissions = (item) => {
@@ -106,6 +111,16 @@ const getMenuLabel = (key) => {
     return menuOptions.value.find((menu) => menu.key === key)?.label || key;
 };
 
+const getRoleActionPermissions = (item) => {
+    if (!Array.isArray(item.action_permissions)) {
+        return [];
+    }
+
+    return item.action_permissions
+        .filter((permission) => permission.is_active)
+        .map((permission) => permission.action_key);
+};
+
 const openCreate = () => {
     isEdit.value = false;
     selectedId.value = null;
@@ -114,6 +129,7 @@ const openCreate = () => {
     form.is_active = true;
     form.whatsapp_menu_keys = [];
     form.url_permissions = [];
+    form.action_permissions = [];
     showModal.value = true;
 };
 
@@ -127,6 +143,7 @@ const openEdit = (item) => {
     form.is_active = Boolean(item.is_active);
     form.whatsapp_menu_keys = getRoleMenuKeys(item);
     form.url_permissions = getRoleUrlPermissions(item);
+    form.action_permissions = getRoleActionPermissions(item);
 
     showModal.value = true;
 };
@@ -546,6 +563,43 @@ const executeDelete = () => {
 
                         <div v-if="form.errors.url_permissions" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
                             {{ form.errors.url_permissions }}
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Hak Akses Aksi
+                            </label>
+
+                            <span class="text-[9px] font-black text-rose-500 uppercase tracking-widest">
+                                {{ form.action_permissions.length }} Aksi Dipilih
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                            <label
+                                v-for="item in actionPermissions"
+                                :key="item.key"
+                                class="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-100 cursor-pointer hover:border-rose-300 transition-all"
+                                :class="form.action_permissions.includes(item.key) ? 'border-rose-400 bg-rose-50' : ''"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :value="item.key"
+                                    v-model="form.action_permissions"
+                                    class="rounded border-slate-300 text-rose-500 focus:ring-rose-500"
+                                />
+
+                                <div>
+                                    <div class="text-[11px] font-black text-slate-700 uppercase">
+                                        {{ item.label }}
+                                    </div>
+                                    <div class="text-[9px] font-bold text-slate-400 tracking-widest">
+                                        {{ item.key }}
+                                    </div>
+                                </div>
+                            </label>
                         </div>
                     </div>
 

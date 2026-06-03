@@ -1,13 +1,45 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head } from '@inertiajs/vue3';
-import { ref, onMounted } from 'vue';
+import { Head, usePage } from '@inertiajs/vue3';
+import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 
 const title = 'Hasil Upload Token Listrik';
+const page = usePage();
 
 const dataList = ref([]);
 const loading = ref(false);
+
+const canDeleteScan = computed(() => {
+    return page.props.auth?.permissions?.includes(
+        'DELETE_IMAGE_SCAN'
+    );
+});
+
+const deleting = ref(false);
+
+const deleteData = async (item) => {
+    if (!confirm(`Yakin ingin menghapus data scan #${item.id}?`)) {
+        return;
+    }
+
+    try {
+        deleting.value = true;
+
+        await axios.delete(`/api/image-scans/${item.id}`);
+
+        dataList.value = dataList.value.filter(
+            row => row.id !== item.id
+        );
+
+        alert('Data berhasil dihapus');
+    } catch (error) {
+        console.error(error);
+        alert('Gagal menghapus data');
+    } finally {
+        deleting.value = false;
+    }
+};
 
 const showImageModal = ref(false);
 const selectedImageUrl = ref('');
@@ -140,21 +172,32 @@ const getStatusClass = (status) => {
                                 </div>
 
                                 <div class="flex-1 space-y-5">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <span
-                                            class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
-                                            ID Scan: #{{ item.id }}
-                                        </span>
+                                    <div class="flex flex-wrap items-center justify-between gap-2">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span
+                                                class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
+                                                ID Scan: #{{ item.id }}
+                                            </span>
 
-                                        <span class="rounded-full px-3 py-1 text-[10px] font-black uppercase"
-                                            :class="getStatusClass(item.status)">
-                                            {{ item.status }}
-                                        </span>
+                                            <span
+                                                class="rounded-full px-3 py-1 text-[10px] font-black uppercase"
+                                                :class="getStatusClass(item.status)">
+                                                {{ item.status }}
+                                            </span>
 
-                                        <span
-                                            class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
-                                            {{ formatDate(item.created_at) }}
-                                        </span>
+                                            <span
+                                                class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
+                                                {{ formatDate(item.created_at) }}
+                                            </span>
+                                        </div>
+
+                                        <button
+                                            v-if="canDeleteScan"
+                                            @click="deleteData(item)"
+                                            :disabled="deleting"
+                                            class="px-4 py-2 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition disabled:opacity-50">
+                                            Hapus
+                                        </button>
                                     </div>
 
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">

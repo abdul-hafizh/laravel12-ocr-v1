@@ -47,6 +47,21 @@ class HandleInertiaRequests extends Middleware
                             : null,
                     ];
                 },
+
+                'permissions' => function () use ($request) {
+
+                    $user = $request->user();
+
+                    if (!$user || !$user->role_id) {
+                        return [];
+                    }
+
+                    return DB::table('role_action_permissions')
+                        ->where('role_id', $user->role_id)
+                        ->where('is_active', 1)
+                        ->pluck('action_key')
+                        ->toArray();
+                },
             ],
 
             'allowedUrls' => function () use ($request) {
