@@ -6,62 +6,57 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import Toast from '@/Components/Toast.vue';
 
 const page = usePage();
-const flashMessage = computed(() => page.props.flash.message);
+
+const flashMessage = computed(() => {
+    return page.props.flash?.message
+        || page.props.flash?.success
+        || page.props.flash?.error
+        || null;
+});
 
 const isSidebarOpen = ref(true);
 
-const isSummaryOpen = ref(
-    route().current('summary.*') ||
-    route().current('printer-billing.*')
-);
+const allowedUrls = computed(() => page.props.allowedUrls || []);
 
-const isMasterDataOpen = ref(
-    route().current('master-cabang.*') ||
-    route().current('master-vendor.*') ||
-    route().current('master-mesin.*') ||
-    route().current('master-token-listrik.*') ||
-    route().current('master-kendaraan.*') ||
-    route().current('master-skpd.*') ||
-    route().current('master-harga-biaya.*')
-);
+const publicUrls = [
+    '/dashboard',
+    '/profile',
+];
 
-const isHasilUploadOpen = ref(route().current('hasil-upload.*'));
+const canAccess = (href) => {
+    if (!href) return false;
 
-const isUserAccessOpen = ref(
-    route().current('roles.*') ||
-    route().current('users-management.*')
-);
+    try {
+        const url = new URL(href, window.location.origin);
+        const path = url.pathname;
 
-watch(() => route().current(), () => {
-    if (
-        route().current('summary.*') ||
-        route().current('printer-billing.*')
-    ) {
-        isSummaryOpen.value = true;
+        if (
+            publicUrls.some((publicUrl) => {
+                return path === publicUrl || path.startsWith(publicUrl + '/');
+            })
+        ) {
+            return true;
+        }
+
+        if (!allowedUrls.value || allowedUrls.value.length === 0) {
+            return false;
+        }
+
+        return allowedUrls.value.some((allowed) => {
+            const cleanAllowed = '/' + String(allowed)
+                .replace(/^\/+/, '')
+                .replace(/\/+$/, '');
+
+            return path === cleanAllowed || path.startsWith(cleanAllowed + '/');
+        });
+    } catch {
+        return false;
     }
+};
 
-    if (route().current('master-cabang.*') ||
-        route().current('master-vendor.*') ||
-        route().current('master-mesin.*') ||
-        route().current('master-token-listrik.*') ||
-        route().current('master-kendaraan.*') ||
-        route().current('master-skpd.*') ||
-        route().current('master-harga-biaya.*')
-    ) {
-        isMasterDataOpen.value = true;
-    }
-
-    if (route().current('hasil-upload.*')) {
-        isHasilUploadOpen.value = true;
-    }
-
-    if (
-        route().current('roles.*') ||
-        route().current('users-management.*')
-    ) {
-        isUserAccessOpen.value = true;
-    }
-});
+const filterMenus = (menus) => {
+    return menus.filter((item) => canAccess(item.href));
+};
 
 const summaryMenus = [
     {
@@ -165,6 +160,66 @@ const userAccessMenus = [
         current: route().current('users-management.*'),
     },
 ];
+
+const filteredNavigation = computed(() => filterMenus(navigation));
+const filteredSummaryMenus = computed(() => filterMenus(summaryMenus));
+const filteredMasterDataMenus = computed(() => filterMenus(masterDataMenus));
+const filteredHasilUploadMenus = computed(() => filterMenus(hasilUploadMenus));
+const filteredUserAccessMenus = computed(() => filterMenus(userAccessMenus));
+
+const isSummaryOpen = ref(
+    route().current('summary.*') ||
+    route().current('printer-billing.*')
+);
+
+const isMasterDataOpen = ref(
+    route().current('master-cabang.*') ||
+    route().current('master-vendor.*') ||
+    route().current('master-mesin.*') ||
+    route().current('master-token-listrik.*') ||
+    route().current('master-kendaraan.*') ||
+    route().current('master-skpd.*') ||
+    route().current('master-harga-biaya.*')
+);
+
+const isHasilUploadOpen = ref(route().current('hasil-upload.*'));
+
+const isUserAccessOpen = ref(
+    route().current('roles.*') ||
+    route().current('users-management.*')
+);
+
+watch(() => route().current(), () => {
+    if (
+        route().current('summary.*') ||
+        route().current('printer-billing.*')
+    ) {
+        isSummaryOpen.value = true;
+    }
+
+    if (
+        route().current('master-cabang.*') ||
+        route().current('master-vendor.*') ||
+        route().current('master-mesin.*') ||
+        route().current('master-token-listrik.*') ||
+        route().current('master-kendaraan.*') ||
+        route().current('master-skpd.*') ||
+        route().current('master-harga-biaya.*')
+    ) {
+        isMasterDataOpen.value = true;
+    }
+
+    if (route().current('hasil-upload.*')) {
+        isHasilUploadOpen.value = true;
+    }
+
+    if (
+        route().current('roles.*') ||
+        route().current('users-management.*')
+    ) {
+        isUserAccessOpen.value = true;
+    }
+});
 </script>
 
 <template>
@@ -177,9 +232,7 @@ const userAccessMenus = [
         >
             <div class="flex flex-col h-full px-4 py-6">
                 <div class="flex items-center space-x-3 px-2 mb-10">
-                    <div
-                        class="w-10 h-10 bg-[#2DD4BF] rounded-xl flex shrink-0 items-center justify-center shadow-lg shadow-teal-100/50"
-                    >
+                    <div class="w-10 h-10 bg-[#2DD4BF] rounded-xl flex shrink-0 items-center justify-center shadow-lg shadow-teal-100/50">
                         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path
                                 stroke-linecap="round"
@@ -199,11 +252,12 @@ const userAccessMenus = [
                 </div>
 
                 <nav class="flex-1 space-y-1.5 overflow-y-auto pr-1">
-                    <!-- Dashboard -->
                     <Link
-                        :href="navigation[0].href"
+                        v-for="item in filteredNavigation.filter((menu) => menu.name === 'Dashboard')"
+                        :key="item.name"
+                        :href="item.href"
                         :class="[
-                            navigation[0].current
+                            item.current
                                 ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
                                 : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
                         ]"
@@ -211,26 +265,21 @@ const userAccessMenus = [
                     >
                         <svg
                             class="w-6 h-6 shrink-0 transition-colors"
-                            :class="[navigation[0].current ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
+                            :class="[item.current ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                :d="navigation[0].icon"
-                            />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
                         </svg>
 
                         <span v-if="isSidebarOpen" class="ms-4">
-                            {{ navigation[0].name }}
+                            {{ item.name }}
                         </span>
                     </Link>
 
-                    <!-- Summary Menu -->
                     <button
+                        v-if="filteredSummaryMenus.length > 0"
                         type="button"
                         @click="
                             isSummaryOpen = !isSummaryOpen;
@@ -254,12 +303,7 @@ const userAccessMenus = [
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M11 3v18m4-14v14m4-10v10M7 13v8M3 17v4"
-                            />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3v18m4-14v14m4-10v10M7 13v8M3 17v4" />
                         </svg>
 
                         <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
@@ -274,21 +318,16 @@ const userAccessMenus = [
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M19 9l-7 7-7-7"
-                            />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
 
                     <div
-                        v-if="isSidebarOpen && isSummaryOpen"
+                        v-if="isSidebarOpen && isSummaryOpen && filteredSummaryMenus.length > 0"
                         class="ml-6 space-y-1 border-l border-slate-100 pl-3"
                     >
                         <Link
-                            v-for="item in summaryMenus"
+                            v-for="item in filteredSummaryMenus"
                             :key="item.name"
                             :href="item.href"
                             :class="[
@@ -300,10 +339,10 @@ const userAccessMenus = [
                         >
                             {{ item.name }}
                         </Link>
-                    </div>                    
+                    </div>
 
-                    <!-- Hasil Upload Menu -->
                     <button
+                        v-if="filteredHasilUploadMenus.length > 0"
                         type="button"
                         @click="
                             isHasilUploadOpen = !isHasilUploadOpen;
@@ -327,12 +366,7 @@ const userAccessMenus = [
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M12 12v9m0-9l-3 3m3-3l3 3"
-                            />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M12 12v9m0-9l-3 3m3-3l3 3" />
                         </svg>
 
                         <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
@@ -347,21 +381,16 @@ const userAccessMenus = [
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M19 9l-7 7-7-7"
-                            />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
 
                     <div
-                        v-if="isSidebarOpen && isHasilUploadOpen"
+                        v-if="isSidebarOpen && isHasilUploadOpen && filteredHasilUploadMenus.length > 0"
                         class="ml-6 space-y-1 border-l border-slate-100 pl-3"
                     >
                         <Link
-                            v-for="item in hasilUploadMenus"
+                            v-for="item in filteredHasilUploadMenus"
                             :key="item.name"
                             :href="item.href"
                             :class="[
@@ -375,8 +404,8 @@ const userAccessMenus = [
                         </Link>
                     </div>
 
-                    <!-- Master Data Menu -->
                     <button
+                        v-if="filteredMasterDataMenus.length > 0"
                         type="button"
                         @click="
                             isMasterDataOpen = !isMasterDataOpen;
@@ -400,12 +429,7 @@ const userAccessMenus = [
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M4 6h16M4 10h16M4 14h16M4 18h16"
-                            />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                         </svg>
 
                         <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
@@ -420,21 +444,16 @@ const userAccessMenus = [
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M19 9l-7 7-7-7"
-                            />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
 
                     <div
-                        v-if="isSidebarOpen && isMasterDataOpen"
+                        v-if="isSidebarOpen && isMasterDataOpen && filteredMasterDataMenus.length > 0"
                         class="ml-6 space-y-1 border-l border-slate-100 pl-3"
                     >
                         <Link
-                            v-for="item in masterDataMenus"
+                            v-for="item in filteredMasterDataMenus"
                             :key="item.name"
                             :href="item.href"
                             :class="[
@@ -448,8 +467,8 @@ const userAccessMenus = [
                         </Link>
                     </div>
 
-                    <!-- User Access Menu -->
                     <button
+                        v-if="filteredUserAccessMenus.length > 0"
                         type="button"
                         @click="
                             isUserAccessOpen = !isUserAccessOpen;
@@ -473,12 +492,7 @@ const userAccessMenus = [
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 11-8 0 4 4 0 018 0zm6 4a4 4 0 10-3.46-6M3 14a4 4 0 013.46-6"
-                            />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 11-8 0 4 4 0 018 0zm6 4a4 4 0 10-3.46-6M3 14a4 4 0 013.46-6" />
                         </svg>
 
                         <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
@@ -493,21 +507,16 @@ const userAccessMenus = [
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M19 9l-7 7-7-7"
-                            />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
 
                     <div
-                        v-if="isSidebarOpen && isUserAccessOpen"
+                        v-if="isSidebarOpen && isUserAccessOpen && filteredUserAccessMenus.length > 0"
                         class="ml-6 space-y-1 border-l border-slate-100 pl-3"
                     >
                         <Link
-                            v-for="item in userAccessMenus"
+                            v-for="item in filteredUserAccessMenus"
                             :key="item.name"
                             :href="item.href"
                             :class="[
@@ -521,9 +530,8 @@ const userAccessMenus = [
                         </Link>
                     </div>
 
-                    <!-- BMI Karyawan dan Settings -->
                     <Link
-                        v-for="item in navigation.slice(1)"
+                        v-for="item in filteredNavigation.filter((menu) => menu.name !== 'Dashboard')"
                         :key="item.name"
                         :href="item.href"
                         :class="[
@@ -540,12 +548,7 @@ const userAccessMenus = [
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                :d="item.icon"
-                            />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
                         </svg>
 
                         <span v-if="isSidebarOpen" class="ms-4">
@@ -565,12 +568,7 @@ const userAccessMenus = [
                         stroke="currentColor"
                         viewBox="0 0 24 24"
                     >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-                        />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
                     </svg>
                 </button>
             </div>
@@ -580,9 +578,7 @@ const userAccessMenus = [
             class="flex-1 flex flex-col transition-all duration-300 min-w-0"
             :class="[isSidebarOpen ? 'ms-72' : 'ms-20']"
         >
-            <header
-                class="h-20 bg-white/90 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-40 px-8 flex items-center justify-between"
-            >
+            <header class="h-20 bg-white/90 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-40 px-8 flex items-center justify-between">
                 <div>
                     <slot name="header" />
                 </div>
@@ -590,12 +586,8 @@ const userAccessMenus = [
                 <div class="flex items-center space-x-4">
                     <Dropdown align="right" width="48">
                         <template #trigger>
-                            <button
-                                class="flex items-center space-x-3 bg-white border border-slate-200/80 p-1.5 pe-4 rounded-2xl hover:border-[#2DD4BF]/30 transition-all shadow-sm"
-                            >
-                                <div
-                                    class="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center text-[#2DD4BF] font-extrabold"
-                                >
+                            <button class="flex items-center space-x-3 bg-white border border-slate-200/80 p-1.5 pe-4 rounded-2xl hover:border-[#2DD4BF]/30 transition-all shadow-sm">
+                                <div class="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center text-[#2DD4BF] font-extrabold">
                                     {{ $page.props.auth.user.name.charAt(0).toUpperCase() }}
                                 </div>
 
@@ -604,7 +596,7 @@ const userAccessMenus = [
                                         {{ $page.props.auth.user.name }}
                                     </p>
                                     <p class="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter italic">
-                                        Pro User
+                                        {{ $page.props.auth.user.role?.name || 'User' }}
                                     </p>
                                 </div>
                             </button>

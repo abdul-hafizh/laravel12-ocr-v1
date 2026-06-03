@@ -26,4 +26,9 @@ class Role extends Model
     {
         return $this->hasMany(RoleWhatsappMenu::class, 'role_id');
     }
+
+    public function urlPermissions()
+    {
+        return $this->hasMany(RoleUrlPermission::class, 'role_id');
+    }
 }

@@ -10,6 +10,38 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    urlMenus: {
+        type: Array,
+        default: () => [],
+    },
+});
+
+const defaultUrlMenus = [
+    { url: '/dashboard', label: 'Dashboard' },
+
+    { url: '/summary/electricity', label: 'Summary - Token Listrik' },
+    { url: '/summary/printer-billing', label: 'Summary - Meter Mesin' },
+
+    { url: '/hasil-upload/token-listrik', label: 'Hasil Upload - Token Listrik' },
+    { url: '/hasil-upload/mesin-cetak', label: 'Hasil Upload - Meter Mesin' },
+    { url: '/hasil-upload/struk-online', label: 'Hasil Upload - Bukti Bayar' },
+
+    { url: '/master-cabang', label: 'Master Cabang' },
+    { url: '/master-vendor', label: 'Master Vendor' },
+    { url: '/master-mesin', label: 'Master Mesin' },
+    { url: '/master-token-listrik', label: 'Master Token Listrik' },
+    { url: '/master-kendaraan', label: 'Master Kendaraan' },
+    { url: '/master-skpd', label: 'Master SKPD' },
+    { url: '/master-harga-biaya', label: 'Master Biaya' },
+
+    { url: '/employee-measurements', label: 'BMI Karyawan' },
+    { url: '/roles', label: 'Master Role' },
+    { url: '/users-management', label: 'Manajemen User' },
+    { url: '/profile', label: 'Settings' },
+];
+
+const urlOptions = computed(() => {
+    return props.urlMenus?.length ? props.urlMenus : defaultUrlMenus;
 });
 
 const defaultWhatsappMenus = [
@@ -35,7 +67,22 @@ const form = useForm({
     description: '',
     is_active: true,
     whatsapp_menu_keys: [],
+    url_permissions: [],
 });
+
+const getRoleUrlPermissions = (item) => {
+    if (!Array.isArray(item.url_permissions)) {
+        return [];
+    }
+
+    return item.url_permissions
+        .filter((permission) => permission.is_active)
+        .map((permission) => permission.url);
+};
+
+const getUrlLabel = (url) => {
+    return urlOptions.value.find((item) => item.url === url)?.label || url;
+};
 
 watch(search, (value) => {
     router.get(
@@ -66,6 +113,7 @@ const openCreate = () => {
     form.clearErrors();
     form.is_active = true;
     form.whatsapp_menu_keys = [];
+    form.url_permissions = [];
     showModal.value = true;
 };
 
@@ -78,6 +126,7 @@ const openEdit = (item) => {
     form.description = item.description || '';
     form.is_active = Boolean(item.is_active);
     form.whatsapp_menu_keys = getRoleMenuKeys(item);
+    form.url_permissions = getRoleUrlPermissions(item);
 
     showModal.value = true;
 };
@@ -178,6 +227,9 @@ const executeDelete = () => {
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     Menu WA
                                 </th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Akses URL
+                                </th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
                                     Status
                                 </th>
@@ -230,6 +282,35 @@ const executeDelete = () => {
                                         </span>
                                     </td>
 
+                                    <td class="px-6 py-4">
+                                        <div
+                                            v-if="getRoleUrlPermissions(item).length"
+                                            class="flex flex-wrap gap-1.5 max-w-md"
+                                        >
+                                            <span
+                                                v-for="url in getRoleUrlPermissions(item).slice(0, 5)"
+                                                :key="url"
+                                                class="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-100 text-[9px] font-black text-blue-500 uppercase tracking-wider"
+                                            >
+                                                {{ getUrlLabel(url) }}
+                                            </span>
+
+                                            <span
+                                                v-if="getRoleUrlPermissions(item).length > 5"
+                                                class="px-2.5 py-1 rounded-lg bg-slate-100 text-[9px] font-black text-slate-500 uppercase tracking-wider"
+                                            >
+                                                +{{ getRoleUrlPermissions(item).length - 5 }} URL
+                                            </span>
+                                        </div>
+
+                                        <span
+                                            v-else
+                                            class="text-[10px] font-black text-rose-400 uppercase tracking-widest"
+                                        >
+                                            Tidak ada akses
+                                        </span>
+                                    </td>
+
                                     <td class="px-6 py-4 text-center">
                                         <span
                                             :class="item.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'"
@@ -260,7 +341,7 @@ const executeDelete = () => {
                             </template>
 
                             <tr v-else>
-                                <td colspan="6" class="px-6 py-20 text-center">
+                                <td colspan="7" class="px-6 py-20 text-center">
                                     <h4 class="text-[13px] font-black text-[#1E293B] uppercase italic tracking-tighter">
                                         No Data <span class="text-[#2DD4BF]">Role</span> Found
                                     </h4>
@@ -424,6 +505,47 @@ const executeDelete = () => {
 
                         <div v-if="form.errors.whatsapp_menu_keys" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
                             {{ form.errors.whatsapp_menu_keys }}
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Hak Akses Sidebar / URL
+                            </label>
+
+                            <span class="text-[9px] font-black text-blue-500 uppercase tracking-widest">
+                                {{ form.url_permissions.length }} URL Dipilih
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 bg-slate-50 rounded-2xl p-4 border border-slate-100 max-h-72 overflow-y-auto">
+                            <label
+                                v-for="item in urlOptions"
+                                :key="item.url"
+                                class="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-100 cursor-pointer hover:border-blue-300 transition-all"
+                                :class="form.url_permissions.includes(item.url) ? 'border-blue-400 bg-blue-50' : ''"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :value="item.url"
+                                    v-model="form.url_permissions"
+                                    class="rounded border-slate-300 text-blue-500 focus:ring-blue-500"
+                                />
+
+                                <div>
+                                    <div class="text-[11px] font-black text-slate-700 uppercase">
+                                        {{ item.label }}
+                                    </div>
+                                    <div class="text-[9px] font-bold text-slate-400 tracking-widest">
+                                        {{ item.url }}
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div v-if="form.errors.url_permissions" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
+                            {{ form.errors.url_permissions }}
                         </div>
                     </div>
 
