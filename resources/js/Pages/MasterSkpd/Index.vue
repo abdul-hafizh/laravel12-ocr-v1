@@ -2,6 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm, Link } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
+import Multiselect from 'vue-multiselect'
+import 'vue-multiselect/dist/vue-multiselect.css'
 
 const props = defineProps({
     skpds: Object,
@@ -51,6 +53,14 @@ watch(search, (value) => {
         { preserveState: true, replace: true }
     );
 });
+
+const showImageModal = ref(false);
+const selectedImageUrl = ref('');
+
+const openImagePreview = (url) => {
+    selectedImageUrl.value = url;
+    showImageModal.value = true;
+};
 
 const openCreate = () => {
     isEdit.value = false;
@@ -218,7 +228,8 @@ const formatRupiah = (value) => {
                                     <th
                                         class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                                         Status</th>
-                                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                    <th
+                                        class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                                         Foto</th>
                                     <th
                                         class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">
@@ -259,23 +270,15 @@ const formatRupiah = (value) => {
                                         </span>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <a
-                                            v-if="item.foto_url"
-                                            :href="item.foto_url"
-                                            target="_blank"
-                                            class="block w-14 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-50"
-                                        >
-                                            <img
-                                                :src="item.foto_url"
-                                                alt="Foto SKPD"
-                                                class="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
-                                            />
-                                        </a>
+                                        <button v-if="item.foto_url" @click="openImagePreview(item.foto_url)"
+                                            type="button"
+                                            class="block w-14 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer text-left">
+                                            <img :src="item.foto_url" alt="Foto SKPD"
+                                                class="w-full h-full object-cover hover:scale-110 transition-transform duration-300" />
+                                        </button>
 
-                                        <div
-                                            v-else
-                                            class="w-14 h-14 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-[9px] font-black text-slate-300 uppercase"
-                                        >
+                                        <div v-else
+                                            class="w-14 h-14 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-[9px] font-black text-slate-300 uppercase">
                                             No Foto
                                         </div>
                                     </td>
@@ -379,15 +382,14 @@ const formatRupiah = (value) => {
                             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
                                 Cabang
                             </label>
-                            <select
-                                v-model="form.master_cabang_id"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
-                            >
-                                <option value="">- Pilih Cabang -</option>
-                                <option v-for="c in cabangs" :key="c.id" :value="c.id">
-                                    {{ c.nama_cabang }}
-                                </option>
-                            </select>
+                            <multiselect v-model="form.master_cabang_id" :options="cabangs.map(c => c.id)"
+                                :custom-label="id => cabangs.find(c => c.id == id)?.nama_cabang"
+                                placeholder="Pilih Cabang">
+                            </multiselect>
+
+                            <div v-if="form.errors.master_cabang_id" class="text-[10px] font-bold text-rose-500">
+                                {{ form.errors.master_cabang_id }}
+                            </div>
                         </div>
 
                         <div>
@@ -395,12 +397,8 @@ const formatRupiah = (value) => {
                                 Nomor SKPD
                             </label>
 
-                            <input
-                                v-model="form.nomor_skpd"
-                                type="text"
-                                placeholder="Masukkan nomor SKPD..."
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
-                            />
+                            <input v-model="form.nomor_skpd" type="text" placeholder="Masukkan nomor SKPD..."
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]" />
                         </div>
 
                         <div>
@@ -408,59 +406,41 @@ const formatRupiah = (value) => {
                                 Nominal Pajak
                             </label>
 
-                            <input
-                                v-model="form.nominal_pajak"
-                                type="number"
-                                min="0"
-                                placeholder="0"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
-                            />
+                            <input v-model="form.nominal_pajak" type="number" min="0" placeholder="0"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]" />
                         </div>
 
                         <div>
                             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
                                 Jenis
                             </label>
-                            <input
-                                v-model="form.jenis"
-                                type="text"
+                            <input v-model="form.jenis" type="text"
                                 placeholder="Contoh: Pajak, Perizinan, Dokumen Cabang"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
-                            />
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]" />
                         </div>
 
                         <div>
                             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
                                 Jatuh Tempo
                             </label>
-                            <input
-                                v-model="form.tanggal_jatuh_tempo"
-                                type="date"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
-                            />
+                            <input v-model="form.tanggal_jatuh_tempo" type="date"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]" />
                         </div>
 
                         <div>
                             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
                                 Upload Foto
                             </label>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                @change="handleFotoChange"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
-                            />
+                            <input type="file" accept="image/*" @change="handleFotoChange"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]" />
                         </div>
 
                         <div class="md:col-span-2">
                             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
                                 Keterangan
                             </label>
-                            <textarea
-                                v-model="form.keterangan"
-                                rows="3"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
-                            ></textarea>
+                            <textarea v-model="form.keterangan" rows="3"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"></textarea>
                         </div>
 
                         <div class="space-y-2">
@@ -469,18 +449,24 @@ const formatRupiah = (value) => {
                             </label>
 
                             <div class="flex flex-wrap gap-3 rounded-2xl bg-slate-50 p-4">
-                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
-                                    <input type="checkbox" :value="7" v-model="form.reminder_hari" class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
+                                <label
+                                    class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input type="checkbox" :value="7" v-model="form.reminder_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
                                     H-7 Hari
                                 </label>
 
-                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
-                                    <input type="checkbox" :value="14" v-model="form.reminder_hari" class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
+                                <label
+                                    class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input type="checkbox" :value="14" v-model="form.reminder_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
                                     H-14 Hari
                                 </label>
 
-                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
-                                    <input type="checkbox" :value="30" v-model="form.reminder_hari" class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
+                                <label
+                                    class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input type="checkbox" :value="30" v-model="form.reminder_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
                                     H-30 Hari
                                 </label>
                             </div>
@@ -499,27 +485,16 @@ const formatRupiah = (value) => {
 
                             <div class="rounded-2xl border border-slate-100 bg-slate-50 overflow-hidden">
                                 <div class="border-b border-slate-100 bg-white p-3">
-                                    <input
-                                        v-model="userSearch"
-                                        type="text"
-                                        placeholder="Cari nama / nomor HP user..."
-                                        class="w-full rounded-xl border-none bg-slate-50 px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                                    />
+                                    <input v-model="userSearch" type="text" placeholder="Cari nama / nomor HP user..."
+                                        class="w-full rounded-xl border-none bg-slate-50 px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                                 </div>
 
                                 <div class="grid max-h-64 grid-cols-1 gap-2 overflow-y-auto p-3 md:grid-cols-2">
-                                    <label
-                                        v-for="user in filteredFinanceUsers"
-                                        :key="user.id"
+                                    <label v-for="user in filteredFinanceUsers" :key="user.id"
                                         class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-100 bg-white p-3 transition-all hover:border-[#2DD4BF]/40"
-                                        :class="form.user_ids.includes(user.id) ? 'border-[#2DD4BF] bg-[#2DD4BF]/5' : ''"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            :value="user.id"
-                                            v-model="form.user_ids"
-                                            class="mt-1 rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
-                                        />
+                                        :class="form.user_ids.includes(user.id) ? 'border-[#2DD4BF] bg-[#2DD4BF]/5' : ''">
+                                        <input type="checkbox" :value="user.id" v-model="form.user_ids"
+                                            class="mt-1 rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
 
                                         <div class="min-w-0">
                                             <div class="truncate text-[11px] font-black uppercase text-slate-700">
@@ -582,6 +557,23 @@ const formatRupiah = (value) => {
                         class="flex-1 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/30">Ya,
                         Hapus</button>
                 </div>
+            </div>
+        </div>
+
+        <div v-if="showImageModal"
+            class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
+            @click="showImageModal = false">
+
+            <div class="relative w-full h-full overflow-auto flex items-start justify-center p-10" @click.stop>
+
+                <button @click="showImageModal = false"
+                    class="fixed top-6 right-6 text-white bg-white/10 hover:bg-white/20 p-3 rounded-full backdrop-blur-md font-black uppercase text-xs">
+                    Tutup [ESC]
+                </button>
+
+                <img :src="selectedImageUrl"
+                    class="w-full max-w-2xl h-auto object-contain cursor-zoom-in hover:scale-[2] transition-transform duration-300 origin-top"
+                    @click="toggleZoom" />
             </div>
         </div>
     </AuthenticatedLayout>

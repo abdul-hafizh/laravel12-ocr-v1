@@ -2,6 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm, Link } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
+import Multiselect from 'vue-multiselect'
+import 'vue-multiselect/dist/vue-multiselect.css'
 
 const props = defineProps({
     hargaBiayas: Object,
@@ -234,7 +236,7 @@ const getLabel = (options, value) => {
                                     <td class="px-6 py-4">
                                         <span class="text-sm font-bold text-[#1E293B] uppercase tracking-tight">{{
                                             item.nama_biaya
-                                            }}</span>
+                                        }}</span>
                                     </td>
 
                                     <!-- Kolom Cabang -->
@@ -255,7 +257,7 @@ const getLabel = (options, value) => {
                                     <!-- Kolom Nominal -->
                                     <td class="px-6 py-4 text-right">
                                         <span class="text-sm font-black text-[#1E293B]">{{ formatRupiah(item.nominal)
-                                            }}</span>
+                                        }}</span>
                                     </td>
 
                                     <!-- Kolom Satuan -->
@@ -274,7 +276,7 @@ const getLabel = (options, value) => {
                                             </span>
                                             <span class="text-[8px] text-slate-400 font-bold truncate max-w-[80px]">{{
                                                 item.nama_coa
-                                                }}</span>
+                                            }}</span>
                                         </div>
                                         <span v-else class="text-[10px] font-bold text-slate-300 italic">-</span>
                                     </td>
@@ -391,11 +393,14 @@ const getLabel = (options, value) => {
                         <div class="space-y-1.5">
                             <label
                                 class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cabang</label>
-                            <select v-model="form.master_cabang_id"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
-                                <option value="">Global / Semua</option>
-                                <option v-for="c in cabangs" :key="c.id" :value="c.id">{{ c.nama_cabang }}</option>
-                            </select>
+                            <multiselect v-model="form.master_cabang_id" :options="cabangs.map(c => c.id)"
+                                :custom-label="id => cabangs.find(c => c.id == id)?.nama_cabang"
+                                placeholder="Global/Semua">
+                            </multiselect>
+
+                            <div v-if="form.errors.master_cabang_id" class="text-[10px] font-bold text-rose-500">
+                                {{ form.errors.master_cabang_id }}
+                            </div>
                         </div>
                         <div class="space-y-1.5">
                             <label
@@ -404,7 +409,7 @@ const getLabel = (options, value) => {
                                 class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
                                 <option value="">Pilih Kategori</option>
                                 <option v-for="opt in kategoriOptions" :key="opt.value" :value="opt.value">{{ opt.label
-                                    }}
+                                }}
                                 </option>
                             </select>
                         </div>
@@ -455,17 +460,13 @@ const getLabel = (options, value) => {
                     </div>
 
                     <div class="space-y-1.5">
-                        <label
-                            class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                             Keterangan
                         </label>
 
-                        <textarea
-                            v-model="form.keterangan"
-                            rows="3"
-                            placeholder="Masukkan keterangan biaya..."
+                        <textarea v-model="form.keterangan" rows="3" placeholder="Masukkan keterangan biaya..."
                             class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold resize-none focus:ring-2 focus:ring-[#2DD4BF]/20">
-                        </textarea>
+                </textarea>
                     </div>
 
                     <div class="flex items-center justify-between bg-slate-900 p-4 rounded-2xl">

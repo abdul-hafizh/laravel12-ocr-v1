@@ -124,7 +124,7 @@ class RoleController extends Controller
         $this->syncUrlPermissions($role, $validated['url_permissions'] ?? []);
         $this->syncActionPermissions($role, $validated['action_permissions'] ?? []);
 
-        return back()->with('success', 'Role berhasil ditambahkan.');
+        return back()->with('message', ['text' => 'Role berhasil ditambahkan!', 'type' => 'success']);
     }
 
     public function update(Request $request, Role $role)
@@ -155,7 +155,7 @@ class RoleController extends Controller
         $this->syncUrlPermissions($role, $validated['url_permissions'] ?? []);
         $this->syncActionPermissions($role, $validated['action_permissions'] ?? []);
 
-        return back()->with('success', 'Role berhasil diperbarui.');
+        return back()->with('message', ['text' => 'Role berhasil diperbarui!', 'type' => 'success']);
     }
 
     public function destroy(Role $role)
@@ -171,7 +171,7 @@ class RoleController extends Controller
 
         $role->delete();
 
-        return back()->with('success', 'Role berhasil dihapus.');
+        return back()->with('message', ['text' => 'Role berhasil dihapus!', 'type' => 'success']);
     }
 
     private function syncWhatsappMenus(Role $role, array $menuKeys): void

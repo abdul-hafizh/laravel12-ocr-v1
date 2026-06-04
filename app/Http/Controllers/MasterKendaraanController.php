@@ -68,7 +68,7 @@ class MasterKendaraanController extends Controller
         $this->syncReminderPajak($kendaraan);
         $this->syncReminderGantiKaleng($kendaraan);
 
-        return back()->with('success', 'Master kendaraan berhasil ditambahkan dan reminder berhasil diproses.');
+        return back()->with('message', ['text' => 'Master Kendaraan berhasil ditambahkan dan reminder berhasil diprosess!', 'type' => 'success']);
     }
 
     public function update(Request $request, MasterKendaraan $masterKendaraan)
@@ -90,14 +90,14 @@ class MasterKendaraanController extends Controller
         $this->syncReminderPajak($masterKendaraan);
         $this->syncReminderGantiKaleng($masterKendaraan);
 
-        return back()->with('success', 'Master kendaraan berhasil diperbarui.');
+        return back()->with('message', ['text' => 'Master Kendaraan berhasil diperbarui!', 'type' => 'success']);
     }
 
     public function destroy(MasterKendaraan $masterKendaraan)
     {
         $masterKendaraan->delete();
 
-        return back()->with('success', 'Master kendaraan berhasil dihapus.');
+        return back()->with('message', ['text' => 'Master Kendaraan berhasil dihapus!', 'type' => 'success']);
     }
 
     private function validateRequest(Request $request, ?int $id = null): array

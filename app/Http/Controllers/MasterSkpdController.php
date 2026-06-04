@@ -93,7 +93,7 @@ class MasterSkpdController extends Controller
 
         $this->syncReminderSkpd($skpd);
 
-        return back()->with('success', 'Master SKPD berhasil ditambahkan.');
+        return back()->with('message', ['text' => 'Master SKPD berhasil Ditambahkan!', 'type' => 'success']);
     }
 
     public function update(Request $request, MasterSkpd $masterSkpd)
@@ -148,7 +148,7 @@ class MasterSkpdController extends Controller
 
         $this->syncReminderSkpd($masterSkpd);
 
-        return back()->with('success', 'Master SKPD berhasil diperbarui.');
+        return back()->with('message', ['text' => 'Master SKPD berhasil diperbarui!', 'type' => 'success']);
     }
 
     public function destroy(MasterSkpd $masterSkpd)
@@ -159,7 +159,7 @@ class MasterSkpdController extends Controller
 
         $masterSkpd->delete();
 
-        return back()->with('success', 'Master SKPD berhasil dihapus.');
+        return back()->with('message', ['text' => 'Master SKPD berhasil dihapus!', 'type' => 'success']);
     }
 
     private function syncReminderSkpd(MasterSkpd $skpd): void

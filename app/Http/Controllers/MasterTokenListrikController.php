@@ -48,7 +48,7 @@ class MasterTokenListrikController extends Controller
 
         MasterTokenListrik::create($validated);
 
-        return back()->with('success', 'Master token listrik berhasil ditambahkan.');
+        return back()->with('message', ['text' => 'Master Token Listrik berhasil ditambahkan!', 'type' => 'success']);
     }
 
     public function update(Request $request, MasterTokenListrik $masterTokenListrik)
@@ -65,13 +65,13 @@ class MasterTokenListrikController extends Controller
 
         $masterTokenListrik->update($validated);
 
-        return back()->with('success', 'Master token listrik berhasil diperbarui.');
+        return back()->with('message', ['text' => 'Master Token Listrik berhasil diperbarui!', 'type' => 'success']);
     }
 
     public function destroy(MasterTokenListrik $masterTokenListrik)
     {
         $masterTokenListrik->delete();
 
-        return back()->with('success', 'Master token listrik berhasil dihapus.');
+        return back()->with('message', ['text' => 'Master Token Listrik berhasil dihapus!', 'type' => 'success']);
     }
 }

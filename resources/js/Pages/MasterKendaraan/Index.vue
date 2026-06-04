@@ -2,6 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm, Link } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
+import Multiselect from 'vue-multiselect'
+import 'vue-multiselect/dist/vue-multiselect.css'
 
 const props = defineProps({
     kendaraans: Object,
@@ -102,10 +104,10 @@ const openEdit = (item) => {
     form.tanggal_jatuh_tempo = item.tanggal_jatuh_tempo || '';
     form.tanggal_ganti_kaleng = item.tanggal_ganti_kaleng || '';
     form.reminder_ganti_kaleng_hari = Array.isArray(item.reminder_ganti_kaleng_hari)
-    ? item.reminder_ganti_kaleng_hari
-    : item.reminder_ganti_kaleng_hari
-        ? [Number(item.reminder_ganti_kaleng_hari)]
-        : [90, 60, 30];
+        ? item.reminder_ganti_kaleng_hari
+        : item.reminder_ganti_kaleng_hari
+            ? [Number(item.reminder_ganti_kaleng_hari)]
+            : [90, 60, 30];
     form.tahun_pembelian = item.tahun_pembelian || '';
     form.nama_pemilik = item.nama_pemilik || '';
     form.keterangan = item.keterangan || '';
@@ -281,9 +283,11 @@ const executeDelete = () => {
 
                                     <!-- Kolom Jatuh Tempo -->
                                     <td class="px-6 py-4 text-center">
-                                        <div class="text-[11px] font-black text-[#1E293B]">{{ formatDate(item.tanggal_jatuh_tempo) }}</div>
+                                        <div class="text-[11px] font-black text-[#1E293B]">{{
+                                            formatDate(item.tanggal_jatuh_tempo) }}</div>
                                         <div class="text-[8px] font-black text-rose-500 uppercase tracking-tighter">
-                                            H-{{ Array.isArray(item.reminder_hari) ? item.reminder_hari.join(', H-') : item.reminder_hari }} Alert
+                                            H-{{ Array.isArray(item.reminder_hari) ? item.reminder_hari.join(', H-') :
+                                            item.reminder_hari }} Alert
                                         </div>
                                     </td>
 
@@ -407,11 +411,14 @@ const executeDelete = () => {
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cabang
                                 Penempatan</label>
-                            <select v-model="form.master_cabang_id"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
-                                <option value="">Pilih Cabang</option>
-                                <option v-for="c in cabangs" :key="c.id" :value="c.id">{{ c.nama_cabang }}</option>
-                            </select>
+                            <multiselect v-model="form.master_cabang_id" :options="cabangs.map(c => c.id)"
+                                :custom-label="id => cabangs.find(c => c.id == id)?.nama_cabang"
+                                placeholder="Pilih Cabang">
+                            </multiselect>
+
+                            <div v-if="form.errors.master_cabang_id" class="text-[10px] font-bold text-rose-500">
+                                {{ form.errors.master_cabang_id }}
+                            </div>
                         </div>
                         <div class="space-y-2 col-span-2">
                             <div class="flex items-center justify-between">
@@ -426,27 +433,17 @@ const executeDelete = () => {
 
                             <div class="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
                                 <div class="p-3 border-b border-slate-100 bg-white">
-                                    <input
-                                        v-model="financeSearch"
-                                        type="text"
+                                    <input v-model="financeSearch" type="text"
                                         placeholder="Cari nama / nomor HP finance..."
-                                        class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 placeholder:text-slate-400"
-                                    />
+                                        class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 placeholder:text-slate-400" />
                                 </div>
 
                                 <div class="max-h-64 overflow-y-auto p-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-                                    <label
-                                        v-for="u in filteredFinanceUsers"
-                                        :key="u.id"
+                                    <label v-for="u in filteredFinanceUsers" :key="u.id"
                                         class="flex items-start gap-3 p-3 rounded-xl bg-white border border-slate-100 cursor-pointer hover:border-[#2DD4BF]/40 transition-all"
-                                        :class="form.finance_user_ids.includes(u.id) ? 'border-[#2DD4BF] bg-[#2DD4BF]/5' : ''"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            :value="u.id"
-                                            v-model="form.finance_user_ids"
-                                            class="mt-1 rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
-                                        />
+                                        :class="form.finance_user_ids.includes(u.id) ? 'border-[#2DD4BF] bg-[#2DD4BF]/5' : ''">
+                                        <input type="checkbox" :value="u.id" v-model="form.finance_user_ids"
+                                            class="mt-1 rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
 
                                         <div class="min-w-0">
                                             <div class="text-[11px] font-black text-slate-700 uppercase truncate">
@@ -458,10 +455,8 @@ const executeDelete = () => {
                                         </div>
                                     </label>
 
-                                    <div
-                                        v-if="filteredFinanceUsers.length === 0"
-                                        class="col-span-2 text-center py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest"
-                                    >
+                                    <div v-if="filteredFinanceUsers.length === 0"
+                                        class="col-span-2 text-center py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                         User finance tidak ditemukan.
                                     </div>
                                 </div>
@@ -532,32 +527,23 @@ const executeDelete = () => {
                             </label>
 
                             <div class="flex gap-3 bg-slate-50 rounded-2xl p-4">
-                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        :value="7"
-                                        v-model="form.reminder_hari"
-                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
-                                    />
+                                <label
+                                    class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input type="checkbox" :value="7" v-model="form.reminder_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
                                     H-7 Hari
                                 </label>
 
-                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        :value="14"
-                                        v-model="form.reminder_hari"
-                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
-                                    />
+                                <label
+                                    class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input type="checkbox" :value="14" v-model="form.reminder_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
                                     H-14 Hari
                                 </label>
-                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        :value="30"
-                                        v-model="form.reminder_hari"
-                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
-                                    />
+                                <label
+                                    class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input type="checkbox" :value="30" v-model="form.reminder_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
                                     H-30 Hari
                                 </label>
                             </div>
@@ -571,12 +557,8 @@ const executeDelete = () => {
                                 Keterangan
                             </label>
 
-                            <textarea
-                                v-model="form.keterangan"
-                                rows="3"
-                                placeholder="Masukkan keterangan kendaraan..."
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"
-                            ></textarea>
+                            <textarea v-model="form.keterangan" rows="3" placeholder="Masukkan keterangan kendaraan..."
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"></textarea>
                         </div>
                     </div>
 
@@ -586,11 +568,8 @@ const executeDelete = () => {
                                 Tanggal Ganti Kaleng
                             </label>
 
-                            <input
-                                v-model="form.tanggal_ganti_kaleng"
-                                type="date"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                            />
+                            <input v-model="form.tanggal_ganti_kaleng" type="date"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
 
                             <div v-if="form.errors.tanggal_ganti_kaleng" class="text-[10px] font-bold text-rose-500">
                                 {{ form.errors.tanggal_ganti_kaleng }}
@@ -603,38 +582,30 @@ const executeDelete = () => {
                             </label>
 
                             <div class="flex flex-wrap gap-3 bg-slate-50 rounded-2xl p-4">
-                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        :value="30"
-                                        v-model="form.reminder_ganti_kaleng_hari"
-                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
-                                    />
+                                <label
+                                    class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input type="checkbox" :value="30" v-model="form.reminder_ganti_kaleng_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
                                     H-30 Hari
                                 </label>
 
-                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        :value="60"
-                                        v-model="form.reminder_ganti_kaleng_hari"
-                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
-                                    />
+                                <label
+                                    class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input type="checkbox" :value="60" v-model="form.reminder_ganti_kaleng_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
                                     H-60 Hari
                                 </label>
 
-                                <label class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        :value="90"
-                                        v-model="form.reminder_ganti_kaleng_hari"
-                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]"
-                                    />
+                                <label
+                                    class="flex items-center gap-2 text-[11px] font-black text-slate-600 uppercase cursor-pointer">
+                                    <input type="checkbox" :value="90" v-model="form.reminder_ganti_kaleng_hari"
+                                        class="rounded border-slate-300 text-[#2DD4BF] focus:ring-[#2DD4BF]" />
                                     H-90 Hari
                                 </label>
                             </div>
 
-                            <div v-if="form.errors.reminder_ganti_kaleng_hari" class="text-[10px] font-bold text-rose-500">
+                            <div v-if="form.errors.reminder_ganti_kaleng_hari"
+                                class="text-[10px] font-bold text-rose-500">
                                 {{ form.errors.reminder_ganti_kaleng_hari }}
                             </div>
                         </div>
