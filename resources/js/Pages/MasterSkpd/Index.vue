@@ -2,6 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm, Link } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
+import Multiselect from 'vue-multiselect'
+import 'vue-multiselect/dist/vue-multiselect.css'
 
 const props = defineProps({
     skpds: Object,
@@ -380,13 +382,14 @@ const formatRupiah = (value) => {
                             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
                                 Cabang
                             </label>
-                            <select v-model="form.master_cabang_id"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]">
-                                <option value="">- Pilih Cabang -</option>
-                                <option v-for="c in cabangs" :key="c.id" :value="c.id">
-                                    {{ c.nama_cabang }}
-                                </option>
-                            </select>
+                            <multiselect v-model="form.master_cabang_id" :options="cabangs.map(c => c.id)"
+                                :custom-label="id => cabangs.find(c => c.id == id)?.nama_cabang"
+                                placeholder="Pilih Cabang">
+                            </multiselect>
+
+                            <div v-if="form.errors.master_cabang_id" class="text-[10px] font-bold text-rose-500">
+                                {{ form.errors.master_cabang_id }}
+                            </div>
                         </div>
 
                         <div>
