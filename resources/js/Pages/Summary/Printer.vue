@@ -108,6 +108,130 @@ const resetFilter = () => {
     );
 };
 
+const printBilling = () => {
+    const printWindow = window.open('', '_blank');
+
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Billing Meter Printer</title>
+
+            <style>
+                body{
+                    font-family: Arial, sans-serif;
+                    padding:20px;
+                }
+
+                h2{
+                    text-align:center;
+                    margin-bottom:20px;
+                }
+
+                table{
+                    width:100%;
+                    border-collapse:collapse;
+                }
+
+                th,td{
+                    border:1px solid #ddd;
+                    padding:6px;
+                    font-size:11px;
+                    vertical-align:top;
+                }
+
+                th{
+                    background:#f3f4f6;
+                }
+
+                .text-right{
+                    text-align:right;
+                }
+            </style>
+        </head>
+
+        <body>
+            <h2>Billing Meter Printer</h2>
+
+            <p>
+                Periode :
+                ${startDate.value}
+                s/d
+                ${endDate.value}
+            </p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Mesin</th>
+                        <th>Serial Number</th>
+                        <th>Vendor</th>
+                        <th>Cabang</th>
+                        <th>Meter</th>
+                        <th>Total Tagihan</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    ${generateBillingRows()}
+                </tbody>
+            </table>
+        </body>
+        </html>
+    `);
+
+    printWindow.document.close();
+
+    setTimeout(() => {
+        printWindow.print();
+    }, 500);
+};
+
+const generateBillingRows = () => {
+    return props.billings.data.map(item => `
+        <tr>
+            <td>
+                ${formatDate(item.created_at)}
+            </td>
+
+            <td>
+                ${item.master_nama_mesin || item.nama_mesin || '-'}
+            </td>
+
+            <td>
+                ${item.serial_number || '-'}
+            </td>
+
+            <td>
+                ${item.nama_vendor || '-'}
+            </td>
+
+            <td>
+                ${item.kode_cabang || '-'} -
+                ${item.nama_cabang || '-'}
+            </td>
+
+            <td>
+                BW A3 : ${formatNumber(item.bw_a3)}<br>
+                BW A4 : ${formatNumber(item.bw_a4)}<br>
+                Color A3 : ${formatNumber(item.color_a3)}<br>
+                Color A4 : ${formatNumber(item.color_a4)}<br>
+                Long BW : ${formatNumber(item.bw_long_sheet)}<br>
+                Long Color : ${formatNumber(item.color_long_sheet)}
+            </td>
+
+            <td>
+                ${formatCurrency(item.total_tagihan)}
+            </td>
+
+            <td>
+                ${item.master_mesin_id ? 'OK' : 'BELUM MAPPING'}
+            </td>
+        </tr>
+    `).join('');
+};
+
 const sendWa = () => {
     if (!confirm('Kirim file Excel billing printer ini ke semua user Finance?')) {
         return;
@@ -146,6 +270,14 @@ const sendWa = () => {
                 </div>
 
                 <div class="flex items-center space-x-3">
+                    <button
+                        type="button"
+                        @click="printBilling"
+                        class="px-5 py-3 bg-slate-700 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm"
+                    >
+                        Print
+                    </button>
+
                     <button
                         type="button"
                         @click="sendWa"

@@ -98,6 +98,106 @@ const applyFilter = () => {
     );
 };
 
+const printSummary = () => {
+    const printWindow = window.open('', '_blank');
+
+    const rows = summaryHtml();
+
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Summary Token Listrik</title>
+            <style>
+                body{
+                    font-family: Arial, sans-serif;
+                    padding:20px;
+                }
+
+                h2{
+                    text-align:center;
+                    margin-bottom:20px;
+                }
+
+                table{
+                    width:100%;
+                    border-collapse:collapse;
+                }
+
+                th, td{
+                    border:1px solid #ddd;
+                    padding:8px;
+                    font-size:12px;
+                    text-align:left;
+                }
+
+                th{
+                    background:#f3f4f6;
+                }
+
+                .text-right{
+                    text-align:right;
+                }
+            </style>
+        </head>
+        <body>
+            <h2>Summary Token Listrik</h2>
+
+            <p>
+                Periode :
+                ${startDate.value}
+                s/d
+                ${endDate.value}
+            </p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cabang</th>
+                        <th>Pelanggan</th>
+                        <th>kWh Awal</th>
+                        <th>kWh Akhir</th>
+                        <th>Pemakaian</th>
+                        <th>Estimasi Rupiah</th>
+                        <th>Topup Bulan Depan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+        </body>
+        </html>
+    `);
+
+    printWindow.document.close();
+
+    setTimeout(() => {
+        printWindow.print();
+    }, 500);
+};
+
+const summaryHtml = () => {
+    return props.summary.map(item => `
+        <tr>
+            <td>
+                ${item.nama_cabang || '-'}<br>
+                <small>${item.kode_cabang || '-'}</small>
+            </td>
+
+            <td>
+                ${item.nama_pelanggan || '-'}<br>
+                <small>Daya: ${item.daya || '-'}</small>
+            </td>
+
+            <td>${formatNumber(item.kwh_awal)}</td>
+            <td>${formatNumber(item.kwh_akhir)}</td>
+            <td>${formatNumber(item.pemakaian_kwh)}</td>
+            <td>${formatRupiah(item.estimasi_pemakaian_rupiah)}</td>
+            <td>${formatRupiah(item.rekomendasi_topup_bulan_depan)}</td>
+        </tr>
+    `).join('');
+};
+
 const resetFilter = () => {
     search.value = '';
     cabangId.value = '';
@@ -139,6 +239,14 @@ const badgeClass = (status) => {
                 </div>
 
                 <div class="flex items-center space-x-3">
+                    <button
+                        type="button"
+                        @click="printSummary"
+                        class="px-5 py-3 bg-slate-700 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm"
+                    >
+                        Print
+                    </button>
+
                     <button
                         type="button"
                         @click="sendWa"
