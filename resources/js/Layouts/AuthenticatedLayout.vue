@@ -88,6 +88,11 @@ const masterDataMenus = [
         current: route().current('master-mesin.*'),
     },
     {
+        name: 'Master Daya Listrik',
+        href: route('master-daya-listrik.index'),
+        current: route().current('master-daya-listrik.*'),
+    },
+    {
         name: 'Master Token Listrik',
         href: route('master-token-listrik.index'),
         current: route().current('master-token-listrik.*'),

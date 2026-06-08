@@ -4,14 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\MasterTokenListrik;
 use App\Models\MasterCabang;
+use App\Models\MasterDayaListrik;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class MasterTokenListrikController extends Controller
 {
     public function index(Request $request)
-    {
-        $query = MasterTokenListrik::with('cabang');
+    {   
+        $query = MasterTokenListrik::with(['cabang', 'dayaListrik']);
 
         if ($request->filled('search')) {
             $search = trim($request->search);
@@ -19,7 +20,9 @@ class MasterTokenListrikController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('nomor_meter', 'like', "%{$search}%")
                     ->orWhere('nama_pelanggan', 'like', "%{$search}%")
-                    ->orWhere('daya', 'like', "%{$search}%");
+                    ->orWhereHas('dayaListrik', function ($dq) use ($search) {
+                        $dq->where('daya', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -30,6 +33,7 @@ class MasterTokenListrikController extends Controller
         return Inertia::render('MasterTokenListrik/Index', [
             'tokenListriks' => $query->orderBy('nomor_meter')->paginate(10)->withQueryString(),
             'cabangs' => MasterCabang::where('is_active', true)->orderBy('nama_cabang')->get(),
+            'dayaListriks' => MasterDayaListrik::where('is_active', true)->orderBy('daya')->get(),
             'filters' => $request->only(['search', 'master_cabang_id']),
         ]);
     }
@@ -38,10 +42,9 @@ class MasterTokenListrikController extends Controller
     {
         $validated = $request->validate([
             'master_cabang_id' => ['required', 'exists:master_cabangs,id'],
+            'master_daya_listrik_id' => ['required', 'exists:master_daya_listriks,id'],
             'nomor_meter' => ['required', 'string', 'max:100', 'unique:master_token_listriks,nomor_meter'],
             'nama_pelanggan' => ['nullable', 'string', 'max:255'],
-            'daya' => ['nullable', 'string', 'max:100'],
-            'nominal_default' => ['required', 'numeric', 'min:0'],
             'keterangan' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
@@ -55,10 +58,9 @@ class MasterTokenListrikController extends Controller
     {
         $validated = $request->validate([
             'master_cabang_id' => ['required', 'exists:master_cabangs,id'],
-            'nomor_meter' => ['required', 'string', 'max:100', 'unique:master_token_listriks,nomor_meter,' . $masterTokenListrik->id],
+            'master_daya_listrik_id' => ['required', 'exists:master_daya_listriks,id'],
+            'nomor_meter' => ['required', 'string', 'max:100', 'unique:master_token_listriks,nomor_meter'],
             'nama_pelanggan' => ['nullable', 'string', 'max:255'],
-            'daya' => ['nullable', 'string', 'max:100'],
-            'nominal_default' => ['required', 'numeric', 'min:0'],
             'keterangan' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);

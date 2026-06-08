@@ -511,9 +511,20 @@ class SummaryController extends Controller
             $pemakaianKwh = max($kwhAwal - $kwhAkhir, 0);
 
             $hargaPerKwh = $this->toFloat($awal->harga_per_kwh ?? 0);
+            $ppnPersen = $this->toFloat($awal->ppn_persen ?? 0);
 
-            $estimasiPemakaianRupiah = $pemakaianKwh * $hargaPerKwh;
-            $estimasiSisaRupiah = $kwhAkhir * $hargaPerKwh;
+            $estimasiBiayaStroom = $pemakaianKwh * $hargaPerKwh;
+            $estimasiPpn = $estimasiBiayaStroom * ($ppnPersen / 100);
+            $estimasiTotalDenganPpn = $estimasiBiayaStroom + $estimasiPpn;
+
+            $estimasiSisaStroom = $kwhAkhir * $hargaPerKwh;
+            $estimasiSisaPpn = $estimasiSisaStroom * ($ppnPersen / 100);
+            $estimasiSisaRupiah = $estimasiSisaStroom + $estimasiSisaPpn;
+
+            $rekomendasiTopupBulanDepan = max(
+                $estimasiTotalDenganPpn - $estimasiSisaRupiah,
+                0
+            );
 
             $summary[] = [
                 'cabang_id' => $awal->cabang_id,
@@ -521,6 +532,8 @@ class SummaryController extends Controller
                 'kode_cabang' => $awal->kode_cabang,
 
                 'master_token_listrik_id' => $awal->master_token_listrik_id,
+                'master_daya_listrik_id' => $awal->master_daya_listrik_id ?? null,
+
                 'nama_pelanggan' => $awal->nama_pelanggan,
                 'daya' => $awal->daya,
                 'nomor_meter' => $awal->nomor_meter,
@@ -538,22 +551,33 @@ class SummaryController extends Controller
 
                 'harga_per_kwh' => round($hargaPerKwh, 2),
                 'estimasi_harga_per_kwh' => round($hargaPerKwh, 2),
-                'estimasi_pemakaian_rupiah' => round($estimasiPemakaianRupiah, 2),
+
+                'ppn_persen' => round($ppnPersen, 2),
+
+                'estimasi_biaya_stroom' => round($estimasiBiayaStroom, 2),
+                'estimasi_ppn' => round($estimasiPpn, 2),
+                'estimasi_total_dengan_ppn' => round($estimasiTotalDenganPpn, 2),
+
+                'estimasi_sisa_stroom' => round($estimasiSisaStroom, 2),
+                'estimasi_sisa_ppn' => round($estimasiSisaPpn, 2),
                 'estimasi_sisa_rupiah' => round($estimasiSisaRupiah, 2),
 
-                'rekomendasi_topup_bulan_depan' => round(
-                    max($estimasiPemakaianRupiah - $estimasiSisaRupiah, 0),
-                    2
-                ),
+                'estimasi_pemakaian_rupiah' => round($estimasiTotalDenganPpn, 2),
+
+                'rekomendasi_topup_bulan_depan' => round($rekomendasiTopupBulanDepan, 2),
 
                 'jumlah_foto' => $items->count(),
+
                 'status_summary' => $this->getStatusSummary(
                     $items,
                     $kwhAwal,
                     $kwhAkhir,
                     $hargaPerKwh,
+                    $ppnPersen,
                     $awal->master_token_listrik_id,
-                    $awal->token_is_active
+                    $awal->token_is_active,
+                    $awal->master_daya_listrik_id ?? null,
+                    $awal->daya_is_active ?? null
                 ),
             ];
         }
@@ -566,15 +590,26 @@ class SummaryController extends Controller
         float $kwhAwal,
         float $kwhAkhir,
         float $hargaPerKwh,
+        float $ppnPersen,
         $masterTokenId = null,
-        $tokenIsActive = null
+        $tokenIsActive = null,
+        $masterDayaListrikId = null,
+        $dayaIsActive = null
     ): string {
         if (empty($masterTokenId)) {
             return 'Master tidak ditemukan';
         }
 
         if ((int) $tokenIsActive === 0) {
-            return 'Master tidak aktif';
+            return 'Master token tidak aktif';
+        }
+
+        if (empty($masterDayaListrikId)) {
+            return 'Master daya belum diisi';
+        }
+
+        if ((int) $dayaIsActive === 0) {
+            return 'Master daya tidak aktif';
         }
 
         if ($items->count() < 2) {
@@ -583,6 +618,10 @@ class SummaryController extends Controller
 
         if ($hargaPerKwh <= 0) {
             return 'Harga/kWh belum diisi';
+        }
+
+        if ($ppnPersen < 0) {
+            return 'PPN tidak valid';
         }
 
         if ($kwhAkhir > $kwhAwal) {

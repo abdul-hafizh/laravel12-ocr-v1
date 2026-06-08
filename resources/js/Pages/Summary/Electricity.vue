@@ -336,7 +336,7 @@ const badgeClass = (status) => {
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">kWh Awal</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">kWh Akhir</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Pemakaian</th>
-                                <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Estimasi Rupiah</th>
+                                <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Estimasi Biaya</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Bulan Depan</th>
                             </tr>
                         </thead>
@@ -388,10 +388,21 @@ const badgeClass = (status) => {
 
                                 <td class="px-6 py-5">
                                     <p class="font-bold text-slate-700">
-                                        {{ formatRupiah(item.estimasi_pemakaian_rupiah) }}
+                                        Stroom: {{ formatRupiah(item.estimasi_biaya_stroom) }}
                                     </p>
+
                                     <p class="text-xs text-slate-400 mt-1">
-                                        Harga/kWh: {{ formatRupiah(item.estimasi_harga_per_kwh) }}
+                                        Harga/kWh: {{ formatRupiah(item.harga_per_kwh) }}
+                                    </p>
+
+                                    <p class="text-xs text-slate-400 mt-1">
+                                        PPN {{ formatNumber(item.ppn_persen) }}%:
+                                        {{ formatRupiah(item.estimasi_ppn) }}
+                                    </p>
+
+                                    <p class="text-xs font-black text-[#1E293B] mt-1">
+                                        Total + PPN:
+                                        {{ formatRupiah(item.estimasi_total_dengan_ppn) }}
                                     </p>
                                 </td>
 

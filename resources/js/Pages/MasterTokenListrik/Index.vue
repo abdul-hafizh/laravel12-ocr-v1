@@ -8,6 +8,7 @@ import 'vue-multiselect/dist/vue-multiselect.css'
 const props = defineProps({
     tokenListriks: Object,
     cabangs: Array,
+    dayaListriks: Array,
     filters: Object,
 });
 
@@ -20,10 +21,9 @@ const selectedId = ref(null);
 
 const form = useForm({
     master_cabang_id: '',
+    master_daya_listrik_id: '',
     nomor_meter: '',
     nama_pelanggan: '',
-    daya: '',
-    nominal_default: 0,
     keterangan: '',
     is_active: true,
 });
@@ -58,8 +58,7 @@ const openEdit = (item) => {
     form.master_cabang_id = item.master_cabang_id || '';
     form.nomor_meter = item.nomor_meter || '';
     form.nama_pelanggan = item.nama_pelanggan || '';
-    form.daya = item.daya || '';
-    form.nominal_default = item.nominal_default || 0;
+    form.master_daya_listrik_id = item.master_daya_listrik_id || '';
     form.keterangan = item.keterangan || '';
     form.is_active = Boolean(item.is_active);
     showModal.value = true;
@@ -163,8 +162,7 @@ const formatRupiah = (value) => {
                                     Nomor
                                     Meter</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Pelanggan
-                                    & Daya</th>
+                                    Pelanggan & Daya</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     Cabang
                                 </th>
@@ -192,8 +190,8 @@ const formatRupiah = (value) => {
                                     <td class="px-6 py-4">
                                         <div class="text-sm font-bold text-[#1E293B] uppercase tracking-tight">{{
                                             item.nama_pelanggan || '-' }}</div>
-                                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{{
-                                            item.daya || 'Daya Tidak Set' }}</div>
+                                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                                            {{ item.daya_listrik?.daya || 'Daya Tidak Set' }}</div>
                                     </td>
                                     <td class="px-6 py-4 font-black text-slate-600 uppercase">
                                         <div class="text-[12px]">
@@ -203,8 +201,8 @@ const formatRupiah = (value) => {
                                         {{ item.keterangan || '-' }}</div>
                                     </td>
                                     <td class="px-6 py-4 text-right">
-                                        <div class="text-[11px] font-black text-[#1E293B]">{{
-                                            formatRupiah(item.nominal_default) }}</div>
+                                        <div class="text-[11px] font-black text-[#1E293B]">
+                                            {{ formatRupiah(item.daya_listrik?.harga_per_kwh) }}</div>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <span
@@ -309,10 +307,23 @@ const formatRupiah = (value) => {
                                 {{ form.errors.nomor_meter }}</div>
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Daya
-                                (VA)</label>
-                            <input v-model="form.daya" type="text" placeholder="Contoh: 1300 VA"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Daya (VA)
+                            </label>
+
+                            <multiselect
+                                v-model="form.master_daya_listrik_id"
+                                :options="dayaListriks.map(d => d.id)"
+                                :custom-label="id => {
+                                    const d = dayaListriks.find(x => x.id == id)
+                                    return d ? `${d.daya} - ${formatRupiah(d.harga_per_kwh)}/kWh` : ''
+                                }"
+                                placeholder="Pilih Daya"
+                            />
+
+                            <div v-if="form.errors.master_daya_listrik_id" class="text-[10px] font-bold text-rose-500">
+                                {{ form.errors.master_daya_listrik_id }}
+                            </div>
                         </div>
                     </div>
 
@@ -322,14 +333,7 @@ const formatRupiah = (value) => {
                                 Pelanggan</label>
                             <input v-model="form.nama_pelanggan" type="text"
                                 class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                        </div>
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Harga
-                                Per
-                                KWh</label>
-                            <input v-model="form.nominal_default" type="number"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                        </div>
+                        </div>                        
                     </div>
 
                     <div class="space-y-1.5">

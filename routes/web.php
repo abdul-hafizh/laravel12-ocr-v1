@@ -9,6 +9,7 @@ use App\Http\Controllers\MasterTokenListrikController;
 use App\Http\Controllers\MasterKendaraanController;
 use App\Http\Controllers\MasterSkpdController;
 use App\Http\Controllers\MasterHargaBiayaController;
+use App\Http\Controllers\MasterDayaListrikController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserManagementController;
@@ -80,6 +81,9 @@ Route::middleware(['auth', 'verified', 'role.url'])->group(function () {
         ->except(['create', 'edit', 'show']);
 
     Route::resource('master-harga-biaya', MasterHargaBiayaController::class)
+        ->except(['create', 'edit', 'show']);
+
+    Route::resource('master-daya-listrik', MasterDayaListrikController::class)
         ->except(['create', 'edit', 'show']);
 
     Route::get('/hasil-upload/mesin-cetak', function () {

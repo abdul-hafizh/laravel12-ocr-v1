@@ -8,18 +8,21 @@ class MasterTokenListrik extends Model
 {
     protected $fillable = [
         'master_cabang_id',
+        'master_daya_listrik_id',
         'nomor_meter',
         'nama_pelanggan',
-        'daya',
-        'nominal_default',
         'keterangan',
         'is_active',
     ];
 
     protected $casts = [
-        'nominal_default' => 'decimal:2',
         'is_active' => 'boolean',
     ];
+
+    public function dayaListrik()
+    {
+        return $this->belongsTo(MasterDayaListrik::class, 'master_daya_listrik_id');
+    }
 
     public function cabang()
     {
