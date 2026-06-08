@@ -56,6 +56,11 @@ const filteredFinanceUsers = computed(() => {
     });
 });
 
+const toDateInput = (value) => {
+    if (!value) return '';
+    return String(value).slice(0, 10);
+};
+
 const selectedFinanceCount = computed(() => {
     return form.finance_user_ids.length;
 });
@@ -101,8 +106,8 @@ const openEdit = (item) => {
     form.nomor_polisi = item.nomor_polisi || '';
     form.merk = item.merk || '';
     form.tipe = item.tipe || '';
-    form.tanggal_jatuh_tempo = item.tanggal_jatuh_tempo || '';
-    form.tanggal_ganti_kaleng = item.tanggal_ganti_kaleng || '';
+    form.tanggal_jatuh_tempo = toDateInput(item.tanggal_jatuh_tempo);
+    form.tanggal_ganti_kaleng = toDateInput(item.tanggal_ganti_kaleng);
     form.reminder_ganti_kaleng_hari = Array.isArray(item.reminder_ganti_kaleng_hari)
         ? item.reminder_ganti_kaleng_hari
         : item.reminder_ganti_kaleng_hari
@@ -267,8 +272,9 @@ const executeDelete = () => {
                                     </td>
 
                                     <!-- Kolom Jenis -->
-                                    <td class="px-6 py-4 text-[11px] font-black text-slate-500 uppercase">
-                                        {{ item.jenis_kendaraan }}
+                                    <td class="px-6 py-4 font-black">
+                                        <div class="text-[12px] text-slate-500 uppercase">{{ item.jenis_kendaraan || '-' }}</div>
+                                        <div class="text-[11px] text-slate-500 ">{{ item.keterangan || '-' }}</div>
                                     </td>
 
                                     <!-- Kolom Cabang -->
@@ -423,7 +429,7 @@ const executeDelete = () => {
                         <div class="space-y-2 col-span-2">
                             <div class="flex items-center justify-between">
                                 <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                    User Finance Penerima Reminder
+                                    User Penerima Reminder
                                 </label>
 
                                 <span class="text-[9px] font-black text-[#2DD4BF] uppercase tracking-widest">
@@ -434,7 +440,7 @@ const executeDelete = () => {
                             <div class="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
                                 <div class="p-3 border-b border-slate-100 bg-white">
                                     <input v-model="financeSearch" type="text"
-                                        placeholder="Cari nama / nomor HP finance..."
+                                        placeholder="Cari nama / nomor HP user..."
                                         class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 placeholder:text-slate-400" />
                                 </div>
 
@@ -471,6 +477,7 @@ const executeDelete = () => {
                                 Kendaraan</label>
                             <select v-model="form.jenis_kendaraan"
                                 class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
+                                <option value="">Pilih Jenis Kendaraan</option>
                                 <option value="motor">Motor</option>
                                 <option value="mobil">Mobil</option>
                             </select>

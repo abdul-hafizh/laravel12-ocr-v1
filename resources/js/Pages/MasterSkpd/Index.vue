@@ -13,7 +13,6 @@ const props = defineProps({
 });
 
 const search = ref(props.filters.search || '');
-
 const showModal = ref(false);
 const isEdit = ref(false);
 const selectedId = ref(null);
@@ -27,7 +26,8 @@ const form = useForm({
     tanggal_jatuh_tempo: '',
     reminder_hari: [7, 14, 30],
     user_ids: [],
-    foto: null,
+    foto: [],
+    existing_foto_urls: [],
     is_active: true,
 });
 
@@ -45,6 +45,11 @@ const filteredFinanceUsers = computed(() => {
         );
     });
 });
+
+const generateNomorSkpd = () => {
+    const randomNumber = Math.floor(100000 + Math.random() * 900000);
+    return `SKPD-${randomNumber}`;
+};
 
 watch(search, (value) => {
     router.get(
@@ -74,8 +79,9 @@ const openCreate = () => {
     form.tanggal_jatuh_tempo = '';
     form.reminder_hari = [7, 14, 30];
     form.user_ids = [];
-    form.foto = null;
-    form.nomor_skpd = '';
+    form.foto = [];
+    form.existing_foto_urls = [];
+    form.nomor_skpd = generateNomorSkpd();
     form.nominal_pajak = 0;
     form.is_active = true;
 
@@ -92,8 +98,9 @@ const openEdit = (item) => {
     form.nominal_pajak = item.nominal_pajak || 0;
     form.jenis = item.jenis || '';
     form.keterangan = item.keterangan || '';
-    form.tanggal_jatuh_tempo = item.tanggal_jatuh_tempo || '';
-    form.foto = null;
+    form.tanggal_jatuh_tempo = toDateInput(item.tanggal_jatuh_tempo);
+    form.foto = [];
+    form.existing_foto_urls = item.foto_urls || [];
 
     form.reminder_hari = Array.isArray(item.reminder_hari)
         ? item.reminder_hari
@@ -110,7 +117,7 @@ const openEdit = (item) => {
 };
 
 const handleFotoChange = (event) => {
-    form.foto = event.target.files[0] || null;
+    form.foto = Array.from(event.target.files || []);
 };
 
 const closeModal = () => {
@@ -130,19 +137,28 @@ const onKendaraanChange = () => {
 };
 
 const submit = () => {
-    form.transform((data) => ({
-        ...data,
-        _method: isEdit.value ? 'put' : undefined,
-    })).post(
+    form.transform((data) => {
+        const payload = {
+            ...data,
+            _method: isEdit.value ? 'put' : undefined,
+        };
+
+        return payload;
+    }).post(
         isEdit.value
             ? route('master-skpd.update', selectedId.value)
             : route('master-skpd.store'),
         {
-            preserveScroll: true,
             forceFormData: true,
+            preserveScroll: true,
             onSuccess: () => closeModal(),
         }
     );
+};
+
+const toDateInput = (value) => {
+    if (!value) return '';
+    return String(value).slice(0, 10);
 };
 
 const showDeleteModal = ref(false);
@@ -177,12 +193,12 @@ const formatRupiah = (value) => {
 
 <template>
 
-    <Head title="Master SKPD" />
+    <Head title="Master SKPD Pajak Reklame" />
 
     <AuthenticatedLayout>
         <template #header>
             <h2 class="font-bold text-2xl text-[#1E293B] tracking-tight">
-                Master <span class="text-[#2DD4BF]">SKPD</span>
+                Master <span class="text-[#2DD4BF]">SKPD Pajak Reklame</span>
             </h2>
         </template>
 
@@ -201,7 +217,7 @@ const formatRupiah = (value) => {
 
                             <button type="button" @click="openCreate"
                                 class="inline-flex items-center justify-center rounded-xl bg-[#1E293B] px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-white transition-all hover:bg-slate-700 active:scale-95 shadow-lg shadow-slate-200">
-                                <span class="mr-2 text-lg">+</span> Tambah SKPD
+                                <span class="mr-2 text-lg">+</span> Tambah SKPD Pajak Reklame
                             </button>
                         </div>
                     </div>
@@ -249,6 +265,8 @@ const formatRupiah = (value) => {
 
                                     <td class="px-6 py-4 text-sm font-black text-[#1E293B] text-right">
                                         {{ formatRupiah(item.nominal_pajak) }}
+                                        <div class="text-[11px] font-bold text-slate-600">
+                                        {{ item.keterangan || '-' }}</div>
                                     </td>
                                     <td class="px-6 py-4">
                                         <div class="text-[11px] font-bold text-slate-600">{{ item.tanggal_jatuh_tempo ||
@@ -270,12 +288,17 @@ const formatRupiah = (value) => {
                                         </span>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <button v-if="item.foto_url" @click="openImagePreview(item.foto_url)"
-                                            type="button"
-                                            class="block w-14 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer text-left">
-                                            <img :src="item.foto_url" alt="Foto SKPD"
-                                                class="w-full h-full object-cover hover:scale-110 transition-transform duration-300" />
-                                        </button>
+                                        <div v-if="item.foto_urls?.length" class="flex gap-1">
+                                            <button
+                                                v-for="url in item.foto_urls.slice(0, 3)"
+                                                :key="url"
+                                                @click="openImagePreview(url)"
+                                                type="button"
+                                                class="block w-14 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-50"
+                                            >
+                                                <img :src="url" class="w-full h-full object-cover" />
+                                            </button>
+                                        </div>
 
                                         <div v-else
                                             class="w-14 h-14 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-[9px] font-black text-slate-300 uppercase">
@@ -367,7 +390,7 @@ const formatRupiah = (value) => {
                 <div class="flex items-center justify-between border-b border-slate-50 px-8 py-6">
                     <div class="flex flex-col">
                         <span class="text-[10px] font-black uppercase tracking-[0.3em] text-[#2DD4BF]">Form Entry</span>
-                        <h3 class="text-xl font-bold text-slate-800">{{ isEdit ? 'Update SKPD' : 'Create New SKPD' }}
+                        <h3 class="text-xl font-bold text-slate-800">{{ isEdit ? 'Update SKPD Pajak Reklame' : 'Create SKPD Pajak Reklame' }}
                         </h3>
                     </div>
                     <button type="button" @click="closeModal"
@@ -431,8 +454,39 @@ const formatRupiah = (value) => {
                             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
                                 Upload Foto
                             </label>
-                            <input type="file" accept="image/*" @change="handleFotoChange"
-                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]" />
+
+                            <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                @change="handleFotoChange"
+                                class="w-full rounded-xl border-slate-100 bg-slate-50 py-3 text-sm font-bold focus:border-[#2DD4BF] focus:ring-[#2DD4BF]"
+                            />
+
+                            <div
+                                v-if="form.foto && form.foto.length"
+                                class="mt-2 text-[10px] font-bold text-[#2DD4BF]"
+                            >
+                                {{ form.foto.length }} foto dipilih
+                            </div>
+                        </div>
+
+                        <div v-if="isEdit && form.existing_foto_urls.length" class="md:col-span-2">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">
+                                Foto Saat Ini
+                            </label>
+
+                            <div class="flex flex-wrap gap-3">
+                                <button
+                                    v-for="url in form.existing_foto_urls"
+                                    :key="url"
+                                    type="button"
+                                    @click="openImagePreview(url)"
+                                    class="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-slate-50"
+                                >
+                                    <img :src="url" class="w-full h-full object-cover" />
+                                </button>
+                            </div>
                         </div>
 
                         <div class="md:col-span-2">

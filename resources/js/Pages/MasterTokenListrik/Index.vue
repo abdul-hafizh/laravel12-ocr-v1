@@ -195,8 +195,12 @@ const formatRupiah = (value) => {
                                         <div class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{{
                                             item.daya || 'Daya Tidak Set' }}</div>
                                     </td>
-                                    <td class="px-6 py-4 text-[11px] font-black text-slate-600 uppercase italic">
-                                        {{ item.cabang?.nama_cabang || '-' }}
+                                    <td class="px-6 py-4 font-black text-slate-600 uppercase">
+                                        <div class="text-[12px]">
+                                            {{ item.cabang?.nama_cabang || '-' }}
+                                        </div>
+                                        <div class="text-[10px] text-slate-400 tracking-tighter">
+                                        {{ item.keterangan || '-' }}</div>
                                     </td>
                                     <td class="px-6 py-4 text-right">
                                         <div class="text-[11px] font-black text-[#1E293B]">{{

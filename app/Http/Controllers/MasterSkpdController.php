@@ -31,9 +31,11 @@ class MasterSkpdController extends Controller
                 ->paginate(10)
                 ->withQueryString()
                 ->through(function ($item) {
-                    $item->foto_url = $item->foto
-                        ? asset('storage/' . $item->foto)
-                        : null;
+                    $fotos = is_array($item->foto) ? $item->foto : [];
+
+                    $item->foto_urls = collect($fotos)
+                        ->map(fn ($foto) => asset('storage/' . $foto))
+                        ->values();
 
                     return $item;
                 }),
@@ -80,12 +82,16 @@ class MasterSkpdController extends Controller
                 'min:0'
             ],
 
-            'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'foto' => ['nullable', 'array'],
+            'foto.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'is_active' => ['boolean'],
         ]);
 
         if ($request->hasFile('foto')) {
-            $validated['foto'] = $request->file('foto')->store('skpd', 'public');
+            $validated['foto'] = collect($request->file('foto'))
+                ->map(fn ($file) => $file->store('skpd', 'public'))
+                ->values()
+                ->toArray();
         }
 
         $skpd = MasterSkpd::create($validated);
@@ -123,7 +129,8 @@ class MasterSkpdController extends Controller
             'user_ids' => ['required', 'array', 'min:1'],
             'user_ids.*' => ['required', 'exists:users,id'],
 
-            'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'foto' => ['nullable', 'array'],
+            'foto.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'is_active' => ['boolean'],
         ]);
 
@@ -135,12 +142,17 @@ class MasterSkpdController extends Controller
             $validated['foto'] = $request->file('foto')->store('skpd', 'public');
         }
 
-        if ($request->hasFile('foto')) {
-            if ($masterSkpd->foto) {
-                Storage::disk('public')->delete($masterSkpd->foto);
-            }
+        $existingFotos = is_array($masterSkpd->foto) ? $masterSkpd->foto : [];
 
-            $validated['foto'] = $request->file('foto')->store('skpd', 'public');
+        if ($request->hasFile('foto')) {
+            $newFotos = collect($request->file('foto'))
+                ->map(fn ($file) => $file->store('skpd', 'public'))
+                ->values()
+                ->toArray();
+
+            $validated['foto'] = array_merge($existingFotos, $newFotos);
+        } else {
+            unset($validated['foto']);
         }
 
         $masterSkpd->update($validated);

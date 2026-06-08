@@ -24,6 +24,7 @@ class MasterSkpd extends Model
         'reminder_hari' => 'array',
         'nominal_pajak' => 'decimal:2',
         'tanggal_jatuh_tempo' => 'date',
+        'foto' => 'array',
         'is_active' => 'boolean',
     ];
 

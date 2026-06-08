@@ -36,8 +36,7 @@ class MasterKendaraanController extends Controller
             ->where('is_active', true)
             ->where('is_delete', false)
             ->whereHas('role', function ($q) {
-                $q->where('slug', 'finance')
-                    ->where('is_active', true);
+                $q->where('is_active', true);
             })
             ->orderBy('name')
             ->get(['id', 'name', 'phone', 'role_id']);
