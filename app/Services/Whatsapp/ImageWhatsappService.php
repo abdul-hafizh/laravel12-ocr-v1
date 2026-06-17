@@ -32,6 +32,16 @@ class ImageWhatsappService
 
     public function handle(string $phone, string $message, object $session, array $payload): void
     {
+        if (($session->step ?? '') === 'ASK_MACHINE') {
+            $this->handleMachineSelection($phone, $message, $session);
+            return;
+        }
+
+        if (($session->step ?? '') === 'ASK_PART') {
+            $this->handlePartSelection($phone, $message, $session);
+            return;
+        }
+
         $imageUrl =
             $payload['url']
             ?? $payload['image']
@@ -148,14 +158,27 @@ class ImageWhatsappService
 
             Storage::disk('public')->put($path, $response->body());
 
+            $nominalChat = null;
+
+            if ($scanType === 'part_maintenance') {
+                $nominalChat = $this->extractNominalFromMessage($message);
+            }
+
             $scan = ImageScan::create([
                 'user_id' => $session->user_id ?? null,
                 'cabang_id' => $session->cabang_id ?? null,
+                'master_mesin_id' => $session->master_mesin_id ?? null,
+                'master_mesin_part_id' => $session->master_mesin_part_id ?? null,
                 'scan_type' => $scanType,
                 'image_path' => $path,
                 'original_filename' => $filename,
                 'mime_type' => $contentType,
                 'status' => 'pending',
+                'analysis_result' => [
+                    'data_penting' => [
+                        'nominal_chat' => $nominalChat,
+                    ],
+                ],
             ]);
 
             AnalyzeImageJob::dispatch($scan->id);
@@ -164,6 +187,8 @@ class ImageWhatsappService
                 'menu' => null,
                 'scan_type' => null,
                 'step' => 'ASK_MENU',
+                'master_mesin_id' => null,
+                'master_mesin_part_id' => null,
                 'updated_at' => now(),
             ]);
 
@@ -261,6 +286,178 @@ class ImageWhatsappService
         ];
     }
 
+    private function handleMachineSelection(string $phone, string $message, object $session): void
+    {
+        $choice = (int) trim($message);
+
+        if ($choice <= 0) {
+            SendSms::sendMessageWA($phone, "Silakan ketik nomor mesin yang valid.");
+            return;
+        }
+
+        $mesins = MasterMesin::where('master_cabang_id', $session->cabang_id)
+            ->where('is_active', true)
+            ->orderBy('nama_mesin')
+            ->get();
+
+        $mesin = $mesins->get($choice - 1);
+
+        if (!$mesin) {
+            SendSms::sendMessageWA($phone, "Nomor mesin tidak ditemukan. Silakan pilih ulang.");
+            return;
+        }
+
+        DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
+            'master_mesin_id' => $mesin->id,
+            'updated_at' => now(),
+        ]);
+
+        if ($session->menu === 'BIAYA_PART') {
+            $parts = $mesin->maintenanceParts()
+                ->orderBy('nama_part')
+                ->get();
+
+            if ($parts->isEmpty()) {
+                SendSms::sendMessageWA(
+                    $phone,
+                    "❌ Mesin *{$mesin->nama_mesin}* belum memiliki data part."
+                );
+                return;
+            }
+
+            DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
+                'step' => 'ASK_PART',
+                'updated_at' => now(),
+            ]);
+
+            $text = "Mesin dipilih ✅\n";
+            $text .= "*{$mesin->nama_mesin}*\n";
+            $text .= "SN: {$mesin->serial_number}\n\n";
+            $text .= "Silakan pilih part:\n\n";
+
+            foreach ($parts as $index => $part) {
+                $no = $index + 1;
+                $harga = number_format((float) $part->harga_part, 0, ',', '.');
+                $text .= "*{$no}* {$part->nama_part} \n";
+            }
+
+            $text .= "\nKetik nomor part.";
+
+            SendSms::sendMessageWA($phone, $text);
+            return;
+        }
+
+        DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
+            'step' => 'ASK_IMAGE',
+            'updated_at' => now(),
+        ]);
+
+        SendSms::sendMessageWA(
+            $phone,
+            "Mesin dipilih ✅\n\n" .
+            "*{$mesin->nama_mesin}*\n" .
+            "SN: {$mesin->serial_number}\n\n" .
+            "Silakan kirim gambar/foto maintenance mesin."
+        );
+    }
+
+    private function handlePartSelection(string $phone, string $message, object $session): void
+    {
+        $choice = (int) trim($message);
+
+        if ($choice <= 0) {
+            SendSms::sendMessageWA($phone, "Silakan ketik nomor part yang valid.");
+            return;
+        }
+
+        $mesin = MasterMesin::with('maintenanceParts')
+            ->where('id', $session->master_mesin_id)
+            ->where('master_cabang_id', $session->cabang_id)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$mesin) {
+            SendSms::sendMessageWA($phone, "❌ Mesin tidak valid. Ketik *ulang* untuk kembali ke menu.");
+            return;
+        }
+
+        $parts = $mesin->maintenanceParts()
+            ->orderBy('nama_part')
+            ->get();
+
+        $part = $parts->get($choice - 1);
+
+        if (!$part) {
+            SendSms::sendMessageWA($phone, "Nomor part tidak ditemukan. Silakan pilih ulang.");
+            return;
+        }
+
+        DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
+            'master_mesin_part_id' => $part->id,
+            'step' => 'ASK_IMAGE',
+            'updated_at' => now(),
+        ]);
+
+        $harga = number_format((float) $part->harga_part, 0, ',', '.');
+
+        SendSms::sendMessageWA(
+            $phone,
+            "Part dipilih ✅\n\n" .
+            "Mesin: *{$mesin->nama_mesin}*\n" .
+            "SN: {$mesin->serial_number}\n" .
+            "Part: *{$part->nama_part}*\n" .
+            "Silakan kirim gambar/foto bukti biaya part."
+        );
+    }
+
+    public function startWithMachineSelection(string $phone, string $menu, string $scanType): void
+    {
+        $session = DB::table('dbo.wa_sessions')->where('phone', $phone)->first();
+
+        if (!$session || !$session->cabang_id) {
+            SendSms::sendMessageWA(
+                $phone,
+                "❌ Cabang Anda belum terdeteksi.\nSilakan hubungi admin."
+            );
+            return;
+        }
+
+        $mesins = MasterMesin::where('master_cabang_id', $session->cabang_id)
+            ->where('is_active', true)
+            ->orderBy('nama_mesin')
+            ->get();
+
+        if ($mesins->isEmpty()) {
+            SendSms::sendMessageWA(
+                $phone,
+                "❌ Belum ada mesin aktif untuk cabang Anda."
+            );
+            return;
+        }
+
+        DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
+            'menu' => $menu,
+            'scan_type' => $scanType,
+            'step' => 'ASK_MACHINE',
+            'master_mesin_id' => null,
+            'master_mesin_part_id' => null,
+            'updated_at' => now(),
+        ]);
+
+        $text = "Menu {$menu} dipilih ✅\n\n";
+        $text .= "Silakan pilih mesin:\n\n";
+
+        foreach ($mesins as $index => $mesin) {
+            $no = $index + 1;
+            $text .= "*{$no}* {$mesin->nama_mesin}\n";
+            $text .= "SN: {$mesin->serial_number}\n\n";
+        }
+
+        $text .= "Pilih nomor.";
+
+        SendSms::sendMessageWA($phone, $text);
+    }
+
     private function extensionFromMime(string $mime): string
     {
         return match ($mime) {
@@ -268,5 +465,24 @@ class ImageWhatsappService
             'image/webp' => 'webp',
             default => 'jpg',
         };
+    }
+
+    private function extractNominalFromMessage(?string $message): ?int
+    {
+        $message = trim((string) $message);
+
+        if ($message === '') {
+            return null;
+        }
+
+        preg_match('/\d[\d\.\,\s]*/', $message, $matches);
+
+        if (empty($matches[0])) {
+            return null;
+        }
+
+        $nominal = preg_replace('/[^0-9]/', '', $matches[0]);
+
+        return $nominal !== '' ? (int) $nominal : null;
     }
 }

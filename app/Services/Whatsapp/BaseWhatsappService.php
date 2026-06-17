@@ -28,6 +28,8 @@ class BaseWhatsappService
             'employee_name' => null,
             'gender' => null,
             'scan_type' => null,
+            'master_mesin_id' => null,
+            'master_mesin_part_id' => null,
             'updated_at' => now(),
         ]);
 

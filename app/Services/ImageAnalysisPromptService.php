@@ -10,6 +10,7 @@ class ImageAnalysisPromptService
             'electricity' => self::electricityPrompt(),
             'online_receipt' => self::onlineReceiptPrompt(),
             'printer' => self::printerPrompt(),
+            'part_maintenance' => self::partMaintenancePrompt(),
         };
     }
 
@@ -268,6 +269,83 @@ class ImageAnalysisPromptService
             {
                 "valid": false,
                 "message": "Serial number atau data counter mesin tidak ditemukan.",
+                "data_penting": {}
+            }
+        ';
+    }
+
+    private static function partMaintenancePrompt(): string
+    {
+        return '
+            Anda adalah AI OCR untuk menganalisis gambar biaya part atau maintenance mesin.
+
+            Konteks:
+            - User sudah memilih menu di WhatsApp.
+            - User sudah memilih mesin atau part dari sistem.
+            - User hanya mengirim gambar bukti dan mengetik nominal di chat WhatsApp.
+            - Jadi tugas Anda hanya membaca isi gambar secara umum dan mendeskripsikan gambar.
+
+            Tugas utama:
+            - Tentukan apakah gambar adalah bukti yang relevan.
+            - Gambar bisa berupa:
+            1. foto part mesin
+            2. foto kerusakan mesin
+            3. foto maintenance/perbaikan mesin
+            4. struk pembayaran
+            5. nota pembelian
+            6. invoice
+            7. bukti transfer
+            8. bukti pembayaran
+
+            Data yang perlu diambil:
+            - jenis_gambar
+            - deskripsi_gambar
+            - tanggal jika terlihat
+            - nama_toko/vendor jika terlihat
+            - nomor_nota/invoice/referensi jika terlihat
+            - nominal yang terlihat di gambar jika ada
+
+            PENTING:
+            - Nominal dapat berasal dari gambar atau dari chat WhatsApp user.
+            - Jika nominal di gambar tidak terlihat, isi nominal_gambar = null.
+            - Jika nominal terlihat, ubah menjadi integer.
+            - Hapus Rp, IDR, titik, koma, spasi, dan desimal.
+            - Contoh "Rp 1.250.000" menjadi 1250000.
+            - Jangan mengarang data.
+            - Jika data tidak terlihat, isi null.
+            - Kembalikan hanya JSON valid tanpa markdown.
+
+            Format JSON wajib:
+            {
+                "valid": true,
+                "message": "",
+                "data_penting": {
+                    "jenis_gambar": null,
+                    "deskripsi_gambar": null,
+                    "tanggal": null,
+                    "nama_toko_atau_vendor": null,
+                    "nomor_nota_invoice_referensi": null,
+                    "nominal_chat": null,
+                    "nominal_gambar": null,
+                    "catatan": null
+                }
+            }
+
+            Contoh deskripsi_gambar:
+            - "Foto part drum mesin fotocopy."
+            - "Foto kondisi mesin sedang dibongkar untuk maintenance."
+            - "Nota pembelian sparepart mesin."
+            - "Bukti transfer pembayaran part mesin."
+            - "Invoice jasa service mesin."
+
+            Syarat valid:
+            - Gambar masih berhubungan dengan part, maintenance, struk, nota, invoice, atau bukti pembayaran.
+            - Minimal ada objek/bukti yang bisa dijelaskan.
+
+            Jika gambar tidak sesuai:
+            {
+                "valid": false,
+                "message": "Gambar tidak sesuai. Gambar bukan foto part, maintenance, struk, nota, invoice, atau bukti pembayaran.",
                 "data_penting": {}
             }
         ';

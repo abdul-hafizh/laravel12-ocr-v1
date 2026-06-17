@@ -126,12 +126,20 @@ class WhatsappRouterService
             }
 
             if ($menu === 'BIAYA_PART') {
-                app(ImageWhatsappService::class)->start($phone, $menu, 'online_receipt');
+                app(ImageWhatsappService::class)->startWithMachineSelection(
+                    phone: $phone,
+                    menu: $menu,
+                    scanType: 'part_maintenance'
+                );
                 return;
             }
 
             if ($menu === 'MAINTENANCE_MESIN') {
-                app(ImageWhatsappService::class)->start($phone, $menu, 'printer');
+                app(ImageWhatsappService::class)->startWithMachineSelection(
+                    phone: $phone,
+                    menu: $menu,
+                    scanType: 'part_maintenance'
+                );
                 return;
             }
         }

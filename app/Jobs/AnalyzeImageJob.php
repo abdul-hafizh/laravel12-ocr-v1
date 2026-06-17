@@ -96,6 +96,27 @@ class AnalyzeImageJob implements ShouldQueue
             ];
         }
 
+        if ($scan->scan_type === 'part_maintenance') {
+            $oldAnalysis = is_array($scan->analysis_result)
+                ? $scan->analysis_result
+                : [];
+
+            $oldData = $oldAnalysis['data_penting'] ?? [];
+            $newData = $parsed['data_penting'] ?? [];
+
+            $nominalChat = $this->cleanNominal($oldData['nominal_chat'] ?? null);
+            $nominalGambar = $this->cleanNominal($newData['nominal_gambar'] ?? null);
+
+            $nominalFinal = $nominalChat ?: $nominalGambar;
+
+            $parsed['data_penting'] = array_merge($newData, [
+                'nominal_chat' => $nominalChat,
+                'nominal_gambar' => $nominalGambar,
+                'nominal_final' => $nominalFinal,
+                'sumber_nominal' => $nominalChat ? 'chat' : ($nominalGambar ? 'gambar' : null),
+            ]);
+        }
+        
         Log::info('OPENAI_RESULT_BEFORE_SAVE', [
             'scan_id' => $scan->id,
             'scan_type' => $scan->scan_type,
@@ -111,6 +132,21 @@ class AnalyzeImageJob implements ShouldQueue
                 ?? $text,
             'error_message' => null,
         ]);
+    }
+
+    private function cleanNominal($value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return (int) $value;
+        }
+
+        $nominal = preg_replace('/[^0-9]/', '', (string) $value);
+
+        return $nominal !== '' ? (int) $nominal : null;
     }
 
     public function failed(Throwable $exception): void

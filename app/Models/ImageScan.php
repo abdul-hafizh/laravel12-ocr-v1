@@ -13,6 +13,8 @@ class ImageScan extends Model
         'image_path',
         'original_filename',
         'mime_type',
+        'master_mesin_id',
+        'master_mesin_part_id',
         'status',
         'analysis_result',
         'extracted_text',
@@ -31,5 +33,15 @@ class ImageScan extends Model
     public function cabang()
     {
         return $this->belongsTo(MasterCabang::class, 'cabang_id');
+    }
+
+    public function mesin()
+    {
+        return $this->belongsTo(MasterMesin::class, 'master_mesin_id');
+    }
+
+    public function mesinPart()
+    {
+        return $this->belongsTo(MasterMesinPart::class, 'master_mesin_part_id');
     }
 }
