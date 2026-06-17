@@ -290,7 +290,7 @@ const sendWa = () => {
         </template>
 
         <div class="space-y-6">
-            <div class="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
+            <div class="mx-auto">
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div class="relative md:col-span-2">
                         <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
@@ -321,7 +321,7 @@ const sendWa = () => {
                     />                    
                 </div>
 
-                <div class="flex grid-cols-1 md:grid-cols-4 mt-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
                     <select
                         v-model="vendor"
                         class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
@@ -370,7 +370,7 @@ const sendWa = () => {
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-100">
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Scan
+                                    Foto
                                 </th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     Mesin
@@ -401,19 +401,36 @@ const sendWa = () => {
                                     class="hover:bg-slate-50/60 transition"
                                 >
                                     <td class="px-6 py-4">
-                                        <div class="flex gap-3 items-center">
-                                            <img
-                                                :src="item.image_path ? '/storage/' + item.image_path : '/no-image.png'"
-                                                class="w-14 h-14 rounded-xl object-cover border border-slate-200"
-                                            />
+                                        <div class="flex gap-2 items-center">
+                                            <div>
+                                                <img
+                                                    :src="item.foto_awal ? '/storage/' + item.foto_awal : '/no-image.png'"
+                                                    class="w-14 h-14 rounded-xl object-cover border border-slate-200"
+                                                />
+                                                <div class="text-[8px] text-center text-slate-400 mt-1">
+                                                    Awal
+                                                </div>
+                                            </div>
 
                                             <div>
+                                                <img
+                                                    :src="item.foto_akhir ? '/storage/' + item.foto_akhir : '/no-image.png'"
+                                                    class="w-14 h-14 rounded-xl object-cover border border-slate-200"
+                                                />
+                                                <div class="text-[8px] text-center text-slate-400 mt-1">
+                                                    Akhir
+                                                </div>
+                                            </div>
+
+                                            <div class="ml-2">
                                                 <div class="text-[11px] font-black text-[#1E293B]">
                                                     #{{ item.id }}
                                                 </div>
+
                                                 <div class="text-[9px] font-bold text-slate-400 uppercase">
                                                     {{ formatDate(item.created_at) }}
                                                 </div>
+
                                                 <div class="text-[9px] font-bold text-slate-400 uppercase">
                                                     {{ item.user_name || '-' }}
                                                 </div>

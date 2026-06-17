@@ -35,6 +35,24 @@ class SummaryController extends Controller
 
         $summary = $this->getElectricitySummaryData($startDate, $endDate, $search, $cabangId);
 
+        foreach ($summary as $index => $item) {
+            $summary[$index]['foto_awal'] = DB::table('v_image_scan_electricity')
+                ->where('cabang_id', $item['cabang_id'])
+                ->where('nomor_meter', $item['nomor_meter'])
+                ->whereDate('created_at', '>=', $startDate)
+                ->whereDate('created_at', '<=', $endDate)
+                ->orderBy('created_at', 'asc')
+                ->value('image_path');
+
+            $summary[$index]['foto_akhir'] = DB::table('v_image_scan_electricity')
+                ->where('cabang_id', $item['cabang_id'])
+                ->where('nomor_meter', $item['nomor_meter'])
+                ->whereDate('created_at', '>=', $startDate)
+                ->whereDate('created_at', '<=', $endDate)
+                ->orderBy('created_at', 'desc')
+                ->value('image_path');
+        }
+
         $cabangs = DB::table('v_image_scan_electricity')
             ->select('cabang_id', 'nama_cabang', 'kode_cabang')
             ->where('scan_type', 'electricity')
@@ -142,7 +160,7 @@ class SummaryController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $billings->getCollection()->transform(function ($item) use ($periodeStart) {
+        $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
             $previousScan = DB::table('dbo.v_image_scan_printers')
                 ->where('serial_number', $item->serial_number)
                 ->where('created_at', '<=', $periodeStart)
@@ -362,6 +380,21 @@ class SummaryController extends Controller
             $item->minimum_basis_click = $minimumBasisClick;
             $item->billing_rule = $billingRule;
             $item->total_tagihan = $totalTagihan;
+
+            $currentScan = DB::table('dbo.v_image_scan_printers')
+                ->where('serial_number', $item->serial_number)
+                ->whereBetween('created_at', [$periodeStart, $periodeEnd])
+                ->orderByDesc('created_at')
+                ->first();
+
+            $firstScan = DB::table('dbo.v_image_scan_printers')
+                ->where('serial_number', $item->serial_number)
+                ->whereBetween('created_at', [$periodeStart, $periodeEnd])
+                ->orderBy('created_at', 'asc')
+                ->first();
+
+            $item->foto_awal = $firstScan?->image_path;
+            $item->foto_akhir = $currentScan?->image_path;
 
             return $item;
         });

@@ -73,7 +73,6 @@ class MasterMesinController extends Controller
             if (!empty($part['nama_part'])) {
                 $mesin->maintenanceParts()->create([
                     'nama_part' => $part['nama_part'],
-                    'harga_part' => $part['harga_part'] ?? 0,
                 ]);
             }
         }
@@ -96,7 +95,6 @@ class MasterMesinController extends Controller
             if (!empty($part['nama_part'])) {
                 $masterMesin->maintenanceParts()->create([
                     'nama_part' => $part['nama_part'],
-                    'harga_part' => $part['harga_part'] ?? 0,
                 ]);
             }
         }

@@ -148,7 +148,6 @@ const openEdit = (item) => {
 
     form.maintenance_parts = (item.maintenance_parts || []).map((part) => ({
         nama_part: part.nama_part || '',
-        harga_part: Number(part.harga_part || 0),
     }));
 
     showModal.value = true;
@@ -162,7 +161,6 @@ const closeModal = () => {
 const addPart = () => {
     form.maintenance_parts.push({
         nama_part: '',
-        harga_part: 0,
     });
 };
 
@@ -629,11 +627,6 @@ const executeDelete = () => {
                             class="grid grid-cols-12 gap-3 items-center bg-slate-50 p-3 rounded-2xl">
                             <div class="col-span-12 md:col-span-5">
                                 <input v-model="part.nama_part" type="text" placeholder="Nama Part"
-                                    class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
-                            </div>
-
-                            <div class="col-span-9 md:col-span-5">
-                                <input v-model="part.harga_part" type="number" min="0" placeholder="Harga Part"
                                     class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
                             </div>
 

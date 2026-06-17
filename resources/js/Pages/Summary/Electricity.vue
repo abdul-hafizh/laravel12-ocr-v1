@@ -330,12 +330,11 @@ const badgeClass = (status) => {
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-slate-50 border-b border-slate-100">
-                            <tr>
+                            <tr>                            
+                                <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Foto</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Cabang</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Pelanggan</th>
-                                <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">kWh Awal</th>
-                                <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">kWh Akhir</th>
-                                <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Pemakaian</th>
+                                <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Informasi kWh</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Estimasi Biaya</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Bulan Depan</th>
                             </tr>
@@ -347,6 +346,24 @@ const badgeClass = (status) => {
                                 :key="item.cabang_id"
                                 class="hover:bg-slate-50/70 transition-all"
                             >
+                            <td class="px-6 py-5">
+                                    <div class="flex gap-3">
+                                        <div v-if="item.foto_awal">
+                                            <a :href="`/storage/${item.foto_awal}`" target="_blank">
+                                                <img :src="`/storage/${item.foto_awal}`" class="w-20 h-20 rounded-xl object-cover border" />
+                                            </a>
+                                            <p class="text-[10px] text-slate-400 mt-1 text-center">Awal</p>
+                                        </div>
+
+                                        <div v-if="item.foto_akhir">
+                                            <a :href="`/storage/${item.foto_akhir}`" target="_blank">
+                                                <img :src="`/storage/${item.foto_akhir}`" class="w-20 h-20 rounded-xl object-cover border" />
+                                            </a>
+                                            <p class="text-[10px] text-slate-400 mt-1 text-center">Akhir</p>
+                                        </div>
+                                    </div>
+                                </td>
+
                                 <td class="px-6 py-5">
                                     <div>
                                         <p class="font-bold text-[#1E293B]">{{ item.nama_cabang }}</p>
@@ -371,19 +388,29 @@ const badgeClass = (status) => {
                                     </p>
                                 </td>
 
-                                <td class="px-6 py-5 font-semibold text-slate-600">
-                                    {{ formatNumber(item.kwh_awal) }}
-                                </td>
-
-                                <td class="px-6 py-5 font-semibold text-slate-600">
-                                    {{ formatNumber(item.kwh_akhir) }}
-                                </td>
-
                                 <td class="px-6 py-5">
-                                    <span class="font-black text-[#1E293B]">
-                                        {{ formatNumber(item.pemakaian_kwh) }}
-                                    </span>
-                                    <span class="text-xs text-slate-400 ml-1">kWh</span>
+                                    <div class="space-y-1">
+                                        <p class="text-sm font-semibold text-slate-700">
+                                            Awal:
+                                            <span class="font-black">
+                                                {{ formatNumber(item.kwh_awal) }}
+                                            </span>
+                                        </p>
+
+                                        <p class="text-sm font-semibold text-slate-700">
+                                            Akhir:
+                                            <span class="font-black">
+                                                {{ formatNumber(item.kwh_akhir) }}
+                                            </span>
+                                        </p>
+
+                                        <p class="text-sm font-bold text-[#1E293B]">
+                                            Pemakaian:
+                                            <span class="font-black">
+                                                {{ formatNumber(item.pemakaian_kwh) }}
+                                            </span>
+                                        </p>
+                                    </div>
                                 </td>
 
                                 <td class="px-6 py-5">
@@ -417,7 +444,7 @@ const badgeClass = (status) => {
                             </tr>
 
                             <tr v-if="summary.length === 0">
-                                <td colspan="7" class="px-6 py-16 text-center">
+                                <td colspan="8" class="px-6 py-16 text-center">
                                     <p class="text-slate-400 font-semibold">
                                         Belum ada data summary token listrik pada periode ini.
                                     </p>
