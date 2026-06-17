@@ -444,28 +444,31 @@ const sendWa = () => {
                                     class="hover:bg-slate-50/60 transition"
                                 >
                                     <td class="px-6 py-4">
-                                        <div class="flex gap-2 items-center">
-                                            <div>
-                                                <img
-                                                    :src="item.foto_awal ? '/storage/' + item.foto_awal : '/no-image.png'"
-                                                    class="w-14 h-14 rounded-xl object-cover border border-slate-200"
-                                                />
-                                                <div class="text-[8px] text-center text-slate-400 mt-1">
-                                                    Awal
+                                        <div class="space-y-3">
+
+                                            <div class="flex gap-2 justify-center">
+                                                <div>
+                                                    <img
+                                                        :src="item.foto_awal ? '/storage/' + item.foto_awal : '/no-image.png'"
+                                                        class="w-14 h-14 rounded-xl object-cover border border-slate-200"
+                                                    />
+                                                    <div class="text-[8px] text-center text-slate-400 mt-1">
+                                                        Awal
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <img
+                                                        :src="item.foto_akhir ? '/storage/' + item.foto_akhir : '/no-image.png'"
+                                                        class="w-14 h-14 rounded-xl object-cover border border-slate-200"
+                                                    />
+                                                    <div class="text-[8px] text-center text-slate-400 mt-1">
+                                                        Akhir
+                                                    </div>
                                                 </div>
                                             </div>
 
-                                            <div>
-                                                <img
-                                                    :src="item.foto_akhir ? '/storage/' + item.foto_akhir : '/no-image.png'"
-                                                    class="w-14 h-14 rounded-xl object-cover border border-slate-200"
-                                                />
-                                                <div class="text-[8px] text-center text-slate-400 mt-1">
-                                                    Akhir
-                                                </div>
-                                            </div>
-
-                                            <div class="ml-2">
+                                            <div class="text-center">
                                                 <div class="text-[11px] font-black text-[#1E293B]">
                                                     #{{ item.id }}
                                                 </div>
@@ -478,6 +481,7 @@ const sendWa = () => {
                                                     {{ item.user_name || '-' }}
                                                 </div>
                                             </div>
+
                                         </div>
                                     </td>
 

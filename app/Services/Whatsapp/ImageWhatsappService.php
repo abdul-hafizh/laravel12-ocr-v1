@@ -80,7 +80,25 @@ class ImageWhatsappService
                 mimeType: $contentType
             );
 
-            if ($scanType === 'printer') {
+            $validation = $this->validateImageByScanType(
+                scanType: $scanType,
+                imageBody: $response->body(),
+                mimeType: $contentType
+            );
+
+            if (!($validation['valid'] ?? false)) {
+                SendSms::sendMessageWA(
+                    $phone,
+                    "❌ Gambar tidak sesuai dengan menu yang dipilih.\n\n" .
+                    "Alasan: " . ($validation['message'] ?? 'Data wajib tidak ditemukan.') . "\n\n" .
+                    "Silakan kirim gambar yang sesuai.\n" .
+                    "Ketik *ulang* untuk kembali ke menu."
+                );
+
+                return;
+            }
+
+            if (in_array($scanType, ['printer', 'cea', 'asaba'], true)) {
                 $serialNumber = $validation['data']['serial_number'] ?? null;
 
                 if (!$serialNumber) {
@@ -103,40 +121,39 @@ class ImageWhatsappService
                     return;
                 }
 
-                $bw = (int) ($validation['data']['total_black_white'] ?? 0);
-                $color = (int) ($validation['data']['total_color'] ?? 0);
-                $longSheet = (int) ($validation['data']['total_long_sheet'] ?? 0);
-
                 $validation['data']['master_mesin'] = [
                     'id' => $mesin->id,
                     'nama_mesin' => $mesin->nama_mesin,
                     'serial_number' => $mesin->serial_number,
-                    'harga_bw' => (int) $mesin->harga_bw,
-                    'harga_color' => (int) $mesin->harga_color,
-                    'harga_long_sheet' => (int) $mesin->harga_long_sheet,
                 ];
 
-                $validation['data']['perhitungan'] = [
-                    'bw' => [
-                        'qty' => $bw,
-                        'harga' => (int) $mesin->harga_bw,
-                        'subtotal' => $bw * (int) $mesin->harga_bw,
-                    ],
-                    'color' => [
-                        'qty' => $color,
-                        'harga' => (int) $mesin->harga_color,
-                        'subtotal' => $color * (int) $mesin->harga_color,
-                    ],
-                    'long_sheet' => [
-                        'qty' => $longSheet,
-                        'harga' => (int) $mesin->harga_long_sheet,
-                        'subtotal' => $longSheet * (int) $mesin->harga_long_sheet,
-                    ],
-                    'total' =>
-                        ($bw * (int) $mesin->harga_bw) +
-                        ($color * (int) $mesin->harga_color) +
-                        ($longSheet * (int) $mesin->harga_long_sheet),
-                ];
+                if ($scanType === 'printer') {
+                    $bw = (int) ($validation['data']['total_bw'] ?? 0);
+                    $color = (int) ($validation['data']['total_color'] ?? 0);
+                    $longSheet = (int) ($validation['data']['total_long_sheet'] ?? 0);
+
+                    $validation['data']['perhitungan'] = [
+                        'bw' => [
+                            'qty' => $bw,
+                            'harga' => (int) $mesin->harga_bw,
+                            'subtotal' => $bw * (int) $mesin->harga_bw,
+                        ],
+                        'color' => [
+                            'qty' => $color,
+                            'harga' => (int) $mesin->harga_color,
+                            'subtotal' => $color * (int) $mesin->harga_color,
+                        ],
+                        'long_sheet' => [
+                            'qty' => $longSheet,
+                            'harga' => (int) $mesin->harga_long_sheet,
+                            'subtotal' => $longSheet * (int) $mesin->harga_long_sheet,
+                        ],
+                        'total' =>
+                            ($bw * (int) $mesin->harga_bw) +
+                            ($color * (int) $mesin->harga_color) +
+                            ($longSheet * (int) $mesin->harga_long_sheet),
+                    ];
+                }
             }
 
             if (!($validation['valid'] ?? false)) {
@@ -217,8 +234,8 @@ class ImageWhatsappService
 
             SendSms::sendMessageWA(
                 $phone,
-                "Terjadi error saat memproses gambar.\n" .
-                "Silakan coba kirim ulang."
+                "Terjadi error saat memproses gambar.\n\n" .
+                "Error: " . $e->getMessage()
             );
         }
     }

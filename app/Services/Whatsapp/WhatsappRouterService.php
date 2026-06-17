@@ -125,6 +125,16 @@ class WhatsappRouterService
                 return;
             }
 
+            if ($menu === 'MESIN_CEA') {
+                app(ImageWhatsappService::class)->start($phone, $menu, 'cea');
+                return;
+            }
+
+            if ($menu === 'ASABA') {
+                app(ImageWhatsappService::class)->start($phone, $menu, 'asaba');
+                return;
+            }
+
             if ($menu === 'BIAYA_PART') {
                 app(ImageWhatsappService::class)->startWithMachineSelection(
                     phone: $phone,
@@ -149,6 +159,8 @@ class WhatsappRouterService
 
             'BIAYA_TOKEN_LISTRIK',
             'BIAYA_KLIK_METER',
+            'MESIN_CEA',
+            'ASABA',
             'MAINTENANCE_MESIN',
             'BIAYA_PART',
             'BIAYA_UMUM' => app(ImageWhatsappService::class)->handle($phone, $message, $session, $data),
@@ -177,8 +189,10 @@ class WhatsappRouterService
             'BIAYA_UMUM' => '*2* Biaya Umum',
             'BIAYA_TOKEN_LISTRIK' => '*3* Biaya Token Listrik',
             'BIAYA_KLIK_METER' => '*4* Biaya Klik Meter',
-            'BIAYA_PART' => '*5* Biaya Part',
-            'MAINTENANCE_MESIN' => '*6* Maintenance Mesin',
+            'MESIN_CEA' => '*5* Mesin CEA',
+            'ASABA' => '*6* Asaba',
+            'BIAYA_PART' => '*7* Biaya Part',
+            'MAINTENANCE_MESIN' => '*8* Maintenance Mesin',
         ];
 
         if ($roleId) {
@@ -213,8 +227,10 @@ class WhatsappRouterService
             '2', 'BIAYA UMUM' => 'BIAYA_UMUM',
             '3', 'TOKEN LISTRIK', 'BIAYA TOKEN LISTRIK' => 'BIAYA_TOKEN_LISTRIK',
             '4', 'KLIK METER', 'BIAYA KLIK METER' => 'BIAYA_KLIK_METER',
-            '5', 'PART', 'BIAYA PART' => 'BIAYA_PART',
-            '6', 'MAINTENANCE', 'MAINTENANCE MESIN' => 'MAINTENANCE_MESIN',
+            '5', 'MESIN CEA', 'CEA' => 'MESIN_CEA',
+            '6', 'ASABA', 'MESIN ASABA' => 'ASABA',
+            '7', 'PART', 'BIAYA PART' => 'BIAYA_PART',
+            '8', 'MAINTENANCE', 'MAINTENANCE MESIN' => 'MAINTENANCE_MESIN',
             default => null,
         };
     }

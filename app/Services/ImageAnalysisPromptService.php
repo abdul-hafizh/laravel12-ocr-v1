@@ -11,6 +11,8 @@ class ImageAnalysisPromptService
             'online_receipt' => self::onlineReceiptPrompt(),
             'printer' => self::printerPrompt(),
             'part_maintenance' => self::partMaintenancePrompt(),
+            'cea'  => self::ceaPrompt(),
+            'asaba' => self::asabaPrompt(),
         };
     }
 
@@ -348,6 +350,178 @@ class ImageAnalysisPromptService
                 "message": "Gambar tidak sesuai. Gambar bukan foto part, maintenance, struk, nota, invoice, atau bukti pembayaran.",
                 "data_penting": {}
             }
+        ';
+    }
+
+    private static function ceaPrompt(): string
+    {
+        return '
+        Analisis gambar counter mesin CEA.
+
+        Fokus:
+        - Serial Number mesin.
+        - Nama / tipe mesin.
+        - Counter 101 Total 1.
+        - Counter 301 Print.
+        - Counter 201 Copy.
+        - Lokasi jika terdapat watermark.
+        - Tanggal jika ada.
+
+        Aturan:
+        - Semua counter harus integer.
+        - Hilangkan nol di depan.
+        - Jika counter tidak ditemukan isi 0.
+        - Jangan mengarang data.
+
+        Mapping Counter:
+
+        101 = total_counter_mesin
+        301 = print_counter
+        201 = copy_counter
+
+        Valid jika:
+        - Serial Number ditemukan.
+        - Minimal satu counter ditemukan.
+
+        Kembalikan HANYA JSON:
+
+        {
+            "valid": true,
+            "message": "",
+            "data_penting": {
+                "tanggal": null,
+                "lokasi": null,
+
+                "nama_mesin": null,
+                "serial_number": null,
+
+                "total_counter_mesin": 0,
+                "print_counter": 0,
+                "copy_counter": 0
+            }
+        }
+
+        Contoh:
+
+        Jika terlihat:
+
+        101 Total 1 = 01584909
+        301 Print = 00915569
+        201 Copy = 00669304
+
+        maka hasil:
+
+        {
+            "valid": true,
+            "message": "",
+            "data_penting": {
+                "nama_mesin": "iR-ADV 6575",
+                "serial_number": "SMT01092",
+                "total_counter_mesin": 1584909,
+                "print_counter": 915569,
+                "copy_counter": 669304
+            }
+        }
+
+        Jika tidak ditemukan serial number:
+
+        {
+            "valid": false,
+            "message": "Serial number atau counter mesin tidak ditemukan.",
+            "data_penting": {}
+        }
+        ';
+    }
+
+    private static function asabaPrompt(): string
+    {
+        return '
+        Analisis gambar counter mesin Develop / Asaba.
+
+        Fokus:
+        - Serial Number mesin.
+        - Nama mesin jika terlihat.
+        - Total Counter.
+        - Printer Total Counter.
+        - Copy Total Counter.
+        - Scan Total Counter.
+        - Feed Paper Counter.
+        - Output Paper Counter.
+        - Lokasi jika ada watermark.
+        - Tanggal jika ada.
+
+        Aturan:
+        - Semua counter harus integer.
+        - Hilangkan nol di depan.
+        - Jika tidak ditemukan isi 0.
+        - Jangan mengarang data.
+
+        Mapping:
+
+        Total Counter = total_counter
+        Printer Total Counter = printer_counter
+        Copy Total Counter = copy_counter
+        Scan Total Counter = scan_counter
+        Feed Paper Counter = feed_paper_counter
+        Output Paper Counter = output_paper_counter
+
+        Valid jika:
+        - Serial Number ditemukan.
+        - Minimal satu counter ditemukan.
+
+        Kembalikan HANYA JSON:
+
+        {
+            "valid": true,
+            "message": "",
+            "data_penting": {
+                "tanggal": null,
+                "lokasi": null,
+
+                "nama_mesin": null,
+                "serial_number": null,
+
+                "total_counter": 0,
+                "printer_counter": 0,
+                "copy_counter": 0,
+                "scan_counter": 0,
+                "feed_paper_counter": 0,
+                "output_paper_counter": 0
+            }
+        }
+
+        Contoh:
+
+        Total Counter = 00250121
+        Printer Total Counter = 000178547
+        Copy Total Counter = 00071574
+        Scan Total Counter = 00002311
+        Feed Paper Counter = 00202800
+        Output Paper Counter = 00202276
+
+        Maka:
+
+        {
+            "valid": true,
+            "message": "",
+            "data_penting": {
+                "serial_number": "ADF2W41000009",
+                "total_counter": 250121,
+                "printer_counter": 178547,
+                "copy_counter": 71574,
+                "scan_counter": 2311,
+                "feed_paper_counter": 202800,
+                "output_paper_counter": 202276
+            }
+        }
+
+        Jika serial number tidak ditemukan:
+
+        {
+            "valid": false,
+            "message": "Serial number atau counter mesin tidak ditemukan.",
+            "data_penting": {}
+        }
         ';
     }
 }
