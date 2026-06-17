@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\ElectricitySummaryExport;
+use App\Exports\PrinterBillingExport;
 use App\Libraries\SendSms;
 use App\Models\User;
 use Carbon\Carbon;
@@ -396,6 +397,20 @@ class SummaryController extends Controller
             $item->foto_awal = $firstScan?->image_path;
             $item->foto_akhir = $currentScan?->image_path;
 
+            $item->notes = DB::table('scan_notes')
+                ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
+                ->where('scan_notes.image_scan_id', $item->id)
+                ->select(
+                    'scan_notes.id',
+                    'scan_notes.note',
+                    'scan_notes.created_at',
+                    'users.name as user_name'
+                )
+                ->orderBy('scan_notes.created_at')
+                ->get();
+
+            $item->new_note = '';
+
             return $item;
         });
 
@@ -601,6 +616,37 @@ class SummaryController extends Controller
 
                 'jumlah_foto' => $items->count(),
 
+                'image_scan_id_awal' => $awal->id,
+                'image_scan_id_akhir' => $akhir->id,
+
+                'notes' => DB::table('scan_notes')
+                    ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
+                    ->where('scan_notes.image_scan_id', $akhir->id)
+                    ->select(
+                        'scan_notes.id',
+                        'scan_notes.note',
+                        'scan_notes.created_at',
+                        'users.name as user_name'
+                    )
+                    ->orderBy('scan_notes.created_at')
+                    ->get(),
+
+                'notes_text' => DB::table('scan_notes')
+                    ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
+                    ->where('scan_notes.image_scan_id', $akhir->id)
+                    ->select(
+                        'scan_notes.note',
+                        'users.name as user_name'
+                    )
+                    ->orderBy('scan_notes.created_at')
+                    ->get()
+                    ->map(function ($note) {
+                        return ($note->user_name ?? '-') . ': ' . ($note->note ?? '-');
+                    })
+                    ->implode("\n") ?: '-',
+
+                'new_note' => '',
+
                 'status_summary' => $this->getStatusSummary(
                     $items,
                     $kwhAwal,
@@ -616,6 +662,173 @@ class SummaryController extends Controller
         }
 
         return $summary;
+    }
+
+    public function storeScanNote(Request $request)
+    {
+        $validated = $request->validate([
+            'image_scan_id' => ['required', 'exists:image_scans,id'],
+            'cabang_id' => ['nullable', 'exists:master_cabangs,id'],
+            'note' => ['required', 'string', 'max:2000'],
+        ]);
+
+        DB::table('scan_notes')->insert([
+            'image_scan_id' => $validated['image_scan_id'],
+            'cabang_id' => $validated['cabang_id'] ?? null,
+            'user_id' => auth()->id(),
+            'note' => $validated['note'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('message', [
+            'type' => 'success',
+            'text' => 'Catatan berhasil disimpan.',
+        ]);
+    }
+
+    public function sendPrinterBillingWa(Request $request)
+    {
+        $month = $request->input('month', now()->format('Y-m'));
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        if (!$startDate || !$endDate) {
+            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+            $startDateCarbon = Carbon::parse($month . '-28')
+                ->subMonthNoOverflow()
+                ->startOfDay();
+
+            $startDate = $startDateCarbon->toDateString();
+            $endDate = $endDateCarbon->toDateString();
+        }
+
+        $periodeStart = Carbon::parse($startDate)->startOfDay();
+        $periodeEnd = Carbon::parse($endDate)->endOfDay();
+
+        $query = DB::table('dbo.v_image_scan_printers as p')
+            ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
+            ->select([
+                'p.*',
+                'mm.harga_color_a3',
+                'mm.harga_color_a4',
+                'mm.harga_bw_a3',
+                'mm.harga_bw_a4',
+                'mm.minimum_charge_click',
+                'mm.minimum_charge_size',
+                'mm.minimum_charge_nominal',
+                'mm.over_click_color_a3',
+                'mm.over_click_color_a4',
+                'mm.over_click_bw_a3',
+                'mm.over_click_bw_a4',
+                'mm.free_klik_percent',
+                'mm.keterangan as master_keterangan',
+            ])
+            ->whereBetween('p.created_at', [$periodeStart, $periodeEnd])
+            ->whereRaw("
+                p.created_at = (
+                    SELECT MAX(p2.created_at)
+                    FROM dbo.v_image_scan_printers p2
+                    WHERE p2.serial_number = p.serial_number
+                    AND p2.created_at BETWEEN ? AND ?
+                )
+            ", [
+                $periodeStart,
+                $periodeEnd,
+            ]);
+
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+
+            $query->where(function ($q) use ($search) {
+                $q->where('p.serial_number', 'like', "%{$search}%")
+                    ->orWhere('p.nama_mesin', 'like', "%{$search}%")
+                    ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
+                    ->orWhere('p.nama_vendor', 'like', "%{$search}%")
+                    ->orWhere('p.kode_vendor', 'like', "%{$search}%")
+                    ->orWhere('p.nama_cabang', 'like', "%{$search}%")
+                    ->orWhere('p.kode_cabang', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('vendor')) {
+            $query->where('p.master_vendor_id', $request->vendor);
+        }
+
+        if ($request->filled('cabang_id')) {
+            $query->where('p.cabang_id', $request->cabang_id);
+        }
+
+        $billings = $query
+            ->orderByDesc('p.created_at')
+            ->get();
+
+        if ($billings->isEmpty()) {
+            return back()->with('message', [
+                'text' => 'Tidak ada data billing printer untuk dikirim.',
+                'type' => 'error',
+            ]);
+        }
+
+        $billings = $billings->map(function ($item) {
+            $notes = DB::table('scan_notes')
+                ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
+                ->where('scan_notes.image_scan_id', $item->id)
+                ->select('scan_notes.note', 'users.name as user_name')
+                ->orderBy('scan_notes.created_at')
+                ->get()
+                ->map(function ($note) {
+                    return ($note->user_name ?? '-') . ': ' . ($note->note ?? '-');
+                })
+                ->implode("\n");
+
+            $item->notes_text = $notes ?: '-';
+
+            return $item;
+        });
+
+        $periodeLabel = Carbon::parse($startDate)->format('d-m-Y') . '_sd_' . Carbon::parse($endDate)->format('d-m-Y');
+
+        $fileName = 'billing-printer-' . $periodeLabel . '-' . now()->format('His') . '.xlsx';
+        $filePath = 'exports/' . $fileName;
+
+        $excelFile = Excel::raw(
+            new PrinterBillingExport($billings),
+            ExcelFormat::XLSX
+        );
+
+        Storage::disk('public')->put($filePath, $excelFile);
+
+        $fileUrl = asset('storage/' . $filePath);
+
+        $financeUsers = User::where('is_active', true)
+            ->where('is_delete', false)
+            ->whereNotNull('phone')
+            ->whereHas('role', function ($q) {
+                $q->where('slug', 'finance');
+            })
+            ->get();
+
+        if ($financeUsers->isEmpty()) {
+            return back()->with('message', [
+                'text' => 'Tidak ada user finance yang memiliki nomor WhatsApp.',
+                'type' => 'error',
+            ]);
+        }
+
+        foreach ($financeUsers as $user) {
+            SendSms::sendDocumentWA(
+                $user->phone,
+                $fileUrl,
+                "Billing Meter Printer periode {$periodeLabel}"
+            );
+        }
+
+        return back()->with('message', [
+            'text' => 'File Excel billing printer berhasil dikirim ke semua finance.',
+            'type' => 'success',
+        ]);
     }
 
     private function getStatusSummary(
@@ -674,5 +887,28 @@ class SummaryController extends Controller
         $value = str_replace(',', '.', $value);
 
         return (float) $value;
+    }
+
+    public function deleteScanNote($id)
+    {
+        $note = DB::table('scan_notes')
+            ->where('id', $id)
+            ->first();
+
+        if (!$note) {
+            return back()->with('message', [
+                'type' => 'error',
+                'text' => 'Catatan tidak ditemukan.',
+            ]);
+        }
+
+        DB::table('scan_notes')
+            ->where('id', $id)
+            ->delete();
+
+        return back()->with('message', [
+            'type' => 'success',
+            'text' => 'Catatan berhasil dihapus.',
+        ]);
     }
 }

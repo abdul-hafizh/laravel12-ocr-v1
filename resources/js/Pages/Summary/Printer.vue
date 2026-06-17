@@ -30,6 +30,20 @@ const getDefaultPeriod = () => {
     };
 };
 
+const deleteNote = (noteId) => {
+    if (!confirm('Hapus catatan ini?')) {
+        return;
+    }
+
+    router.delete(
+        route('summary.scan-notes.delete', noteId),
+        {
+            preserveScroll: true,
+            preserveState: true,
+        }
+    );
+};
+
 const defaultPeriod = getDefaultPeriod();
 
 const search = ref(props.filters.search || '');
@@ -43,6 +57,26 @@ const startDate = ref(
 const endDate = ref(
     props.filters.end_date || defaultPeriod.end_date
 );
+
+const saveNote = (item) => {
+    if (!item.new_note || !item.new_note.trim()) {
+        alert('Catatan tidak boleh kosong');
+        return;
+    }
+
+    router.post(
+        route('summary.scan-notes.store'),
+        {
+            image_scan_id: item.id,
+            cabang_id: item.cabang_id,
+            note: item.new_note,
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+        }
+    );
+};
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -226,7 +260,16 @@ const generateBillingRows = () => {
             </td>
 
             <td>
-                ${item.master_mesin_id ? 'OK' : 'BELUM MAPPING'}
+                <b>${item.master_mesin_id ? 'OK' : 'BELUM MAPPING'}</b>
+                <br><br>
+                <b>Catatan:</b><br>
+                ${
+                    item.notes && item.notes.length
+                        ? item.notes.map(note => `
+                            - ${note.user_name || '-'}: ${note.note || '-'}
+                        `).join('<br>')
+                        : '-'
+                }
             </td>
         </tr>
     `).join('');
@@ -388,7 +431,7 @@ const sendWa = () => {
                                     Total
                                 </th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
-                                    Status
+                                    Catatan
                                 </th>
                             </tr>
                         </thead>
@@ -527,15 +570,66 @@ const sendWa = () => {
                                         </div>
                                     </td>
 
-                                    <td class="px-6 py-4 text-center">
-                                        <span
-                                            class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border"
-                                            :class="item.master_mesin_id
-                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                                : 'bg-rose-50 text-rose-600 border-rose-100'"
-                                        >
-                                            {{ item.master_mesin_id ? 'OK' : 'Belum Mapping' }}
-                                        </span>
+                                    <td class="px-6 py-4">
+                                        <div class="space-y-3">
+                                            <div class="text-center">
+                                                <span
+                                                    class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border"
+                                                    :class="item.master_mesin_id
+                                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                                        : 'bg-rose-50 text-rose-600 border-rose-100'"
+                                                >
+                                                    {{ item.master_mesin_id ? 'OK' : 'Belum Mapping' }}
+                                                </span>
+                                            </div>
+
+                                            <div
+                                                v-if="item.notes && item.notes.length"
+                                                class="space-y-1 max-h-24 overflow-y-auto"
+                                            >
+                                                <div
+                                                    v-for="note in item.notes"
+                                                    :key="note.id"
+                                                    class="bg-slate-50 border border-slate-100 rounded-lg px-2 py-2 text-left"
+                                                >
+                                                    <div class="flex items-start justify-between gap-2">
+                                                        <div>
+                                                            <div class="text-[9px] font-bold text-slate-600">
+                                                                {{ note.user_name }}
+                                                            </div>
+
+                                                            <div class="text-[10px] text-slate-500">
+                                                                {{ note.note }}
+                                                            </div>
+                                                        </div>
+
+                                                        <button
+                                                            type="button"
+                                                            @click="deleteNote(note.id)"
+                                                            class="text-red-500 hover:text-red-700 text-[10px] font-black"
+                                                            title="Hapus"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <input
+                                                v-model="item.new_note"
+                                                type="text"
+                                                placeholder="Tambah catatan..."
+                                                class="w-full text-[10px] border border-slate-200 rounded-lg px-3 py-2 focus:border-[#2DD4BF] focus:ring-0"
+                                            />
+
+                                            <button
+                                                type="button"
+                                                @click="saveNote(item)"
+                                                class="w-full px-3 py-2 bg-[#2DD4BF] text-white rounded-lg text-[9px] font-black uppercase"
+                                            >
+                                                Simpan
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             </template>

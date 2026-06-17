@@ -159,6 +159,7 @@ const printSummary = () => {
                         <th>Pemakaian</th>
                         <th>Estimasi Rupiah</th>
                         <th>Topup Bulan Depan</th>
+                        <th>Catatan</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -194,8 +195,51 @@ const summaryHtml = () => {
             <td>${formatNumber(item.pemakaian_kwh)}</td>
             <td>${formatRupiah(item.estimasi_pemakaian_rupiah)}</td>
             <td>${formatRupiah(item.rekomendasi_topup_bulan_depan)}</td>
+            <td>
+                ${
+                    item.notes && item.notes.length
+                        ? item.notes.map(note => `
+                            - ${note.user_name || '-'}: ${note.note || '-'}
+                        `).join('<br>')
+                        : '-'
+                }
+            </td>
         </tr>
     `).join('');
+};
+
+const saveNote = (item) => {
+    if (!item.new_note || !item.new_note.trim()) {
+        alert('Catatan tidak boleh kosong');
+        return;
+    }
+
+    router.post(
+        route('summary.scan-notes.store'),
+        {
+            image_scan_id: item.image_scan_id_akhir,
+            cabang_id: item.cabang_id,
+            note: item.new_note,
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+        }
+    );
+};
+
+const deleteNote = (noteId) => {
+    if (!confirm('Hapus catatan ini?')) {
+        return;
+    }
+
+    router.delete(
+        route('summary.scan-notes.delete', noteId),
+        {
+            preserveScroll: true,
+            preserveState: true,
+        }
+    );
 };
 
 const resetFilter = () => {
@@ -337,6 +381,7 @@ const badgeClass = (status) => {
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Informasi kWh</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Estimasi Biaya</th>
                                 <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Bulan Depan</th>
+                                <th class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Catatan</th>
                             </tr>
                         </thead>
 
@@ -441,10 +486,71 @@ const badgeClass = (status) => {
                                         Sisa estimasi: {{ formatRupiah(item.estimasi_sisa_rupiah) }}
                                     </p>
                                 </td>
+
+                                <td class="px-6 py-5 min-w-[240px]">
+                                    <div class="space-y-3">
+                                        <span
+                                            class="inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border"
+                                            :class="badgeClass(item.status_summary)"
+                                        >
+                                            {{ item.status_summary || '-' }}
+                                        </span>
+
+                                        <div
+                                            v-if="item.notes && item.notes.length"
+                                            class="space-y-1 max-h-24 overflow-y-auto"
+                                        >
+                                            <div
+                                                v-for="note in item.notes"
+                                                :key="note.id"
+                                                class="bg-slate-50 border border-slate-100 rounded-lg px-2 py-2 text-left"
+                                            >
+                                                <div class="flex items-start justify-between gap-2">
+                                                    <div>
+                                                        <div class="text-[9px] font-bold text-slate-600">
+                                                            {{ note.user_name || '-' }}
+                                                        </div>
+
+                                                        <div class="text-[10px] text-slate-500">
+                                                            {{ note.note }}
+                                                        </div>
+                                                    </div>
+
+                                                    <button
+                                                        type="button"
+                                                        @click="deleteNote(note.id)"
+                                                        class="text-red-500 hover:text-red-700 text-[10px] font-black"
+                                                        title="Hapus"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex gap-2">
+                                            <input
+                                                v-model="item.new_note"
+                                                type="text"
+                                                placeholder="Tambah catatan..."
+                                                class="flex-1 text-[10px] border border-slate-200 rounded-lg px-3 py-2 focus:border-[#2DD4BF] focus:ring-0"
+                                                @keyup.enter="saveNote(item)"
+                                            />
+
+                                            <button
+                                                type="button"
+                                                @click="saveNote(item)"
+                                                class="px-3 py-2 bg-[#2DD4BF] text-white rounded-lg text-[9px] font-black uppercase"
+                                            >
+                                                Simpan
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
                             </tr>
 
                             <tr v-if="summary.length === 0">
-                                <td colspan="8" class="px-6 py-16 text-center">
+                                <td colspan="7" class="px-6 py-16 text-center">
                                     <p class="text-slate-400 font-semibold">
                                         Belum ada data summary token listrik pada periode ini.
                                     </p>

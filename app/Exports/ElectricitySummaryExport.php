@@ -33,6 +33,7 @@ class ElectricitySummaryExport implements FromCollection, WithHeadings
                 $item['estimasi_sisa_rupiah'] ?? 0,
                 $item['rekomendasi_topup_bulan_depan'] ?? 0,
                 $item['jumlah_foto'] ?? 0,
+                $item['notes_text'] ?? '-',
             ];
         });
     }
@@ -54,6 +55,7 @@ class ElectricitySummaryExport implements FromCollection, WithHeadings
             'Estimasi Sisa Rupiah',
             'Rekomendasi Topup Bulan Depan',
             'Jumlah Foto',
+            'Catatan',
         ];
     }
 }   

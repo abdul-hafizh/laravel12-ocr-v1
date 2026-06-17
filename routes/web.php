@@ -38,9 +38,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])
         ->name('profile.destroy');
 
+    Route::post('/summary/scan-notes', [SummaryController::class, 'storeScanNote'])
+        ->name('summary.scan-notes.store');
+
+    Route::delete('/summary/scan-notes/{id}', [SummaryController::class, 'deleteScanNote'])
+        ->name('summary.scan-notes.delete');
+
     Route::get('/document', function () {
         return Inertia::render('Ocr/Document');
     })->name('document');
+
 
     Route::get('/history', function () {
         return Inertia::render('Ocr/History');
