@@ -105,6 +105,18 @@ Route::middleware(['auth', 'verified', 'role.url'])->group(function () {
         return Inertia::render('Ocr/HasilUpload/StrukOnline');
     })->name('hasil-upload.struk-online');
 
+    Route::get('/hasil-upload/part-maintenance', function () {
+        return Inertia::render('Ocr/HasilUpload/PartMaintenance');
+    })->name('hasil-upload.part-maintenance');
+
+    Route::get('/hasil-upload/cea', function () {
+        return Inertia::render('Ocr/HasilUpload/Cea');
+    })->name('hasil-upload.cea');
+    
+    Route::get('/hasil-upload/asaba', function () {
+        return Inertia::render('Ocr/HasilUpload/Asaba');
+    })->name('hasil-upload.asaba');
+
     Route::get('/summary/electricity', [SummaryController::class, 'electricity'])
         ->name('summary.electricity');
 
@@ -116,6 +128,12 @@ Route::middleware(['auth', 'verified', 'role.url'])->group(function () {
 
     Route::post('/summary/printer-billing/send-wa', [SummaryController::class, 'sendPrinterBillingWa'])
         ->name('summary.printer-billing.send-wa');
+
+    Route::get('/summary/asaba', [SummaryController::class, 'asabaBilling'])
+        ->name('summary.asaba');
+
+    Route::get('/summary/cea', [SummaryController::class, 'ceaBilling'])
+        ->name('summary.cea');
 
     Route::get('/employee-measurements', [EmployeeMeasurementController::class, 'index'])
         ->name('employee-measurements.index');

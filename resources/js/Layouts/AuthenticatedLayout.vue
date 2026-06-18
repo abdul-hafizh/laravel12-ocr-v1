@@ -69,6 +69,16 @@ const summaryMenus = [
         href: route('summary.printer-billing'),
         current: route().current('summary.printer-billing'),
     },
+    {
+        name: 'ASABA',
+        href: route('summary.asaba'),
+        current: route().current('summary.asaba'),
+    },
+    {
+        name: 'CEA',
+        href: route('summary.cea'),
+        current: route().current('summary.cea'),
+    }
 ];
 
 const masterDataMenus = [
@@ -145,6 +155,21 @@ const hasilUploadMenus = [
         name: 'Meter Mesin',
         href: route('hasil-upload.mesin-cetak'),
         current: route().current('hasil-upload.mesin-cetak'),
+    },
+    {
+        name: 'CEA',
+        href: route('hasil-upload.cea'),
+        current: route().current('hasil-upload.cea'),
+    },
+    {
+        name: 'ASABA',
+        href: route('hasil-upload.asaba'),
+        current: route().current('hasil-upload.asaba'),
+    },
+    {
+        name: 'Part Maintenance',
+        href: route('hasil-upload.part-maintenance'),
+        current: route().current('hasil-upload.part-maintenance'),
     },
     {
         name: 'Bukti Bayar',
@@ -312,7 +337,7 @@ watch(() => route().current(), () => {
                         </svg>
 
                         <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
-                            Summary
+                            Report
                         </span>
 
                         <svg

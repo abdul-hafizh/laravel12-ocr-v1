@@ -23,12 +23,17 @@ const props = defineProps({
 const defaultUrlMenus = [
     { url: '/dashboard', label: 'Dashboard' },
 
-    { url: '/summary/electricity', label: 'Summary - Token Listrik' },
-    { url: '/summary/printer-billing', label: 'Summary - Meter Mesin' },
+    { url: '/summary/electricity', label: 'Report - Token Listrik' },
+    { url: '/summary/printer-billing', label: 'Report - Meter Mesin' },
+    { url: '/summary/asaba', label: 'Report - Asaba' },
 
     { url: '/hasil-upload/token-listrik', label: 'Hasil Upload - Token Listrik' },
     { url: '/hasil-upload/mesin-cetak', label: 'Hasil Upload - Meter Mesin' },
     { url: '/hasil-upload/struk-online', label: 'Hasil Upload - Bukti Bayar' },
+
+    { url: '/hasil-upload/part-maintenance', label: 'Hasil Upload - Part & Maintenance' },
+    { url: '/hasil-upload/cea', label: 'Hasil Upload - Counter CEA' },
+    { url: '/hasil-upload/asaba', label: 'Hasil Upload - Counter Asaba' },
 
     { url: '/master-cabang', label: 'Master Cabang' },
     { url: '/master-vendor', label: 'Master Vendor' },

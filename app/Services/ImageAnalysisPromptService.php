@@ -447,6 +447,14 @@ class ImageAnalysisPromptService
         - Scan Total Counter.
         - Feed Paper Counter.
         - Output Paper Counter.
+
+        Beberapa tipe mesin juga memiliki:
+        - Full Color Counter.
+        - Single Color Counter.
+        - Black Counter.
+
+        Ambil semua counter yang terlihat.
+
         - Lokasi jika ada watermark.
         - Tanggal jika ada.
 
@@ -462,12 +470,18 @@ class ImageAnalysisPromptService
         Printer Total Counter = printer_counter
         Copy Total Counter = copy_counter
         Scan Total Counter = scan_counter
+
         Feed Paper Counter = feed_paper_counter
         Output Paper Counter = output_paper_counter
 
+        Full Color Counter = full_color_counter
+        Single Color Counter = single_color_counter
+        Black Counter = black_counter
+
         Valid jika:
-        - Serial Number ditemukan.
         - Minimal satu counter ditemukan.
+        - Jika serial number tidak ada tetapi counter terbaca dengan jelas,
+        tetap dianggap valid.
 
         Kembalikan HANYA JSON:
 
@@ -482,15 +496,21 @@ class ImageAnalysisPromptService
                 "serial_number": null,
 
                 "total_counter": 0,
+
                 "printer_counter": 0,
                 "copy_counter": 0,
                 "scan_counter": 0,
+
                 "feed_paper_counter": 0,
-                "output_paper_counter": 0
+                "output_paper_counter": 0,
+
+                "full_color_counter": 0,
+                "single_color_counter": 0,
+                "black_counter": 0
             }
         }
 
-        Contoh:
+        Contoh Tipe 1:
 
         Total Counter = 00250121
         Printer Total Counter = 000178547
@@ -505,7 +525,6 @@ class ImageAnalysisPromptService
             "valid": true,
             "message": "",
             "data_penting": {
-                "serial_number": "ADF2W41000009",
                 "total_counter": 250121,
                 "printer_counter": 178547,
                 "copy_counter": 71574,
@@ -515,11 +534,37 @@ class ImageAnalysisPromptService
             }
         }
 
-        Jika serial number tidak ditemukan:
+        Contoh Tipe 2:
+
+        Total Counter = 00506026
+        Full Color Counter = 00443878
+        Single Color Counter = 00000004
+        Black Counter = 00062144
+        Printer Total Counter = 00504964
+        Copy Total Counter = 00001062
+        Scan Total Counter = 00000244
+
+        Maka:
+
+        {
+            "valid": true,
+            "message": "",
+            "data_penting": {
+                "total_counter": 506026,
+                "full_color_counter": 443878,
+                "single_color_counter": 4,
+                "black_counter": 62144,
+                "printer_counter": 504964,
+                "copy_counter": 1062,
+                "scan_counter": 244
+            }
+        }
+
+        Jika tidak ada counter yang berhasil dibaca:
 
         {
             "valid": false,
-            "message": "Serial number atau counter mesin tidak ditemukan.",
+            "message": "Counter mesin tidak ditemukan.",
             "data_penting": {}
         }
         ';

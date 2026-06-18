@@ -831,6 +831,634 @@ class SummaryController extends Controller
         ]);
     }
 
+    public function asabaBilling(Request $request)
+    {
+        $month = $request->input('month', now()->format('Y-m'));
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        if (!$startDate || !$endDate) {
+            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+            $startDateCarbon = Carbon::parse($month . '-28')
+                ->subMonthNoOverflow()
+                ->startOfDay();
+
+            $startDate = $startDateCarbon->toDateString();
+            $endDate = $endDateCarbon->toDateString();
+        }
+
+        $periodeStart = Carbon::parse($startDate)->startOfDay();
+        $periodeEnd = Carbon::parse($endDate)->endOfDay();
+
+        $query = DB::table('dbo.v_image_scan_asaba as p')
+            ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
+            ->select([
+                'p.*',
+
+                'mm.harga_color_a3',
+                'mm.harga_color_a4',
+                'mm.harga_bw_a3',
+                'mm.harga_bw_a4',
+
+                'mm.minimum_charge_click',
+                'mm.minimum_charge_size',
+                'mm.minimum_charge_nominal',
+
+                'mm.over_click_color_a3',
+                'mm.over_click_color_a4',
+                'mm.over_click_bw_a3',
+                'mm.over_click_bw_a4',
+
+                'mm.free_klik_percent',
+                'mm.keterangan as master_keterangan',
+            ])
+            ->whereBetween('p.created_at', [
+                $periodeStart,
+                $periodeEnd,
+            ])
+            ->whereRaw("
+                p.created_at = (
+                    SELECT MAX(p2.created_at)
+                    FROM dbo.v_image_scan_asaba p2
+                    WHERE p2.serial_number = p.serial_number
+                    AND p2.created_at BETWEEN ? AND ?
+                )
+            ", [
+                $periodeStart,
+                $periodeEnd,
+            ]);
+
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+
+            $query->where(function ($q) use ($search) {
+                $q->where('p.serial_number', 'like', "%{$search}%")
+                    ->orWhere('p.nama_mesin', 'like', "%{$search}%")
+                    ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
+                    ->orWhere('p.nama_vendor', 'like', "%{$search}%")
+                    ->orWhere('p.kode_vendor', 'like', "%{$search}%")
+                    ->orWhere('p.nama_cabang', 'like', "%{$search}%")
+                    ->orWhere('p.kode_cabang', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('vendor')) {
+            $query->where('p.master_vendor_id', $request->vendor);
+        }
+
+        if ($request->filled('cabang_id')) {
+            $query->where('p.cabang_id', $request->cabang_id);
+        }
+
+        $billings = $query
+            ->orderByDesc('p.created_at')
+            ->paginate(10)
+            ->withQueryString();
+
+        $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
+            $previousScan = DB::table('dbo.v_image_scan_asaba')
+                ->where('serial_number', $item->serial_number)
+                ->where('created_at', '<=', $periodeStart)
+                ->orderByDesc('created_at')
+                ->first();
+
+            $getCounter = function ($value) {
+                return (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
+            };
+
+            $currentTotal = $getCounter($item->total_counter ?? 0);
+            $currentPrinter = $getCounter($item->printer_counter ?? 0);
+            $currentCopy = $getCounter($item->copy_counter ?? 0);
+            $currentScan = $getCounter($item->scan_counter ?? 0);
+            $currentFeedPaper = $getCounter($item->feed_paper_counter ?? 0);
+            $currentOutputPaper = $getCounter($item->output_paper_counter ?? 0);
+            $currentFullColor = $getCounter($item->full_color_counter ?? 0);
+            $currentSingleColor = $getCounter($item->single_color_counter ?? 0);
+            $currentBlack = $getCounter($item->black_counter ?? 0);
+
+            $previousTotal = $getCounter($previousScan->total_counter ?? 0);
+            $previousPrinter = $getCounter($previousScan->printer_counter ?? 0);
+            $previousCopy = $getCounter($previousScan->copy_counter ?? 0);
+            $previousScanCounter = $getCounter($previousScan->scan_counter ?? 0);
+            $previousFeedPaper = $getCounter($previousScan->feed_paper_counter ?? 0);
+            $previousOutputPaper = $getCounter($previousScan->output_paper_counter ?? 0);
+            $previousFullColor = $getCounter($previousScan->full_color_counter ?? 0);
+            $previousSingleColor = $getCounter($previousScan->single_color_counter ?? 0);
+            $previousBlack = $getCounter($previousScan->black_counter ?? 0);
+
+            if (!$previousScan) {
+                $usageTotal = 0;
+                $usagePrinter = 0;
+                $usageCopy = 0;
+                $usageScan = 0;
+                $usageFeedPaper = 0;
+                $usageOutputPaper = 0;
+                $usageFullColor = 0;
+                $usageSingleColor = 0;
+                $usageBlack = 0;
+            } else {
+                $usageTotal = max(0, $currentTotal - $previousTotal);
+                $usagePrinter = max(0, $currentPrinter - $previousPrinter);
+                $usageCopy = max(0, $currentCopy - $previousCopy);
+                $usageScan = max(0, $currentScan - $previousScanCounter);
+                $usageFeedPaper = max(0, $currentFeedPaper - $previousFeedPaper);
+                $usageOutputPaper = max(0, $currentOutputPaper - $previousOutputPaper);
+                $usageFullColor = max(0, $currentFullColor - $previousFullColor);
+                $usageSingleColor = max(0, $currentSingleColor - $previousSingleColor);
+                $usageBlack = max(0, $currentBlack - $previousBlack);
+            }
+
+            $hargaColorA4 = (float) ($item->harga_color_a4 ?? 0);
+            $hargaBwA4 = (float) ($item->harga_bw_a4 ?? 0);
+
+            $overColorA4 = (float) ($item->over_click_color_a4 ?? 0);
+            $overBwA4 = (float) ($item->over_click_bw_a4 ?? 0);
+
+            $rateColorA4 = $overColorA4 > 0 ? $overColorA4 : $hargaColorA4;
+            $rateBwA4 = $overBwA4 > 0 ? $overBwA4 : $hargaBwA4;
+
+            /*
+            * Aturan Asaba:
+            * - Jika counter Full Color / Black tersedia, pakai itu.
+            * - Single Color digabung ke color.
+            * - Jika mesin BW dan tidak ada Black Counter, fallback ke Printer Counter.
+            * - Jika Printer Counter kosong, fallback ke Total Counter.
+            */
+            $usageColorBilling = $usageFullColor + $usageSingleColor;
+
+            if ($usageBlack > 0) {
+                $usageBwBilling = $usageBlack;
+                $counterSource = 'black_color_counter';
+            } elseif ($usagePrinter > 0) {
+                $usageBwBilling = $usagePrinter;
+                $counterSource = 'printer_counter';
+            } else {
+                $usageBwBilling = $usageTotal;
+                $counterSource = 'total_counter';
+            }
+
+            if ($hargaColorA4 <= 0 && $usageColorBilling <= 0) {
+                $usageBwBilling = $usagePrinter > 0 ? $usagePrinter : $usageTotal;
+                $counterSource = 'bw_machine';
+            }
+
+            $totalPemakaianClick = $usageBwBilling + $usageColorBilling;
+
+            $biayaBw = $usageBwBilling * $rateBwA4;
+            $biayaColor = $usageColorBilling * $rateColorA4;
+
+            $subtotalBilling = $biayaBw + $biayaColor;
+            $subtotalSebelumFree = $subtotalBilling;
+
+            $minimumClick = (int) ($item->minimum_charge_click ?? 0);
+            $minimumNominal = (float) ($item->minimum_charge_nominal ?? 0);
+            $minimumSize = strtoupper((string) ($item->minimum_charge_size ?? 'A4'));
+            $freePercent = (float) ($item->free_klik_percent ?? 0);
+
+            $hasMinimumRule =
+                $minimumClick > 0
+                && $minimumNominal > 0;
+
+            $freeKlik = 0;
+            $nilaiFreeKlik = 0;
+
+            if ($freePercent > 0 && $totalPemakaianClick > 0 && !$hasMinimumRule) {
+                $freeKlik = floor($totalPemakaianClick * ($freePercent / 100));
+
+                if ($subtotalBilling > 0) {
+                    $nilaiPerKlikRataRata = $subtotalBilling / $totalPemakaianClick;
+                    $nilaiFreeKlik = $freeKlik * $nilaiPerKlikRataRata;
+                }
+            }
+
+            $subtotalSetelahFree = max(0, $subtotalBilling - $nilaiFreeKlik);
+
+            if (!$previousScan || $totalPemakaianClick <= 0) {
+                $totalTagihan = 0;
+                $billingRule = 'no_previous_scan';
+            } elseif ($hasMinimumRule && $totalPemakaianClick < $minimumClick) {
+                $totalTagihan = $minimumNominal;
+                $billingRule = 'minimum_charge_' . strtolower($minimumSize ?: 'a4');
+            } else {
+                $totalTagihan = $subtotalSetelahFree;
+
+                if ($hasMinimumRule && $totalPemakaianClick >= $minimumClick) {
+                    $billingRule = 'over_minimum_' . strtolower($minimumSize ?: 'a4');
+                } else {
+                    $billingRule = 'standard';
+                }
+            }
+
+            $item->counter_detail = [
+                'has_previous_scan' => $previousScan ? true : false,
+                'previous_created_at' => $previousScan->created_at ?? null,
+                'current_created_at' => $item->created_at,
+
+                'current_total_counter' => $currentTotal,
+                'previous_total_counter' => $previousTotal,
+                'usage_total_counter' => $usageTotal,
+
+                'current_printer_counter' => $currentPrinter,
+                'previous_printer_counter' => $previousPrinter,
+                'usage_printer_counter' => $usagePrinter,
+
+                'current_copy_counter' => $currentCopy,
+                'previous_copy_counter' => $previousCopy,
+                'usage_copy_counter' => $usageCopy,
+
+                'current_scan_counter' => $currentScan,
+                'previous_scan_counter' => $previousScanCounter,
+                'usage_scan_counter' => $usageScan,
+
+                'current_feed_paper_counter' => $currentFeedPaper,
+                'previous_feed_paper_counter' => $previousFeedPaper,
+                'usage_feed_paper_counter' => $usageFeedPaper,
+
+                'current_output_paper_counter' => $currentOutputPaper,
+                'previous_output_paper_counter' => $previousOutputPaper,
+                'usage_output_paper_counter' => $usageOutputPaper,
+
+                'current_full_color_counter' => $currentFullColor,
+                'previous_full_color_counter' => $previousFullColor,
+                'usage_full_color_counter' => $usageFullColor,
+
+                'current_single_color_counter' => $currentSingleColor,
+                'previous_single_color_counter' => $previousSingleColor,
+                'usage_single_color_counter' => $usageSingleColor,
+
+                'current_black_counter' => $currentBlack,
+                'previous_black_counter' => $previousBlack,
+                'usage_black_counter' => $usageBlack,
+            ];
+
+            $item->billing_detail = [
+                'billing_rule' => $billingRule,
+                'counter_source' => $counterSource,
+
+                'usage_bw_billing' => $usageBwBilling,
+                'usage_color_billing' => $usageColorBilling,
+                'total_pemakaian_click' => $totalPemakaianClick,
+
+                'harga_bw_a4' => $hargaBwA4,
+                'harga_color_a4' => $hargaColorA4,
+
+                'over_click_bw_a4' => $overBwA4,
+                'over_click_color_a4' => $overColorA4,
+
+                'rate_bw_a4' => $rateBwA4,
+                'rate_color_a4' => $rateColorA4,
+
+                'biaya_bw' => $biayaBw,
+                'biaya_color' => $biayaColor,
+
+                'subtotal_sebelum_free' => $subtotalSebelumFree,
+                'subtotal_setelah_free' => $subtotalSetelahFree,
+
+                'free_klik_percent' => $freePercent,
+                'free_klik' => $freeKlik,
+                'nilai_free_klik' => $nilaiFreeKlik,
+
+                'minimum_charge_size' => $minimumSize,
+                'minimum_charge_click' => $minimumClick,
+                'minimum_charge_nominal' => $minimumNominal,
+                'has_minimum_rule' => $hasMinimumRule,
+
+                'total_tagihan' => $totalTagihan,
+            ];
+
+            $item->usage_total_counter = $usageTotal;
+            $item->usage_printer_counter = $usagePrinter;
+            $item->usage_copy_counter = $usageCopy;
+            $item->usage_scan_counter = $usageScan;
+            $item->usage_feed_paper_counter = $usageFeedPaper;
+            $item->usage_output_paper_counter = $usageOutputPaper;
+            $item->usage_full_color_counter = $usageFullColor;
+            $item->usage_single_color_counter = $usageSingleColor;
+            $item->usage_black_counter = $usageBlack;
+
+            $item->usage_bw_billing = $usageBwBilling;
+            $item->usage_color_billing = $usageColorBilling;
+            $item->total_pemakaian_click = $totalPemakaianClick;
+            $item->billing_rule = $billingRule;
+            $item->counter_source = $counterSource;
+            $item->total_tagihan = $totalTagihan;
+
+            $currentScan = DB::table('dbo.v_image_scan_asaba')
+                ->where('serial_number', $item->serial_number)
+                ->whereBetween('created_at', [$periodeStart, $periodeEnd])
+                ->orderByDesc('created_at')
+                ->first();
+
+            $firstScan = DB::table('dbo.v_image_scan_asaba')
+                ->where('serial_number', $item->serial_number)
+                ->whereBetween('created_at', [$periodeStart, $periodeEnd])
+                ->orderBy('created_at', 'asc')
+                ->first();
+
+            $item->foto_awal = $firstScan?->image_path;
+            $item->foto_akhir = $currentScan?->image_path;
+
+            $item->notes = DB::table('scan_notes')
+                ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
+                ->where('scan_notes.image_scan_id', $item->id)
+                ->select(
+                    'scan_notes.id',
+                    'scan_notes.note',
+                    'scan_notes.created_at',
+                    'users.name as user_name'
+                )
+                ->orderBy('scan_notes.created_at')
+                ->get();
+
+            $item->new_note = '';
+
+            return $item;
+        });
+
+        if ($request->boolean('debug')) {
+            dd($billings->items());
+        }
+
+        return Inertia::render('Summary/Asaba', [
+            'billings' => $billings,
+
+            'vendors' => DB::table('dbo.master_vendors')
+                ->where('is_active', true)
+                ->orderBy('nama_vendor')
+                ->get([
+                    'id',
+                    'kode_vendor',
+                    'nama_vendor',
+                ]),
+
+            'cabangs' => DB::table('dbo.master_cabangs')
+                ->where('is_active', true)
+                ->orderBy('nama_cabang')
+                ->get([
+                    'id',
+                    'kode_cabang',
+                    'nama_cabang',
+                ]),
+
+            'filters' => [
+                'search' => $request->input('search'),
+                'vendor' => $request->input('vendor'),
+                'billing_status' => $request->input('billing_status'),
+                'cabang_id' => $request->input('cabang_id'),
+                'month' => $month,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ],
+        ]);
+    }
+
+    public function ceaBilling(Request $request)
+    {
+        $month = $request->input('month', now()->format('Y-m'));
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        if (!$startDate || !$endDate) {
+            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+            $startDateCarbon = Carbon::parse($month . '-28')
+                ->subMonthNoOverflow()
+                ->startOfDay();
+
+            $startDate = $startDateCarbon->toDateString();
+            $endDate = $endDateCarbon->toDateString();
+        }
+
+        $periodeStart = Carbon::parse($startDate)->startOfDay();
+        $periodeEnd = Carbon::parse($endDate)->endOfDay();
+
+        $query = DB::table('dbo.v_image_scan_cea as p')
+            ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
+            ->select([
+                'p.*',
+                'mm.keterangan as master_keterangan',
+            ])
+            ->whereBetween('p.created_at', [$periodeStart, $periodeEnd])
+            ->whereRaw("
+                p.created_at = (
+                    SELECT MAX(p2.created_at)
+                    FROM dbo.v_image_scan_cea p2
+                    WHERE p2.serial_number = p.serial_number
+                    AND p2.created_at BETWEEN ? AND ?
+                )
+            ", [$periodeStart, $periodeEnd]);
+
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+
+            $query->where(function ($q) use ($search) {
+                $q->where('p.serial_number', 'like', "%{$search}%")
+                    ->orWhere('p.nama_mesin', 'like', "%{$search}%")
+                    ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
+                    ->orWhere('p.nama_vendor', 'like', "%{$search}%")
+                    ->orWhere('p.kode_vendor', 'like', "%{$search}%")
+                    ->orWhere('p.nama_cabang', 'like', "%{$search}%")
+                    ->orWhere('p.kode_cabang', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('vendor')) {
+            $query->where('p.master_vendor_id', $request->vendor);
+        }
+
+        if ($request->filled('cabang_id')) {
+            $query->where('p.cabang_id', $request->cabang_id);
+        }
+
+        $billings = $query
+            ->orderByDesc('p.created_at')
+            ->paginate(10)
+            ->withQueryString();
+
+        $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
+            $previousScan = DB::table('dbo.v_image_scan_cea')
+                ->where('serial_number', $item->serial_number)
+                ->where('created_at', '<=', $periodeStart)
+                ->orderByDesc('created_at')
+                ->first();
+
+            $getCounter = function ($value) {
+                return (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
+            };
+
+            $currentTotal = $getCounter($item->total_counter_mesin ?? 0);
+            $currentPrint = $getCounter($item->print_counter ?? 0);
+            $currentCopy = $getCounter($item->copy_counter ?? 0);
+
+            $previousTotal = $getCounter($previousScan->total_counter_mesin ?? 0);
+            $previousPrint = $getCounter($previousScan->print_counter ?? 0);
+            $previousCopy = $getCounter($previousScan->copy_counter ?? 0);
+
+            if (!$previousScan) {
+                $usageTotal = 0;
+                $usagePrint = 0;
+                $usageCopy = 0;
+            } else {
+                $usageTotal = max(0, $currentTotal - $previousTotal);
+                $usagePrint = max(0, $currentPrint - $previousPrint);
+                $usageCopy = max(0, $currentCopy - $previousCopy);
+            }
+
+            $totalMeter = $usagePrint + $usageCopy;
+
+            $printPercent = $totalMeter > 0
+                ? round(($usagePrint / $totalMeter) * 100, 2)
+                : 0;
+
+            $copyPercent = $totalMeter > 0
+                ? round(($usageCopy / $totalMeter) * 100, 2)
+                : 0;
+
+            $contractService = 300000;
+
+            $printBilling = $totalMeter > 0
+                ? round($contractService * ($printPercent / 100))
+                : 0;
+
+            $copyBilling = $totalMeter > 0
+                ? round($contractService * ($copyPercent / 100))
+                : 0;
+
+            $totalTagihan = $previousScan && $totalMeter > 0
+                ? $contractService
+                : 0;
+
+            if (!$previousScan) {
+                $billingRule = 'no_previous_scan';
+            } elseif ($totalMeter <= 0) {
+                $billingRule = 'no_usage';
+            } else {
+                $billingRule = 'contract_service';
+            }
+
+            $item->counter_detail = [
+                'has_previous_scan' => $previousScan ? true : false,
+                'previous_created_at' => $previousScan->created_at ?? null,
+                'current_created_at' => $item->created_at,
+
+                'current_total_counter_mesin' => $currentTotal,
+                'previous_total_counter_mesin' => $previousTotal,
+                'usage_total_counter_mesin' => $usageTotal,
+
+                'current_print_counter' => $currentPrint,
+                'previous_print_counter' => $previousPrint,
+                'usage_print_counter' => $usagePrint,
+
+                'current_copy_counter' => $currentCopy,
+                'previous_copy_counter' => $previousCopy,
+                'usage_copy_counter' => $usageCopy,
+            ];
+
+            $item->billing_detail = [
+                'billing_rule' => $billingRule,
+
+                'contract_service' => $contractService,
+
+                'usage_print' => $usagePrint,
+                'usage_copy' => $usageCopy,
+                'usage_total_counter_mesin' => $usageTotal,
+
+                'total_meter' => $totalMeter,
+
+                'print_percent' => $printPercent,
+                'copy_percent' => $copyPercent,
+
+                'print_billing' => $printBilling,
+                'copy_billing' => $copyBilling,
+
+                'total_tagihan' => $totalTagihan,
+            ];
+
+            $item->usage_total_counter_mesin = $usageTotal;
+            $item->usage_print_counter = $usagePrint;
+            $item->usage_copy_counter = $usageCopy;
+
+            $item->total_meter = $totalMeter;
+            $item->print_percent = $printPercent;
+            $item->copy_percent = $copyPercent;
+
+            $item->contract_service = $contractService;
+            $item->print_billing = $printBilling;
+            $item->copy_billing = $copyBilling;
+
+            $item->billing_rule = $billingRule;
+            $item->total_tagihan = $totalTagihan;
+
+            $currentScan = DB::table('dbo.v_image_scan_cea')
+                ->where('serial_number', $item->serial_number)
+                ->whereBetween('created_at', [$periodeStart, $periodeEnd])
+                ->orderByDesc('created_at')
+                ->first();
+
+            $firstScan = DB::table('dbo.v_image_scan_cea')
+                ->where('serial_number', $item->serial_number)
+                ->whereBetween('created_at', [$periodeStart, $periodeEnd])
+                ->orderBy('created_at', 'asc')
+                ->first();
+
+            $item->foto_awal = $firstScan?->image_path;
+            $item->foto_akhir = $currentScan?->image_path;
+
+            $item->notes = DB::table('scan_notes')
+                ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
+                ->where('scan_notes.image_scan_id', $item->id)
+                ->select(
+                    'scan_notes.id',
+                    'scan_notes.note',
+                    'scan_notes.created_at',
+                    'users.name as user_name'
+                )
+                ->orderBy('scan_notes.created_at')
+                ->get();
+
+            $item->new_note = '';
+
+            return $item;
+        });
+
+        if ($request->boolean('debug')) {
+            dd($billings->items());
+        }
+
+        return Inertia::render('Summary/Cea', [
+            'billings' => $billings,
+
+            'vendors' => DB::table('dbo.master_vendors')
+                ->where('is_active', true)
+                ->orderBy('nama_vendor')
+                ->get([
+                    'id',
+                    'kode_vendor',
+                    'nama_vendor',
+                ]),
+
+            'cabangs' => DB::table('dbo.master_cabangs')
+                ->where('is_active', true)
+                ->orderBy('nama_cabang')
+                ->get([
+                    'id',
+                    'kode_cabang',
+                    'nama_cabang',
+                ]),
+
+            'filters' => [
+                'search' => $request->input('search'),
+                'vendor' => $request->input('vendor'),
+                'billing_status' => $request->input('billing_status'),
+                'cabang_id' => $request->input('cabang_id'),
+                'month' => $month,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ],
+        ]);
+    }
+
     private function getStatusSummary(
         $items,
         float $kwhAwal,
