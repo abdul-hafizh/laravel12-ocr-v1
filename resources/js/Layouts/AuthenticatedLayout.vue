@@ -70,15 +70,15 @@ const summaryMenus = [
         current: route().current('summary.printer-billing'),
     },
     {
+        name: 'CEA',
+        href: route('summary.cea'),
+        current: route().current('summary.cea'),
+    },
+    {
         name: 'ASABA',
         href: route('summary.asaba'),
         current: route().current('summary.asaba'),
     },
-    {
-        name: 'CEA',
-        href: route('summary.cea'),
-        current: route().current('summary.cea'),
-    }
 ];
 
 const masterDataMenus = [

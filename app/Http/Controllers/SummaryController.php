@@ -1417,6 +1417,17 @@ class SummaryController extends Controller
                 ->orderBy('scan_notes.created_at')
                 ->get();
 
+            $cadanganPrintCea = 750000;
+
+            $totalLaporan = $copyBilling + $printBilling + $cadanganPrintCea;
+
+            $item->laporan_detail = [
+                'biaya_fotocopy' => $copyBilling,
+                'biaya_print_bw' => $printBilling,
+                'cadangan_print_cea' => $cadanganPrintCea,
+                'total_laporan' => $totalLaporan,
+            ];
+
             $item->new_note = '';
 
             return $item;
@@ -1424,7 +1435,7 @@ class SummaryController extends Controller
 
         if ($request->boolean('debug')) {
             dd($billings->items());
-        }
+        }        
 
         return Inertia::render('Summary/Cea', [
             'billings' => $billings,

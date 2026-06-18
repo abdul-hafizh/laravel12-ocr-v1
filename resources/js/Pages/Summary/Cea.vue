@@ -66,6 +66,161 @@ const formatDate = (value) => {
     });
 };
 
+const generateLaporanRows = () => {
+    return props.billings.data.map(item => {
+        const biayaFotocopy = item.laporan_detail?.biaya_fotocopy ?? item.copy_billing ?? 0;
+        const biayaPrintBw = item.laporan_detail?.biaya_print_bw ?? item.print_billing ?? 0;
+        const cadanganCea = item.laporan_detail?.cadangan_print_cea ?? 750000;
+        const total = item.laporan_detail?.total_laporan ?? (biayaFotocopy + biayaPrintBw + cadanganCea);
+
+        return `
+            <div class="report-box">
+                <div class="report-title">
+                    Estimasi Biaya print ${item.nama_cabang || '-'}
+                </div>
+
+                <div style="margin-top:8px;font-size:16px;">
+                    Mesin :
+                    <b>
+                        ${item.master_nama_mesin || item.nama_mesin || '-'}
+                    </b>
+                </div>
+
+                <div style="margin-top:4px;font-size:14px;">
+                    Serial :
+                    <b>
+                        ${item.serial_number || '-'}
+                    </b>
+                </div>
+
+                <div class="report-period">
+                    ${endDate.value.substring(0, 7)}
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="journal">Journal</th>
+                            <th class="debit">Debit</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <tr>
+                            <td>biaya fotocopy [ms FC]</td>
+                            <td>${formatNumber(biayaFotocopy)}</td>
+                        </tr>
+
+                        <tr>
+                            <td>biaya print bw [ms FC]</td>
+                            <td>${formatNumber(biayaPrintBw)}</td>
+                        </tr>
+
+                        <tr>
+                            <td>cadangan print - (CEA)</td>
+                            <td>${formatNumber(cadanganCea)}</td>
+                        </tr>
+
+                        <tr class="total-row">
+                            <td></td>
+                            <td>${formatNumber(total)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }).join('');
+};
+
+const printLaporan = () => {
+    const printWindow = window.open('', '_blank');
+
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Laporan Estimasi Biaya Print CEA</title>
+
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    padding: 24px;
+                    color: #111827;
+                }
+
+                .report-box {
+                    border: 1px solid #333;
+                    padding: 32px 48px;
+                    margin-bottom: 32px;
+                    page-break-inside: avoid;
+                }
+
+                .report-title {
+                    font-size: 18px;
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                }
+
+                .report-period {
+                    font-size: 18px;
+                    font-weight: 600;
+                    margin-bottom: 40px;
+                }
+
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+
+                th {
+                    font-size: 16px;
+                    text-align: left;
+                    padding-bottom: 12px;
+                    text-decoration: underline;
+                    font-weight: 400;
+                }
+
+                th.debit {
+                    text-align: right;
+                    text-decoration: none;
+                }
+
+                td {
+                    font-size: 16px;
+                    padding: 5px 0;
+                }
+
+                td:last-child {
+                    text-align: right;
+                    width: 220px;
+                }
+
+                .total-row td {
+                    padding-top: 16px;
+                    border-top: 1px solid #333;
+                    font-weight: 600;
+                }
+
+                @media print {
+                    .report-box {
+                        page-break-inside: avoid;
+                    }
+                }
+            </style>
+        </head>
+
+        <body>
+            ${generateLaporanRows()}
+        </body>
+        </html>
+    `);
+
+    printWindow.document.close();
+
+    setTimeout(() => {
+        printWindow.print();
+    }, 500);
+};
+
 const applyFilter = () => {
     router.get(
         route('summary.cea'),
@@ -252,6 +407,14 @@ const printBilling = () => {
                     class="px-5 py-3 bg-slate-700 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm"
                 >
                     Print
+                </button>
+
+                <button
+                    type="button"
+                    @click="printLaporan"
+                    class="px-5 py-3 bg-[#2DD4BF] text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-[#26bba8] transition-all shadow-sm"
+                >
+                    Laporan
                 </button>
             </div>
         </template>
