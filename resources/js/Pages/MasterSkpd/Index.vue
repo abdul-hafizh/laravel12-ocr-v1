@@ -28,6 +28,8 @@ const form = useForm({
     user_ids: [],
     foto: [],
     existing_foto_urls: [],
+    existing_fotos: [],
+    deleted_fotos: [],
     is_active: true,
 });
 
@@ -36,13 +38,22 @@ const userSearch = ref('');
 const filteredFinanceUsers = computed(() => {
     const keyword = userSearch.value.toLowerCase();
 
-    if (!keyword) return props.financeUsers;
+    const cabang = props.cabangs.find(
+        c => String(c.id) === String(form.master_cabang_id)
+    );
+
+    const picUserId = cabang?.pic_user_id;
 
     return props.financeUsers.filter((user) => {
-        return (
-            user.name?.toLowerCase().includes(keyword) ||
-            user.phone?.toLowerCase().includes(keyword)
-        );
+        const matchPic = picUserId
+            ? String(user.id) === String(picUserId)
+            : false;
+
+        const matchSearch = !keyword
+            || user.name?.toLowerCase().includes(keyword)
+            || user.phone?.toLowerCase().includes(keyword);
+
+        return matchPic && matchSearch;
     });
 });
 
@@ -58,6 +69,19 @@ watch(search, (value) => {
         { preserveState: true, replace: true }
     );
 });
+
+watch(
+    () => form.master_cabang_id,
+    (cabangId) => {
+        const cabang = props.cabangs.find(
+            c => String(c.id) === String(cabangId)
+        );
+
+        form.user_ids = cabang?.pic_user_id
+            ? [cabang.pic_user_id]
+            : [];
+    }
+);
 
 const showImageModal = ref(false);
 const selectedImageUrl = ref('');
@@ -84,6 +108,8 @@ const openCreate = () => {
     form.nomor_skpd = generateNomorSkpd();
     form.nominal_pajak = 0;
     form.is_active = true;
+    form.existing_fotos = [];
+    form.deleted_fotos = [];
 
     showModal.value = true;
 };
@@ -99,8 +125,11 @@ const openEdit = (item) => {
     form.jenis = item.jenis || '';
     form.keterangan = item.keterangan || '';
     form.tanggal_jatuh_tempo = toDateInput(item.tanggal_jatuh_tempo);
+    
     form.foto = [];
+    form.existing_fotos = item.foto || [];
     form.existing_foto_urls = item.foto_urls || [];
+    form.deleted_fotos = [];
 
     form.reminder_hari = Array.isArray(item.reminder_hari)
         ? item.reminder_hari
@@ -114,6 +143,16 @@ const openEdit = (item) => {
 
     form.is_active = Boolean(item.is_active);
     showModal.value = true;
+};
+
+const removeExistingFoto = (index) => {
+    const fotoPath = form.existing_fotos[index];
+
+    if (!fotoPath) return;
+
+    form.deleted_fotos.push(fotoPath);
+    form.existing_fotos.splice(index, 1);
+    form.existing_foto_urls.splice(index, 1);
 };
 
 const handleFotoChange = (event) => {
@@ -154,6 +193,16 @@ const submit = () => {
             onSuccess: () => closeModal(),
         }
     );
+};
+
+const formatDate = (date) => {
+    if (!date) return '-';
+
+    return new Date(date).toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    });
 };
 
 const toDateInput = (value) => {
@@ -232,8 +281,10 @@ const formatRupiah = (value) => {
                                         No</th>
                                     <th
                                         class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                                        Nomor
-                                        SKPD</th>
+                                        Nomor SKPD</th>
+                                    <th
+                                        class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                        Cabang</th>
                                     <th
                                         class="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right">
                                         Nominal Pajak</th>
@@ -262,6 +313,15 @@ const formatRupiah = (value) => {
                                     <td class="px-6 py-4 text-sm font-bold text-slate-700">
                                         {{ item.nomor_skpd || '-' }}
                                     </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-[11px] font-black text-[#1E293B]">
+                                            {{ item.cabang?.nama_cabang || '-' }}
+                                        </div>
+
+                                        <div class="text-[10px] font-bold text-slate-400">
+                                            {{ item.cabang?.kode_cabang || '' }}
+                                        </div>
+                                    </td>
 
                                     <td class="px-6 py-4 text-sm font-black text-[#1E293B] text-right">
                                         {{ formatRupiah(item.nominal_pajak) }}
@@ -269,8 +329,8 @@ const formatRupiah = (value) => {
                                         {{ item.keterangan || '-' }}</div>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <div class="text-[11px] font-bold text-slate-600">{{ item.tanggal_jatuh_tempo ||
-                                            '-' }}
+                                        <div class="text-[11px] font-bold text-slate-600">
+                                            {{ formatDate(item.tanggal_jatuh_tempo) }}
                                         </div>
                                         <div
                                             class="text-[9px] font-black text-[#2DD4BF] uppercase tracking-widest mt-0.5">
@@ -477,15 +537,28 @@ const formatRupiah = (value) => {
                             </label>
 
                             <div class="flex flex-wrap gap-3">
-                                <button
-                                    v-for="url in form.existing_foto_urls"
+                                <div
+                                    v-for="(url, index) in form.existing_foto_urls"
                                     :key="url"
-                                    type="button"
-                                    @click="openImagePreview(url)"
-                                    class="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-slate-50"
+                                    class="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 group"
                                 >
-                                    <img :src="url" class="w-full h-full object-cover" />
-                                </button>
+                                    <button
+                                        type="button"
+                                        @click="openImagePreview(url)"
+                                        class="w-full h-full"
+                                    >
+                                        <img :src="url" class="w-full h-full object-cover" />
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        @click.stop="removeExistingFoto(index)"
+                                        class="absolute top-1 right-1 w-6 h-6 rounded-full bg-rose-500 text-white text-xs font-black shadow hover:bg-rose-600"
+                                        title="Hapus foto"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

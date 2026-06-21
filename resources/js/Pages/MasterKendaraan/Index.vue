@@ -226,7 +226,7 @@ const executeDelete = () => {
                                     Merk &
                                     Tipe</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Jenis</th>
+                                    Jenis/Ket</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     Cabang
                                 </th>
@@ -269,6 +269,7 @@ const executeDelete = () => {
                                         <div class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
                                             {{ item.tipe }}
                                         </div>
+                                        <div class="text-[11px] text-slate-500 ">Tahun beli: {{ item.tahun_pembelian || '-' }}</div>
                                     </td>
 
                                     <!-- Kolom Jenis -->

@@ -14,20 +14,31 @@ class MasterSkpdController extends Controller
 {
     public function index(Request $request)
     {
-        $query = MasterSkpd::with('cabang');
+        $query = MasterSkpd::query()
+            ->select('master_skpds.*')
+            ->with('cabang')
+            ->leftJoin(
+                'master_cabangs',
+                'master_skpds.master_cabang_id',
+                '=',
+                'master_cabangs.id'
+            );
 
         if ($request->filled('search')) {
             $search = trim($request->search);
 
             $query->where(function ($q) use ($search) {
-                $q->where('jenis', 'like', "%{$search}%")
-                    ->orWhere('keterangan', 'like', "%{$search}%");
+                $q->where('master_skpds.jenis', 'like', "%{$search}%")
+                    ->orWhere('master_skpds.keterangan', 'like', "%{$search}%")
+                    ->orWhere('master_skpds.nomor_skpd', 'like', "%{$search}%")
+                    ->orWhere('master_cabangs.nama_cabang', 'like', "%{$search}%");
             });
         }
 
         return Inertia::render('MasterSkpd/Index', [
             'skpds' => $query
-                ->orderBy('tanggal_jatuh_tempo')
+                ->orderBy('master_cabangs.nama_cabang')
+                ->orderBy('master_skpds.tanggal_jatuh_tempo')
                 ->paginate(10)
                 ->withQueryString()
                 ->through(function ($item) {
@@ -42,12 +53,9 @@ class MasterSkpdController extends Controller
 
             'cabangs' => MasterCabang::where('is_active', true)
                 ->orderBy('nama_cabang')
-                ->get(),
+                ->get(['id', 'kode_cabang', 'nama_cabang', 'pic_user_id']),
 
-            'financeUsers' => User::whereHas('role', function ($q) {
-                    $q->where('slug', 'finance');
-                })
-                ->where('is_active', true)
+            'financeUsers' => User::where('is_active', true)
                 ->where('is_delete', false)
                 ->orderBy('name')
                 ->get(['id', 'name', 'phone']),
@@ -113,6 +121,9 @@ class MasterSkpdController extends Controller
             'reminder_hari' => ['required', 'array', 'min:1'],
             'reminder_hari.*' => ['required', 'integer', 'in:7,14,30'],
 
+            'deleted_fotos' => ['nullable', 'array'],
+            'deleted_fotos.*' => ['string'],
+
             'nomor_skpd' => [
                 'required',
                 'string',
@@ -134,15 +145,18 @@ class MasterSkpdController extends Controller
             'is_active' => ['boolean'],
         ]);
 
-        if ($request->hasFile('foto')) {
-            if ($masterSkpd->foto) {
-                Storage::disk('public')->delete($masterSkpd->foto);
-            }
-
-            $validated['foto'] = $request->file('foto')->store('skpd', 'public');
-        }
-
         $existingFotos = is_array($masterSkpd->foto) ? $masterSkpd->foto : [];
+
+        $deletedFotos = $validated['deleted_fotos'] ?? [];
+
+        if (!empty($deletedFotos)) {
+            Storage::disk('public')->delete($deletedFotos);
+
+            $existingFotos = array_values(array_filter(
+                $existingFotos,
+                fn ($foto) => !in_array($foto, $deletedFotos)
+            ));
+        }
 
         if ($request->hasFile('foto')) {
             $newFotos = collect($request->file('foto'))
@@ -150,10 +164,12 @@ class MasterSkpdController extends Controller
                 ->values()
                 ->toArray();
 
-            $validated['foto'] = array_merge($existingFotos, $newFotos);
-        } else {
-            unset($validated['foto']);
+            $existingFotos = array_merge($existingFotos, $newFotos);
         }
+
+        $validated['foto'] = $existingFotos;
+
+        unset($validated['deleted_fotos']);
 
         $masterSkpd->update($validated);
         $masterSkpd->refresh()->load('cabang');
@@ -165,7 +181,7 @@ class MasterSkpdController extends Controller
 
     public function destroy(MasterSkpd $masterSkpd)
     {
-        if ($masterSkpd->foto) {
+        if (is_array($masterSkpd->foto)) {
             Storage::disk('public')->delete($masterSkpd->foto);
         }
 
