@@ -2,20 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\UserAccessHelper;
 use App\Models\MasterTokenListrik;
 use App\Models\MasterCabang;
 use App\Models\MasterDayaListrik;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class MasterTokenListrikController extends Controller
 {
     public function index(Request $request)
     {
+        $user = $request->user();
+
         $query = MasterTokenListrik::query()
             ->select('master_token_listriks.*')
             ->with(['cabang', 'dayaListrik'])
             ->leftJoin('master_cabangs', 'master_token_listriks.master_cabang_id', '=', 'master_cabangs.id');
+
+        UserAccessHelper::applyCabangFilter($query, $user, 'master_token_listriks.master_cabang_id');
 
         if ($request->filled('search')) {
             $search = trim($request->search);
@@ -30,7 +36,10 @@ class MasterTokenListrikController extends Controller
             });
         }
 
-        if ($request->filled('master_cabang_id')) {
+        if (
+            $request->filled('master_cabang_id')
+            && UserAccessHelper::cabangIds($user)->contains((int) $request->master_cabang_id)
+        ) {
             $query->where('master_token_listriks.master_cabang_id', $request->master_cabang_id);
         }
 
@@ -41,7 +50,7 @@ class MasterTokenListrikController extends Controller
                 ->paginate(10)
                 ->withQueryString(),
 
-            'cabangs' => MasterCabang::where('is_active', true)
+            'cabangs' => MasterCabang::whereIn('id', UserAccessHelper::cabangIds($user))
                 ->orderBy('nama_cabang')
                 ->get(),
 

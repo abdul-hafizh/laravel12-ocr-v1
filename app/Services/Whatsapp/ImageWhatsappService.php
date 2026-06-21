@@ -42,6 +42,11 @@ class ImageWhatsappService
             return;
         }
 
+        if (($session->step ?? '') === 'ASK_CEA_TINTA') {
+            $this->handleCeaTinta($phone, $message, $session);
+            return;
+        }
+
         $imageUrl =
             $payload['url']
             ?? $payload['image']
@@ -199,6 +204,25 @@ class ImageWhatsappService
             ]);
 
             AnalyzeImageJob::dispatch($scan->id);
+
+            if ($scanType === 'cea') {
+                DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
+                    'step' => 'ASK_CEA_TINTA',
+                    'last_image_scan_id' => $scan->id,
+                    'updated_at' => now(),
+                ]);
+
+                SendSms::sendMessageWA(
+                    $phone,
+                    "✅ Foto CEA berhasil diterima.\n" .
+                    "Sedang dianalisis oleh sistem.\n\n" .
+                    "ID Scan: *{$scan->id}*\n\n" .
+                    "Silakan masukkan nominal *biaya tinta*.\n" .
+                    "Contoh: 185000"
+                );
+
+                return;
+            }
 
             DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
                 'menu' => null,
@@ -427,6 +451,77 @@ class ImageWhatsappService
         );
     }
 
+    private function handleCeaTinta(string $phone, string $message, object $session): void
+    {
+        $biayaTinta = $this->extractNominalFromMessage($message);
+
+        if ($biayaTinta === null) {
+            SendSms::sendMessageWA(
+                $phone,
+                "Nominal tinta tidak valid.\n\nContoh: 185000"
+            );
+            return;
+        }
+
+        $scan = ImageScan::find($session->last_image_scan_id);
+
+        if (!$scan) {
+            SendSms::sendMessageWA(
+                $phone,
+                "Data foto CEA terakhir tidak ditemukan. Silakan ulangi upload foto."
+            );
+            return;
+        }
+
+        $serialNumber =
+            $scan->analysis_result['data_penting']['serial_number']
+            ?? $scan->analysis_result['data']['serial_number']
+            ?? null;
+
+        if (!$serialNumber) {
+            $serialNumber = DB::table('dbo.master_mesins')
+                ->where('id', $scan->master_mesin_id)
+                ->value('serial_number');
+        }
+
+        [$periodeStart, $periodeEnd] = $this->getBillingPeriod($scan->created_at);
+
+        DB::table('dbo.cea_billing_costs')->updateOrInsert(
+            [
+                'periode_start' => $periodeStart->toDateString(),
+                'periode_end' => $periodeEnd->toDateString(),
+                'cabang_id' => $scan->cabang_id,
+                'serial_number' => $serialNumber,
+            ],
+            [
+                'image_scan_id' => $scan->id,
+                'master_mesin_id' => $scan->master_mesin_id,
+                'contract_service' => 300000,
+                'biaya_tinta' => $biayaTinta,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+
+        DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
+            'menu' => null,
+            'scan_type' => null,
+            'step' => 'ASK_MENU',
+            'last_image_scan_id' => null,
+            'master_mesin_id' => null,
+            'master_mesin_part_id' => null,
+            'updated_at' => now(),
+        ]);
+
+        SendSms::sendMessageWA(
+            $phone,
+            "✅ Biaya tinta CEA berhasil disimpan.\n\n" .
+            "Tinta: Rp " . number_format($biayaTinta, 0, ',', '.') . "\n" .
+            "Periode: " . $periodeStart->format('d/m/Y') . " - " . $periodeEnd->format('d/m/Y') . "\n\n" .
+            "Ketik *ulang* untuk kembali ke menu."
+        );
+    }
+
     public function startWithMachineSelection(string $phone, string $menu, string $scanType): void
     {
         $session = DB::table('dbo.wa_sessions')->where('phone', $phone)->first();
@@ -501,5 +596,20 @@ class ImageWhatsappService
         $nominal = preg_replace('/[^0-9]/', '', $matches[0]);
 
         return $nominal !== '' ? (int) $nominal : null;
+    }
+
+    private function getBillingPeriod($date): array
+    {
+        $date = \Carbon\Carbon::parse($date);
+
+        if ((int) $date->format('d') >= 28) {
+            $start = $date->copy()->day(28)->startOfDay();
+            $end = $date->copy()->addMonthNoOverflow()->day(28)->endOfDay();
+        } else {
+            $start = $date->copy()->subMonthNoOverflow()->day(28)->startOfDay();
+            $end = $date->copy()->day(28)->endOfDay();
+        }
+
+        return [$start, $end];
     }
 }

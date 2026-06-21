@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MasterCabang;
 use App\Models\MasterMesin;
 use App\Models\MasterVendor;
+use App\Helpers\UserAccessHelper;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -12,11 +13,15 @@ class MasterMesinController extends Controller
 {
     public function index(Request $request)
     {
+        $user = $request->user();
+
         $query = MasterMesin::with([
             'cabang',
             'vendor',
             'maintenanceParts',
         ]);
+
+        UserAccessHelper::applyCabangFilter($query, $user);
 
         if ($request->filled('search')) {
             $search = trim($request->search);
@@ -34,7 +39,13 @@ class MasterMesinController extends Controller
         }
 
         if ($request->filled('master_cabang_id')) {
-            $query->where('master_cabang_id', $request->master_cabang_id);
+            $allowedCabangIds = UserAccessHelper::cabangIds($user);
+
+            if ($allowedCabangIds->contains((int) $request->master_cabang_id)) {
+                $query->where('master_cabang_id', $request->master_cabang_id);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
         }
 
         if ($request->filled('master_vendor_id')) {
@@ -44,7 +55,7 @@ class MasterMesinController extends Controller
         return Inertia::render('MasterMesin/Index', [
             'mesins' => $query->orderBy('nama_mesin')->paginate(10)->withQueryString(),
 
-            'cabangs' => MasterCabang::where('is_active', true)
+            'cabangs' => MasterCabang::whereIn('id', UserAccessHelper::cabangIds($user))
                 ->orderBy('nama_cabang')
                 ->get(),
 

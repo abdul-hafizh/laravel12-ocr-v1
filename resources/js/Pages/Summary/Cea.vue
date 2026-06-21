@@ -316,10 +316,12 @@ const generateBillingRows = () => {
                 Copy: ${formatPercent(item.copy_percent)}
             </td>
             <td>
-                Contract: ${formatCurrency(item.contract_service)}<br>
-                Print: ${formatCurrency(item.print_billing)}<br>
-                Copy: ${formatCurrency(item.copy_billing)}<br>
-                Total: ${formatCurrency(item.total_tagihan)}
+                Contract: ${formatCurrency(item.billing_detail?.contract_service ?? 0)}<br>
+                Tinta: ${formatCurrency(item.billing_detail?.biaya_tinta ?? 0)}<br>
+                Sparepart: ${formatCurrency(item.billing_detail?.biaya_sparepart ?? 0)}<br>
+                Print: ${formatCurrency(item.billing_detail?.print_billing ?? 0)}<br>
+                Copy: ${formatCurrency(item.billing_detail?.copy_billing ?? 0)}<br>
+                Total: ${formatCurrency(item.billing_detail?.total_tagihan ?? 0)}
             </td>
             <td>
                 <b>${item.master_mesin_id ? 'OK' : 'BELUM MAPPING'}</b><br><br>
@@ -634,6 +636,16 @@ const printBilling = () => {
                                         <div class="text-[10px] font-black text-slate-500">
                                             Contract:
                                             {{ formatCurrency(item.contract_service) }}
+                                        </div>
+
+                                        <div class="text-[10px] font-black text-slate-500">
+                                            Sparepart:
+                                            {{ formatCurrency(item.billing_detail?.biaya_sparepart ?? 0) }}
+                                        </div>
+
+                                        <div class="text-[10px] font-black text-slate-500">
+                                            Tinta:
+                                            {{ formatCurrency(item.billing_detail?.biaya_tinta ?? 0) }}
                                         </div>
 
                                         <div class="text-[10px] font-black text-slate-500">

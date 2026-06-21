@@ -119,21 +119,19 @@ class SummaryController extends Controller
                 'mm.free_klik_percent',
                 'mm.keterangan as master_keterangan',
             ])
-            ->whereBetween('p.created_at', [
-                $periodeStart,
-                $periodeEnd,
-            ])
+            ->whereBetween('p.created_at', [$periodeStart, $periodeEnd])
+
+            // Ambil hanya FOTO AKHIR per periode + cabang + mesin + serial.
             ->whereRaw("
                 p.created_at = (
                     SELECT MAX(p2.created_at)
                     FROM dbo.v_image_scan_printers p2
                     WHERE p2.serial_number = p.serial_number
+                    AND ISNULL(p2.cabang_id, 0) = ISNULL(p.cabang_id, 0)
+                    AND ISNULL(p2.master_mesin_id, 0) = ISNULL(p.master_mesin_id, 0)
                     AND p2.created_at BETWEEN ? AND ?
                 )
-            ", [
-                $periodeStart,
-                $periodeEnd,
-            ]);
+            ", [$periodeStart, $periodeEnd]);
 
         if ($request->filled('search')) {
             $search = trim($request->search);
@@ -163,31 +161,43 @@ class SummaryController extends Controller
             ->withQueryString();
 
         $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
-            $previousScan = DB::table('dbo.v_image_scan_printers')
+            $baseScanQuery = DB::table('dbo.v_image_scan_printers')
                 ->where('serial_number', $item->serial_number)
-                ->where('created_at', '<', $item->created_at)
+                ->where('cabang_id', $item->cabang_id)
+                ->where('master_mesin_id', $item->master_mesin_id)
+                ->whereBetween('created_at', [$periodeStart, $periodeEnd]);
+
+            $firstScan = (clone $baseScanQuery)
+                ->orderBy('created_at', 'asc')
+                ->first();
+
+            $currentScan = (clone $baseScanQuery)
                 ->orderByDesc('created_at')
                 ->first();
+
+            $hasFirstScan = $firstScan ? true : false;
+            $hasCurrentScan = $currentScan ? true : false;
+            $hasTwoScans = $firstScan && $currentScan && $firstScan->id !== $currentScan->id;
 
             $getCounter = function ($value) {
                 return (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
             };
 
-            $currentBwA3 = $getCounter($item->bw_a3 ?? 0);
-            $currentBwA4 = $getCounter($item->bw_a4 ?? 0);
-            $currentColorA3 = $getCounter($item->color_a3 ?? 0);
-            $currentColorA4 = $getCounter($item->color_a4 ?? 0);
-            $currentBwLongSheet = $getCounter($item->bw_long_sheet ?? 0);
-            $currentColorLongSheet = $getCounter($item->color_long_sheet ?? 0);
+            $currentBwA3 = $getCounter($currentScan->bw_a3 ?? 0);
+            $currentBwA4 = $getCounter($currentScan->bw_a4 ?? 0);
+            $currentColorA3 = $getCounter($currentScan->color_a3 ?? 0);
+            $currentColorA4 = $getCounter($currentScan->color_a4 ?? 0);
+            $currentBwLongSheet = $getCounter($currentScan->bw_long_sheet ?? 0);
+            $currentColorLongSheet = $getCounter($currentScan->color_long_sheet ?? 0);
 
-            $previousBwA3 = $getCounter($previousScan->bw_a3 ?? 0);
-            $previousBwA4 = $getCounter($previousScan->bw_a4 ?? 0);
-            $previousColorA3 = $getCounter($previousScan->color_a3 ?? 0);
-            $previousColorA4 = $getCounter($previousScan->color_a4 ?? 0);
-            $previousBwLongSheet = $getCounter($previousScan->bw_long_sheet ?? 0);
-            $previousColorLongSheet = $getCounter($previousScan->color_long_sheet ?? 0);
+            $previousBwA3 = $getCounter($firstScan->bw_a3 ?? 0);
+            $previousBwA4 = $getCounter($firstScan->bw_a4 ?? 0);
+            $previousColorA3 = $getCounter($firstScan->color_a3 ?? 0);
+            $previousColorA4 = $getCounter($firstScan->color_a4 ?? 0);
+            $previousBwLongSheet = $getCounter($firstScan->bw_long_sheet ?? 0);
+            $previousColorLongSheet = $getCounter($firstScan->color_long_sheet ?? 0);
 
-            if (!$previousScan) {
+            if (!$hasTwoScans) {
                 $bwA3 = 0;
                 $bwA4 = 0;
                 $colorA3 = 0;
@@ -227,12 +237,12 @@ class SummaryController extends Controller
             $totalA4Click = $bwA4 + $colorA4;
 
             $totalPemakaianClick =
-                $bwA3
-                + $bwA4
-                + $colorA3
-                + $colorA4
-                + $bwLongSheet
-                + $colorLongSheet;
+                $bwA3 +
+                $bwA4 +
+                $colorA3 +
+                $colorA4 +
+                $bwLongSheet +
+                $colorLongSheet;
 
             if ($minimumSize === 'A3') {
                 $minimumBasisClick = $totalA3Click;
@@ -255,12 +265,12 @@ class SummaryController extends Controller
             $biayaColorLongSheet = $colorLongSheet * $rateColorA3;
 
             $subtotalBilling =
-                $biayaBwA3
-                + $biayaBwA4
-                + $biayaColorA3
-                + $biayaColorA4
-                + $biayaBwLongSheet
-                + $biayaColorLongSheet;
+                $biayaBwA3 +
+                $biayaBwA4 +
+                $biayaColorA3 +
+                $biayaColorA4 +
+                $biayaBwLongSheet +
+                $biayaColorLongSheet;
 
             $subtotalSebelumFree = $subtotalBilling;
 
@@ -278,9 +288,12 @@ class SummaryController extends Controller
 
             $subtotalSetelahFree = max(0, $subtotalBilling - $nilaiFreeKlik);
 
-            if (!$previousScan || $totalPemakaianClick <= 0) {
+            if (!$hasTwoScans) {
                 $totalTagihan = 0;
-                $billingRule = 'no_previous_scan';
+                $billingRule = 'need_two_scans_in_period';
+            } elseif ($totalPemakaianClick <= 0) {
+                $totalTagihan = 0;
+                $billingRule = 'no_usage';
             } elseif ($hasMinimumRule && $minimumBasisClick < $minimumClick) {
                 $totalTagihan = $minimumNominal;
                 $billingRule = 'minimum_charge_' . strtolower($minimumSize);
@@ -294,10 +307,22 @@ class SummaryController extends Controller
                 }
             }
 
+            $item->periode_start = $periodeStart->toDateString();
+            $item->periode_end = $periodeEnd->toDateString();
+
+            $item->foto_awal = $firstScan?->image_path;
+            $item->foto_akhir = $currentScan?->image_path;
+
+            $item->foto_awal_created_at = $firstScan?->created_at;
+            $item->foto_akhir_created_at = $currentScan?->created_at;
+
             $item->counter_detail = [
-                'has_previous_scan' => $previousScan ? true : false,
-                'previous_created_at' => $previousScan->created_at ?? null,
-                'current_created_at' => $item->created_at,
+                'has_first_scan' => $hasFirstScan,
+                'has_current_scan' => $hasCurrentScan,
+                'has_two_scans' => $hasTwoScans,
+
+                'previous_created_at' => $firstScan->created_at ?? null,
+                'current_created_at' => $currentScan->created_at ?? null,
 
                 'current_bw_a3' => $currentBwA3,
                 'previous_bw_a3' => $previousBwA3,
@@ -383,24 +408,9 @@ class SummaryController extends Controller
             $item->billing_rule = $billingRule;
             $item->total_tagihan = $totalTagihan;
 
-            $currentScan = DB::table('dbo.v_image_scan_printers')
-                ->where('serial_number', $item->serial_number)
-                ->whereBetween('created_at', [$periodeStart, $periodeEnd])
-                ->orderByDesc('created_at')
-                ->first();
-
-            $firstScan = DB::table('dbo.v_image_scan_printers')
-                ->where('serial_number', $item->serial_number)
-                ->whereBetween('created_at', [$periodeStart, $periodeEnd])
-                ->orderBy('created_at', 'asc')
-                ->first();
-
-            $item->foto_awal = $firstScan?->image_path;
-            $item->foto_akhir = $currentScan?->image_path;
-
             $item->notes = DB::table('scan_notes')
                 ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
-                ->where('scan_notes.image_scan_id', $item->id)
+                ->where('scan_notes.image_scan_id', $currentScan->id ?? $item->id)
                 ->select(
                     'scan_notes.id',
                     'scan_notes.note',
@@ -841,6 +851,7 @@ class SummaryController extends Controller
 
         if (!$startDate || !$endDate) {
             $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+
             $startDateCarbon = Carbon::parse($month . '-28')
                 ->subMonthNoOverflow()
                 ->startOfDay();
@@ -874,10 +885,7 @@ class SummaryController extends Controller
                 'mm.free_klik_percent',
                 'mm.keterangan as master_keterangan',
             ])
-            ->whereBetween('p.created_at', [
-                $periodeStart,
-                $periodeEnd,
-            ])
+            ->whereBetween('p.created_at', [$periodeStart, $periodeEnd])
             ->whereRaw("
                 p.created_at = (
                     SELECT MAX(p2.created_at)
@@ -885,10 +893,7 @@ class SummaryController extends Controller
                     WHERE p2.serial_number = p.serial_number
                     AND p2.created_at BETWEEN ? AND ?
                 )
-            ", [
-                $periodeStart,
-                $periodeEnd,
-            ]);
+            ", [$periodeStart, $periodeEnd]);
 
         if ($request->filled('search')) {
             $search = trim($request->search);
@@ -918,37 +923,54 @@ class SummaryController extends Controller
             ->withQueryString();
 
         $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
-            $previousScan = DB::table('dbo.v_image_scan_asaba')
+            $baseScanQuery = DB::table('dbo.v_image_scan_asaba')
                 ->where('serial_number', $item->serial_number)
-                ->where('created_at', '<', $item->created_at)
-                ->orderByDesc('created_at')
+                ->whereBetween('created_at', [$periodeStart, $periodeEnd]);
+
+            if (!empty($item->cabang_id)) {
+                $baseScanQuery->where('cabang_id', $item->cabang_id);
+            }
+
+            $firstScan = (clone $baseScanQuery)
+                ->orderBy('created_at', 'asc')
+                ->orderBy('id', 'asc')
                 ->first();
+
+            $currentScanData = (clone $baseScanQuery)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->first();
+
+            $hasTwoScans =
+                $firstScan
+                && $currentScanData
+                && (int) $firstScan->id !== (int) $currentScanData->id;
 
             $getCounter = function ($value) {
                 return (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
             };
 
-            $currentTotal = $getCounter($item->total_counter ?? 0);
-            $currentPrinter = $getCounter($item->printer_counter ?? 0);
-            $currentCopy = $getCounter($item->copy_counter ?? 0);
-            $currentScan = $getCounter($item->scan_counter ?? 0);
-            $currentFeedPaper = $getCounter($item->feed_paper_counter ?? 0);
-            $currentOutputPaper = $getCounter($item->output_paper_counter ?? 0);
-            $currentFullColor = $getCounter($item->full_color_counter ?? 0);
-            $currentSingleColor = $getCounter($item->single_color_counter ?? 0);
-            $currentBlack = $getCounter($item->black_counter ?? 0);
+            $currentTotal = $getCounter($currentScanData->total_counter ?? 0);
+            $currentPrinter = $getCounter($currentScanData->printer_counter ?? 0);
+            $currentCopy = $getCounter($currentScanData->copy_counter ?? 0);
+            $currentScan = $getCounter($currentScanData->scan_counter ?? 0);
+            $currentFeedPaper = $getCounter($currentScanData->feed_paper_counter ?? 0);
+            $currentOutputPaper = $getCounter($currentScanData->output_paper_counter ?? 0);
+            $currentFullColor = $getCounter($currentScanData->full_color_counter ?? 0);
+            $currentSingleColor = $getCounter($currentScanData->single_color_counter ?? 0);
+            $currentBlack = $getCounter($currentScanData->black_counter ?? 0);
 
-            $previousTotal = $getCounter($previousScan->total_counter ?? 0);
-            $previousPrinter = $getCounter($previousScan->printer_counter ?? 0);
-            $previousCopy = $getCounter($previousScan->copy_counter ?? 0);
-            $previousScanCounter = $getCounter($previousScan->scan_counter ?? 0);
-            $previousFeedPaper = $getCounter($previousScan->feed_paper_counter ?? 0);
-            $previousOutputPaper = $getCounter($previousScan->output_paper_counter ?? 0);
-            $previousFullColor = $getCounter($previousScan->full_color_counter ?? 0);
-            $previousSingleColor = $getCounter($previousScan->single_color_counter ?? 0);
-            $previousBlack = $getCounter($previousScan->black_counter ?? 0);
+            $previousTotal = $getCounter($firstScan->total_counter ?? 0);
+            $previousPrinter = $getCounter($firstScan->printer_counter ?? 0);
+            $previousCopy = $getCounter($firstScan->copy_counter ?? 0);
+            $previousScanCounter = $getCounter($firstScan->scan_counter ?? 0);
+            $previousFeedPaper = $getCounter($firstScan->feed_paper_counter ?? 0);
+            $previousOutputPaper = $getCounter($firstScan->output_paper_counter ?? 0);
+            $previousFullColor = $getCounter($firstScan->full_color_counter ?? 0);
+            $previousSingleColor = $getCounter($firstScan->single_color_counter ?? 0);
+            $previousBlack = $getCounter($firstScan->black_counter ?? 0);
 
-            if (!$previousScan) {
+            if (!$hasTwoScans) {
                 $usageTotal = 0;
                 $usagePrinter = 0;
                 $usageCopy = 0;
@@ -1035,9 +1057,12 @@ class SummaryController extends Controller
 
             $subtotalSetelahFree = max(0, $subtotalBilling - $nilaiFreeKlik);
 
-            if (!$previousScan || $totalPemakaianClick <= 0) {
+            if (!$hasTwoScans) {
                 $totalTagihan = 0;
-                $billingRule = 'no_previous_scan';
+                $billingRule = 'need_two_scans_in_period';
+            } elseif ($totalPemakaianClick <= 0) {
+                $totalTagihan = 0;
+                $billingRule = 'no_usage';
             } elseif ($hasMinimumRule && $totalPemakaianClick < $minimumClick) {
                 $totalTagihan = $minimumNominal;
                 $billingRule = 'minimum_charge_' . strtolower($minimumSize ?: 'a4');
@@ -1051,10 +1076,21 @@ class SummaryController extends Controller
                 }
             }
 
+            $item->periode_start = $periodeStart->toDateString();
+            $item->periode_end = $periodeEnd->toDateString();
+
+            $item->foto_awal = $firstScan?->image_path;
+            $item->foto_akhir = $currentScanData?->image_path;
+            $item->foto_awal_created_at = $firstScan?->created_at;
+            $item->foto_akhir_created_at = $currentScanData?->created_at;
+
             $item->counter_detail = [
-                'has_previous_scan' => $previousScan ? true : false,
-                'previous_created_at' => $previousScan->created_at ?? null,
-                'current_created_at' => $item->created_at,
+                'has_first_scan' => $firstScan ? true : false,
+                'has_current_scan' => $currentScanData ? true : false,
+                'has_two_scans' => $hasTwoScans,
+
+                'previous_created_at' => $firstScan->created_at ?? null,
+                'current_created_at' => $currentScanData->created_at ?? null,
 
                 'current_total_counter' => $currentTotal,
                 'previous_total_counter' => $previousTotal,
@@ -1145,24 +1181,9 @@ class SummaryController extends Controller
             $item->counter_source = $counterSource;
             $item->total_tagihan = $totalTagihan;
 
-            $currentScan = DB::table('dbo.v_image_scan_asaba')
-                ->where('serial_number', $item->serial_number)
-                ->whereBetween('created_at', [$periodeStart, $periodeEnd])
-                ->orderByDesc('created_at')
-                ->first();
-
-            $firstScan = DB::table('dbo.v_image_scan_asaba')
-                ->where('serial_number', $item->serial_number)
-                ->whereBetween('created_at', [$periodeStart, $periodeEnd])
-                ->orderBy('created_at', 'asc')
-                ->first();
-
-            $item->foto_awal = $firstScan?->image_path;
-            $item->foto_akhir = $currentScan?->image_path;
-
             $item->notes = DB::table('scan_notes')
                 ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
-                ->where('scan_notes.image_scan_id', $item->id)
+                ->where('scan_notes.image_scan_id', $currentScanData->id ?? $item->id)
                 ->select(
                     'scan_notes.id',
                     'scan_notes.note',
@@ -1223,6 +1244,7 @@ class SummaryController extends Controller
 
         if (!$startDate || !$endDate) {
             $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+
             $startDateCarbon = Carbon::parse($month . '-28')
                 ->subMonthNoOverflow()
                 ->startOfDay();
@@ -1246,6 +1268,7 @@ class SummaryController extends Controller
                     SELECT MAX(p2.created_at)
                     FROM dbo.v_image_scan_cea p2
                     WHERE p2.serial_number = p.serial_number
+                    AND ISNULL(p2.cabang_id, 0) = ISNULL(p.cabang_id, 0)
                     AND p2.created_at BETWEEN ? AND ?
                 )
             ", [$periodeStart, $periodeEnd]);
@@ -1278,25 +1301,39 @@ class SummaryController extends Controller
             ->withQueryString();
 
         $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
-            $previousScan = DB::table('dbo.v_image_scan_cea')
+            $baseScanQuery = DB::table('dbo.v_image_scan_cea')
                 ->where('serial_number', $item->serial_number)
-                ->where('created_at', '<', $item->created_at)
-                ->orderByDesc('created_at')
+                ->where('cabang_id', $item->cabang_id)
+                ->whereBetween('created_at', [$periodeStart, $periodeEnd]);
+
+            $firstScan = (clone $baseScanQuery)
+                ->orderBy('created_at', 'asc')
+                ->orderBy('id', 'asc')
                 ->first();
+
+            $currentScan = (clone $baseScanQuery)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->first();
+
+            $hasTwoScans =
+                $firstScan
+                && $currentScan
+                && (int) $firstScan->id !== (int) $currentScan->id;
 
             $getCounter = function ($value) {
                 return (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
             };
 
-            $currentTotal = $getCounter($item->total_counter_mesin ?? 0);
-            $currentPrint = $getCounter($item->print_counter ?? 0);
-            $currentCopy = $getCounter($item->copy_counter ?? 0);
+            $currentTotal = $getCounter($currentScan->total_counter_mesin ?? 0);
+            $currentPrint = $getCounter($currentScan->print_counter ?? 0);
+            $currentCopy = $getCounter($currentScan->copy_counter ?? 0);
 
-            $previousTotal = $getCounter($previousScan->total_counter_mesin ?? 0);
-            $previousPrint = $getCounter($previousScan->print_counter ?? 0);
-            $previousCopy = $getCounter($previousScan->copy_counter ?? 0);
+            $previousTotal = $getCounter($firstScan->total_counter_mesin ?? 0);
+            $previousPrint = $getCounter($firstScan->print_counter ?? 0);
+            $previousCopy = $getCounter($firstScan->copy_counter ?? 0);
 
-            if (!$previousScan) {
+            if (!$hasTwoScans) {
                 $usageTotal = 0;
                 $usagePrint = 0;
                 $usageCopy = 0;
@@ -1316,32 +1353,57 @@ class SummaryController extends Controller
                 ? round(($usageCopy / $totalMeter) * 100, 2)
                 : 0;
 
-            $contractService = 300000;
+            $cost = DB::table('dbo.cea_billing_costs')
+                ->whereDate('periode_start', $periodeStart->toDateString())
+                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->where('cabang_id', $item->cabang_id)
+                ->where('serial_number', $item->serial_number)
+                ->first();
+
+            $contractService = (float) ($cost->contract_service ?? 300000);
+            $biayaTinta = (float) ($cost->biaya_tinta ?? 0);
+            $biayaSparepart = 10000; // sementara statis
+
+            $totalDasarBilling =
+                $contractService +
+                $biayaTinta +
+                $biayaSparepart;
 
             $printBilling = $totalMeter > 0
-                ? round($contractService * ($printPercent / 100))
+                ? round($totalDasarBilling * ($printPercent / 100))
                 : 0;
 
             $copyBilling = $totalMeter > 0
-                ? round($contractService * ($copyPercent / 100))
+                ? round($totalDasarBilling * ($copyPercent / 100))
+                : 0;
+            
+            $totalTagihan = $hasTwoScans && $totalMeter > 0
+                ? $totalDasarBilling
                 : 0;
 
-            $totalTagihan = $previousScan && $totalMeter > 0
-                ? $contractService
-                : 0;
-
-            if (!$previousScan) {
-                $billingRule = 'no_previous_scan';
+            if (!$hasTwoScans) {
+                $billingRule = 'need_two_scans_in_period';
             } elseif ($totalMeter <= 0) {
                 $billingRule = 'no_usage';
             } else {
                 $billingRule = 'contract_service';
             }
 
+            $item->periode_start = $periodeStart->toDateString();
+            $item->periode_end = $periodeEnd->toDateString();
+
+            $item->foto_awal = $firstScan?->image_path;
+            $item->foto_akhir = $currentScan?->image_path;
+            $item->foto_awal_created_at = $firstScan?->created_at;
+            $item->foto_akhir_created_at = $currentScan?->created_at;
+
             $item->counter_detail = [
-                'has_previous_scan' => $previousScan ? true : false,
-                'previous_created_at' => $previousScan->created_at ?? null,
-                'current_created_at' => $item->created_at,
+                'has_first_scan' => $firstScan ? true : false,
+                'has_current_scan' => $currentScan ? true : false,
+                'has_two_scans' => $hasTwoScans,
+
+                'previous_created_at' => $firstScan->created_at ?? null,
+                'current_created_at' => $currentScan->created_at ?? null,
 
                 'current_total_counter_mesin' => $currentTotal,
                 'previous_total_counter_mesin' => $previousTotal,
@@ -1374,6 +1436,11 @@ class SummaryController extends Controller
                 'copy_billing' => $copyBilling,
 
                 'total_tagihan' => $totalTagihan,
+
+                'contract_service' => $contractService,
+                'biaya_tinta' => $biayaTinta,
+                'biaya_sparepart' => $biayaSparepart,
+                'total_dasar_billing' => $totalDasarBilling,
             ];
 
             $item->usage_total_counter_mesin = $usageTotal;
@@ -1391,24 +1458,9 @@ class SummaryController extends Controller
             $item->billing_rule = $billingRule;
             $item->total_tagihan = $totalTagihan;
 
-            $currentScan = DB::table('dbo.v_image_scan_cea')
-                ->where('serial_number', $item->serial_number)
-                ->whereBetween('created_at', [$periodeStart, $periodeEnd])
-                ->orderByDesc('created_at')
-                ->first();
-
-            $firstScan = DB::table('dbo.v_image_scan_cea')
-                ->where('serial_number', $item->serial_number)
-                ->whereBetween('created_at', [$periodeStart, $periodeEnd])
-                ->orderBy('created_at', 'asc')
-                ->first();
-
-            $item->foto_awal = $firstScan?->image_path;
-            $item->foto_akhir = $currentScan?->image_path;
-
             $item->notes = DB::table('scan_notes')
                 ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
-                ->where('scan_notes.image_scan_id', $item->id)
+                ->where('scan_notes.image_scan_id', $currentScan->id ?? $item->id)
                 ->select(
                     'scan_notes.id',
                     'scan_notes.note',
@@ -1418,15 +1470,19 @@ class SummaryController extends Controller
                 ->orderBy('scan_notes.created_at')
                 ->get();
 
-            $cadanganPrintCea = 750000;
+            $cadanganPrintCea = 0;
 
             $totalLaporan = $copyBilling + $printBilling + $cadanganPrintCea;
 
             $item->laporan_detail = [
+                'contract_service' => $contractService,
+                'biaya_tinta' => $biayaTinta,
+                'biaya_sparepart' => $biayaSparepart,
+
                 'biaya_fotocopy' => $copyBilling,
                 'biaya_print_bw' => $printBilling,
-                'cadangan_print_cea' => $cadanganPrintCea,
-                'total_laporan' => $totalLaporan,
+
+                'total_laporan' => $totalTagihan,
             ];
 
             $item->new_note = '';
@@ -1436,7 +1492,7 @@ class SummaryController extends Controller
 
         if ($request->boolean('debug')) {
             dd($billings->items());
-        }        
+        }
 
         return Inertia::render('Summary/Cea', [
             'billings' => $billings,

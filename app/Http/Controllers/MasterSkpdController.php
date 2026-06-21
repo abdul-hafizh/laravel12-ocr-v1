@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\UserAccessHelper;
 use App\Models\MasterCabang;
 use App\Models\MasterSkpd;
 use App\Models\User;
 use App\Services\ReminderNotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -14,6 +16,8 @@ class MasterSkpdController extends Controller
 {
     public function index(Request $request)
     {
+        $user = $request->user();
+
         $query = MasterSkpd::query()
             ->select('master_skpds.*')
             ->with('cabang')
@@ -24,6 +28,8 @@ class MasterSkpdController extends Controller
                 'master_cabangs.id'
             );
 
+        UserAccessHelper::applyCabangFilter($query, $user, 'master_skpds.master_cabang_id');
+
         if ($request->filled('search')) {
             $search = trim($request->search);
 
@@ -33,6 +39,13 @@ class MasterSkpdController extends Controller
                     ->orWhere('master_skpds.nomor_skpd', 'like', "%{$search}%")
                     ->orWhere('master_cabangs.nama_cabang', 'like', "%{$search}%");
             });
+        }
+
+        if (
+            $request->filled('master_cabang_id')
+            && UserAccessHelper::cabangIds($user)->contains((int) $request->master_cabang_id)
+        ) {
+            $query->where('master_skpds.master_cabang_id', $request->master_cabang_id);
         }
 
         return Inertia::render('MasterSkpd/Index', [
@@ -51,7 +64,7 @@ class MasterSkpdController extends Controller
                     return $item;
                 }),
 
-            'cabangs' => MasterCabang::where('is_active', true)
+            'cabangs' => MasterCabang::whereIn('id', UserAccessHelper::cabangIds($user))
                 ->orderBy('nama_cabang')
                 ->get(['id', 'kode_cabang', 'nama_cabang', 'pic_user_id']),
 
@@ -60,7 +73,7 @@ class MasterSkpdController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name', 'phone']),
 
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'master_cabang_id']),
         ]);
     }
 

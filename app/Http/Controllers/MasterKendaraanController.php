@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\UserAccessHelper;
 use App\Models\MasterKendaraan;
 use App\Models\MasterCabang;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use App\Services\ReminderNotificationService;
@@ -14,7 +16,11 @@ class MasterKendaraanController extends Controller
 {
     public function index(Request $request)
     {
+        $user = $request->user();
+
         $query = MasterKendaraan::with(['cabang', 'financeUser']);
+
+        UserAccessHelper::applyCabangFilter($query, $user);
 
         if ($request->filled('search')) {
             $search = trim($request->search);
@@ -28,7 +34,10 @@ class MasterKendaraanController extends Controller
             });
         }
 
-        if ($request->filled('master_cabang_id')) {
+        if (
+            $request->filled('master_cabang_id')
+            && UserAccessHelper::cabangIds($user)->contains((int) $request->master_cabang_id)
+        ) {
             $query->where('master_cabang_id', $request->master_cabang_id);
         }
 
@@ -43,7 +52,7 @@ class MasterKendaraanController extends Controller
 
         return Inertia::render('MasterKendaraan/Index', [
             'kendaraans' => $query->orderBy('nomor_polisi')->paginate(10)->withQueryString(),
-            'cabangs' => MasterCabang::where('is_active', true)->orderBy('nama_cabang')->get(),
+            'cabangs' => MasterCabang::whereIn('id', UserAccessHelper::cabangIds($user))->orderBy('nama_cabang')->get(),
             'financeUsers' => $financeUsers,
             'filters' => $request->only(['search', 'master_cabang_id']),
         ]);

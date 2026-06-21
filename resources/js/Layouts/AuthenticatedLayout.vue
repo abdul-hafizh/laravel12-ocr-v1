@@ -337,7 +337,7 @@ watch(() => route().current(), () => {
                         </svg>
 
                         <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
-                            Report
+                            Laporan
                         </span>
 
                         <svg
