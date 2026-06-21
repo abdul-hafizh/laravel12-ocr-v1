@@ -42,7 +42,7 @@ const deleteData = async (item) => {
     try {
         deleting.value = true;
 
-        await axios.delete(`/api/image-scans/${item.id}`);
+        await axios.delete(`/image-scans/${item.id}`);
 
         dataList.value = dataList.value.filter(row => row.id !== item.id);
 

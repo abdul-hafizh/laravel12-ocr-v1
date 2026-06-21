@@ -145,7 +145,6 @@ const generateBillingRows = () => {
                 Total: ${formatNumber(item.total_counter)}<br>
                 Printer: ${formatNumber(item.printer_counter)}<br>
                 Copy: ${formatNumber(item.copy_counter)}<br>
-                Scan: ${formatNumber(item.scan_counter)}<br>
                 Full Color: ${formatNumber(item.full_color_counter)}<br>
                 Single Color: ${formatNumber(item.single_color_counter)}<br>
                 Black: ${formatNumber(item.black_counter)}
@@ -381,10 +380,6 @@ const printBilling = () => {
                                     <td class="px-6 py-4">
                                         <div class="text-sm font-black text-[#1E293B] uppercase">
                                             {{ item.master_nama_mesin || item.nama_mesin || '-' }}
-                                        </div>
-
-                                        <div class="text-[10px] font-bold text-slate-400 uppercase">
-                                            Scan: {{ item.nama_mesin || '-' }}
                                         </div>
 
                                         <div class="mt-1 inline-block text-[10px] font-black text-[#2DD4BF] bg-[#2DD4BF]/5 border border-[#2DD4BF]/10 px-2 py-1 rounded-lg uppercase">

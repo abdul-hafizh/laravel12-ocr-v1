@@ -490,10 +490,6 @@ const sendWa = () => {
                                             {{ item.master_nama_mesin || item.nama_mesin || '-' }}
                                         </div>
 
-                                        <div class="text-[10px] font-bold text-slate-400 uppercase">
-                                            Scan: {{ item.nama_mesin || '-' }}
-                                        </div>
-
                                         <div class="mt-1 inline-block text-[10px] font-black text-[#2DD4BF] bg-[#2DD4BF]/5 border border-[#2DD4BF]/10 px-2 py-1 rounded-lg uppercase">
                                             {{ item.serial_number || '-' }}
                                         </div>
@@ -561,7 +557,7 @@ const sendWa = () => {
                                         </div>
 
                                         <div class="text-[9px] font-bold text-slate-400 uppercase">
-                                            Subtotal: {{ formatCurrency(item.billing_detail?.subtotal) }}
+                                            Subtotal: {{ formatCurrency(item.billing_detail?.subtotal_sebelum_free) }}
                                         </div>
 
                                         <div class="text-[9px] font-bold text-slate-400 uppercase">

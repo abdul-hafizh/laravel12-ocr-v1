@@ -23,5 +23,4 @@ Route::post('/wablas/webhook', [WablasWebhookController::class, 'handle']);
 Route::post('/image-scans', [ImageScanController::class, 'store']);
 Route::get('/image-scans', [ImageScanController::class, 'index']);
 Route::get('/image-scans/{id}', [ImageScanController::class, 'show']);
-Route::delete('/image-scans/{id}', [ImageScanController::class, 'destroy']);
 

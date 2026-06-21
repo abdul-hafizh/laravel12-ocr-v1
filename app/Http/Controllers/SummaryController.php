@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use App\Models\ImageScan;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Excel as ExcelFormat;
 
@@ -164,7 +165,7 @@ class SummaryController extends Controller
         $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
             $previousScan = DB::table('dbo.v_image_scan_printers')
                 ->where('serial_number', $item->serial_number)
-                ->where('created_at', '<=', $periodeStart)
+                ->where('created_at', '<', $item->created_at)
                 ->orderByDesc('created_at')
                 ->first();
 
@@ -919,7 +920,7 @@ class SummaryController extends Controller
         $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
             $previousScan = DB::table('dbo.v_image_scan_asaba')
                 ->where('serial_number', $item->serial_number)
-                ->where('created_at', '<=', $periodeStart)
+                ->where('created_at', '<', $item->created_at)
                 ->orderByDesc('created_at')
                 ->first();
 
@@ -1279,7 +1280,7 @@ class SummaryController extends Controller
         $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
             $previousScan = DB::table('dbo.v_image_scan_cea')
                 ->where('serial_number', $item->serial_number)
-                ->where('created_at', '<=', $periodeStart)
+                ->where('created_at', '<', $item->created_at)
                 ->orderByDesc('created_at')
                 ->first();
 
@@ -1550,4 +1551,36 @@ class SummaryController extends Controller
             'text' => 'Catatan berhasil dihapus.',
         ]);
     }
+
+    public function destroy($id)
+    {
+        $user = auth()->user();
+
+        $canDelete = $user
+            && $user->role
+            && $user->role->actionPermissions()
+                ->where('action_key', 'DELETE_IMAGE_SCAN')
+                ->where('is_active', true)
+                ->exists();
+
+        if (!$canDelete) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki akses untuk menghapus data hasil scan.',
+            ], 403);
+        }
+
+        $scan = ImageScan::findOrFail($id);
+
+        if ($scan->image_path) {
+        Storage::disk('public')->delete($scan->image_path);
+    }
+
+    $scan->delete();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Data berhasil dihapus.',
+    ]);
+}
 }

@@ -44,7 +44,7 @@ const deleteData = async (item) => {
     try {
         deleting.value = true;
 
-        await axios.delete(`/api/image-scans/${item.id}`);
+        await axios.delete(`/image-scans/${item.id}`);
 
         dataList.value = dataList.value.filter(
             row => row.id !== item.id
@@ -106,14 +106,20 @@ const getSerialNumber = (item) => {
 
 const getCounter = (item) => {
     return {
-        black_white_large: getValue(item, 'total_black_white_large', 0),
-        black_white_small: getValue(item, 'total_black_white_small', 0),
-        color_large: getValue(item, 'total_full_color_large', 0),
-        color_small: getValue(item, 'total_full_color_small', 0),
+        black_white_large: getValue(item, 'bw_a3', 0),
+        black_white_small: getValue(item, 'bw_a4', 0),
+        color_large: getValue(item, 'color_a3', 0),
+        color_small: getValue(item, 'color_a4', 0),
+
+        bw_long_sheet: getValue(item, 'bw_long_sheet', 0),
+        color_long_sheet: getValue(item, 'color_long_sheet', 0),
         long_sheet: getValue(item, 'total_long_sheet', 0),
-        bw: getValue(item, 'total_black_white', 0),
+
+        bw: getValue(item, 'total_bw', 0),
         color: getValue(item, 'total_color', 0),
-        total: getValue(item, 'total', 0),
+
+        total_counter_mesin: getValue(item, 'total_counter_mesin', 0),
+        total: getValue(item, 'total_counter_mesin', 0),
     };
 };
 
@@ -326,7 +332,7 @@ const getStatusClass = (status) => {
                                                 <div class="flex justify-between rounded-xl bg-slate-50 p-3 text-sm">
                                                     <span class="font-bold text-slate-500">Total Long Sheet</span>
                                                     <span class="font-black text-[#1E293B]">
-                                                        {{ formatValue(getCounter(item).long_sheet) }}
+                                                        {{ formatValue(getCounter(item).color_long_sheet) }}
                                                     </span>
                                                 </div>
 

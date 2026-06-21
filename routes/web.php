@@ -47,7 +47,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/document', function () {
         return Inertia::render('Ocr/Document');
     })->name('document');
-
+    
+    Route::delete('/image-scans/{id}', [SummaryController::class, 'destroy']);
 
     Route::get('/history', function () {
         return Inertia::render('Ocr/History');

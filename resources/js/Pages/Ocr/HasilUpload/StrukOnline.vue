@@ -60,7 +60,7 @@ const getData = async () => {
     loading.value = true;
 
     try {
-        const res = await axios.get('/api/image-scans', {
+        const res = await axios.get('/image-scans', {
             params: { scan_type: 'online_receipt' },
         });
 

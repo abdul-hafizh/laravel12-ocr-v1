@@ -185,94 +185,170 @@ class ImageAnalysisPromptService
     private static function printerPrompt(): string
     {
         return '
-            Analisis gambar mesin cetak / printer / fotocopy / check counter.
+        Analisis gambar mesin cetak / printer / fotocopy / check counter.
 
-            Fokus utama:
-            - Baca serial number mesin.
-            - Baca nama / tipe mesin jika terlihat.
-            - Baca tanggal dan lokasi jika ada watermark / tulisan pada gambar.
-            - Baca semua counter berdasarkan kode counter.
+        Fokus utama:
+        - Baca serial number mesin.
+        - Baca nama / tipe mesin.
+        - Baca lokasi dan tanggal jika ada watermark atau tulisan pada gambar.
+        - Baca counter berdasarkan LABEL counter, bukan berdasarkan kode angka.
 
-            Syarat valid:
-            - Harus terlihat serial number mesin.
-            - Harus terlihat minimal salah satu counter Black & White atau Full Color.
-            - Jika serial number tidak ada, kembalikan valid false.
+        Syarat valid:
+        - Serial number harus ditemukan.
+        - Minimal ditemukan counter Black & White atau Full Color.
+        - Jika serial number tidak ditemukan maka valid = false.
 
-            Mapping counter Canon / mesin fotocopy:
-            - Kode 112 Total (Black & White/Large) = bw_a3
-            - Kode 113 Total (Black & White/Small) = bw_a4
-            - Kode 122 Total (Full Color + Single Color/Large) = color_a3
-            - Kode 123 Total (Full Color + Single Color/Small) = color_a4
-            - Kode 471 Total (Long Sheet) = long_sheet_total
-            - Kode 473 Total (Black & White/Long Sheet) = bw_long_sheet
-            - Kode 475 Total (Full Color + Single Color/Long Sheet) = color_long_sheet
-            - Kode 101 Total 1 = total_counter_mesin
+        =====================================================
+        ATURAN PENTING
+        =====================================================
 
-            Aturan ukuran:
-            - Large artinya A3.
-            - Small artinya A4.
-            - Long Sheet dihitung terpisah, tetapi untuk acuan harga nanti menggunakan harga A3.
-            - Jangan gabungkan A3 dan A4.
-            - Jangan gabungkan BW dan Color.
-            - Semua angka harus integer.
-            - Hilangkan nol di depan.
-            - Jika ada counter yang tidak terlihat, isi 0.
+        - Jangan menentukan counter dari kode angka sebelah kiri.
+        - Tentukan counter dari teks label di sebelah kode.
+        - Kata "Copy + Print" boleh diabaikan.
+        - Label "Copy + Print (Full Color/Large)" artinya sama dengan "Total (Full Color + Single Color/Large)".
+        - Label "Copy + Print (Full Color/Small)" artinya sama dengan "Total (Full Color + Single Color/Small)".
+        - Full Color, Single Color, dan Color termasuk kategori COLOR.
+        - Large artinya A3.
+        - Small artinya A4.
+        - Semua angka harus integer.
+        - Hilangkan nol di depan.
+        - Jika counter tidak ditemukan isi 0.
+        - Jangan mengarang nilai.
 
-            Mapping untuk billing:
-            - bw_a3 akan dicocokkan dengan harga_bw_a3 pada master mesin.
-            - bw_a4 akan dicocokkan dengan harga_bw_a4 pada master mesin.
-            - color_a3 akan dicocokkan dengan harga_color_a3 pada master mesin.
-            - color_a4 akan dicocokkan dengan harga_color_a4 pada master mesin.
-            - bw_long_sheet dan color_long_sheet menggunakan harga A3 sesuai jenisnya.
-            - total_long_sheet adalah counter total long sheet dari kode 471.
-            - total_bw = bw_a3 + bw_a4.
-            - total_color = color_a3 + color_a4.
-            - total = total_bw + total_color + total_long_sheet.
+        =====================================================
+        IDENTIFIKASI COUNTER BERDASARKAN LABEL
+        =====================================================
 
-            Contoh pembacaan:
-            - 112 Total (Black & White/Large) bernilai 00027624 maka bw_a3 = 27624.
-            - 113 Total (Black & White/Small) bernilai 00033680 maka bw_a4 = 33680.
-            - 122 Total (Full Color + Single Color/Large) bernilai 01047569 maka color_a3 = 1047569.
-            - 123 Total (Full Color + Single Color/Small) bernilai 00616046 maka color_a4 = 616046.
-            - 471 Total (Long Sheet) bernilai 00000094 maka total_long_sheet = 94.
-            - 473 Total (Black & White/Long Sheet) bernilai 00000000 maka bw_long_sheet = 0.
-            - 475 Total (Full Color + Single Color/Long Sheet) bernilai 00000094 maka color_long_sheet = 94.
-            - 101 Total 1 bernilai 01724919 maka total_counter_mesin = 1724919.
+        bw_a3:
+        Ambil nilai jika label mengandung:
+        - Black & White/Large
+        - B&W/Large
+        - Mono/Large
 
-            Kembalikan hanya JSON valid:
-            {
-                "valid": true,
-                "message": "",
-                "data_penting": {
-                    "tanggal": "1 Maret 2026",
-                    "lokasi": "Tebet",
-                    "nama_mesin": "iPR C710",
-                    "serial_number": "2NT02555",
+        bw_a4:
+        Ambil nilai jika label mengandung:
+        - Black & White/Small
+        - B&W/Small
+        - Mono/Small
 
-                    "bw_a3": 0,
-                    "bw_a4": 0,
-                    "color_a3": 0,
-                    "color_a4": 0,
+        color_a3:
+        Ambil nilai jika label mengandung:
+        - Full Color/Large
+        - Full Color + Single Color/Large
+        - Single Color/Large
+        - Color/Large
+        - Copy + Print (Full Color/Large)
+        - Copy + Print (Color/Large)
 
-                    "total_long_sheet": 0,
-                    "bw_long_sheet": 0,
-                    "color_long_sheet": 0,
+        color_a4:
+        Ambil nilai jika label mengandung:
+        - Full Color/Small
+        - Full Color + Single Color/Small
+        - Single Color/Small
+        - Color/Small
+        - Copy + Print (Full Color/Small)
+        - Copy + Print (Color/Small)
 
-                    "total_bw": 0,
-                    "total_color": 0,
-                    "total_counter_mesin": 0,
-                    "total": 0
-                }
+        total_long_sheet:
+        Ambil nilai hanya jika label mengandung:
+        - Total (Long Sheet)
+        - Total Long Sheet
+        - Long Sheet tanpa Black & White dan tanpa Full Color
+
+        bw_long_sheet:
+        Ambil nilai jika label mengandung:
+        - Black & White/Long Sheet
+        - B&W/Long Sheet
+        - Mono/Long Sheet
+
+        color_long_sheet:
+        Ambil nilai jika label mengandung:
+        - Full Color/Long Sheet
+        - Full Color + Single Color/Long Sheet
+        - Color/Long Sheet
+        - Copy + Print (Full Color/Long Sheet)
+
+        total_counter_mesin:
+        Ambil nilai jika label mengandung:
+        - Total 1
+        - Grand Total
+        - Total Counter
+
+        =====================================================
+        PERHITUNGAN
+        =====================================================
+
+        total_bw = bw_a3 + bw_a4
+        total_color = color_a3 + color_a4
+        total = total_bw + total_color
+
+        =====================================================
+        CONTOH WAJIB
+        =====================================================
+
+        Contoh 1:
+        Label "Total (Full Color + Single Color/Large)" = 01047569
+        maka color_a3 = 1047569
+
+        Contoh 2:
+        Label "Total (Full Color + Single Color/Small)" = 00616046
+        maka color_a4 = 616046
+
+        Contoh 3:
+        Label "Copy + Print (Full Color/Large)" = 00092612
+        maka color_a3 = 92612
+
+        Contoh 4:
+        Label "Copy + Print (Full Color/Small)" = 00545336
+        maka color_a4 = 545336
+
+        Contoh 5:
+        Label "Total (Black & White/Large)" = 00003689
+        maka bw_a3 = 3689
+
+        Contoh 6:
+        Label "Total (Black & White/Small)" = 00050543
+        maka bw_a4 = 50543
+
+        =====================================================
+        OUTPUT JSON
+        =====================================================
+
+        {
+            "valid": true,
+            "message": "",
+            "data_penting": {
+                "tanggal": "",
+                "lokasi": "",
+                "nama_mesin": "",
+                "serial_number": "",
+
+                "bw_a3": 0,
+                "bw_a4": 0,
+
+                "color_a3": 0,
+                "color_a4": 0,
+
+                "total_long_sheet": 0,
+                "bw_long_sheet": 0,
+                "color_long_sheet": 0,
+
+                "total_bw": 0,
+                "total_color": 0,
+
+                "total_counter_mesin": 0,
+                "total": 0
             }
+        }
 
-            Jangan kembalikan ringkasan, teks_terbaca, jenis_gambar, atau confidence.
+        Jika tidak valid:
+        {
+            "valid": false,
+            "message": "Serial number atau data counter mesin tidak ditemukan.",
+            "data_penting": {}
+        }
 
-            Jika tidak valid:
-            {
-                "valid": false,
-                "message": "Serial number atau data counter mesin tidak ditemukan.",
-                "data_penting": {}
-            }
+        Kembalikan HANYA JSON.
         ';
     }
 
