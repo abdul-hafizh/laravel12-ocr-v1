@@ -47,6 +47,11 @@ class ImageWhatsappService
             return;
         }
 
+        if (($session->step ?? '') === 'ASK_PART_MAINTENANCE_NOMINAL') {
+            $this->handlePartMaintenanceNominal($phone, $message, $session);
+            return;
+        }
+
         $imageUrl =
             $payload['url']
             ?? $payload['image']
@@ -224,6 +229,25 @@ class ImageWhatsappService
                 return;
             }
 
+            if ($scanType === 'part_maintenance') {
+                DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
+                    'step' => 'ASK_PART_MAINTENANCE_NOMINAL',
+                    'last_image_scan_id' => $scan->id,
+                    'updated_at' => now(),
+                ]);
+
+                SendSms::sendMessageWA(
+                    $phone,
+                    "✅ Foto bukti berhasil diterima.\n" .
+                    "Foto disimpan sebagai arsip/bukti.\n\n" .
+                    "ID Scan: *{$scan->id}*\n\n" .
+                    "Silakan masukkan biaya part atau maintenance.\n" .
+                    "Contoh: 25000"
+                );
+
+                return;
+            }
+
             DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
                 'menu' => null,
                 'scan_type' => null,
@@ -378,8 +402,7 @@ class ImageWhatsappService
 
             foreach ($parts as $index => $part) {
                 $no = $index + 1;
-                $harga = number_format((float) $part->harga_part, 0, ',', '.');
-                $text .= "*{$no}* {$part->nama_part} \n";
+                $text .= "*{$no}* {$part->nama_part}\n";
             }
 
             $text .= "\nKetik nomor part.";
@@ -390,6 +413,7 @@ class ImageWhatsappService
 
         DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
             'step' => 'ASK_IMAGE',
+            'master_mesin_part_id' => null,
             'updated_at' => now(),
         ]);
 
@@ -398,8 +422,10 @@ class ImageWhatsappService
             "Mesin dipilih ✅\n\n" .
             "*{$mesin->nama_mesin}*\n" .
             "SN: {$mesin->serial_number}\n\n" .
-            "Silakan kirim gambar/foto maintenance mesin."
+            "Silakan kirim gambar/foto bukti maintenance mesin."
         );
+
+        return;
     }
 
     private function handlePartSelection(string $phone, string $message, object $session): void
@@ -517,6 +543,80 @@ class ImageWhatsappService
             $phone,
             "✅ Biaya tinta CEA berhasil disimpan.\n\n" .
             "Tinta: Rp " . number_format($biayaTinta, 0, ',', '.') . "\n" .
+            "Periode: " . $periodeStart->format('d/m/Y') . " - " . $periodeEnd->format('d/m/Y') . "\n\n" .
+            "Ketik *ulang* untuk kembali ke menu."
+        );
+    }
+
+    private function handlePartMaintenanceNominal(string $phone, string $message, object $session): void
+    {
+        $nominal = $this->extractNominalFromMessage($message);
+
+        if ($nominal === null) {
+            SendSms::sendMessageWA(
+                $phone,
+                "Nominal tidak valid.\n\nContoh: 250000"
+            );
+            return;
+        }
+
+        $scan = ImageScan::find($session->last_image_scan_id);
+
+        if (!$scan) {
+            SendSms::sendMessageWA(
+                $phone,
+                "Data foto terakhir tidak ditemukan. Silakan ulangi upload foto."
+            );
+            return;
+        }
+
+        $mesin = MasterMesin::find($scan->master_mesin_id);
+
+        if (!$mesin) {
+            SendSms::sendMessageWA(
+                $phone,
+                "Data mesin tidak ditemukan."
+            );
+            return;
+        }
+
+        [$periodeStart, $periodeEnd] = $this->getBillingPeriod($scan->created_at);
+
+        $isPart = $session->menu === 'BIAYA_PART';
+        $namaPart = null;
+
+        DB::table('dbo.machine_maintenance_costs')->insert([
+            'periode_start' => $periodeStart->toDateString(),
+            'periode_end' => $periodeEnd->toDateString(),
+            'image_scan_id' => $scan->id,
+            'cabang_id' => $scan->cabang_id,
+            'master_mesin_id' => $scan->master_mesin_id,
+            'serial_number' => $mesin->serial_number,
+            'cost_type' => $isPart ? 'part' : 'maintenance',
+            'nama_part' => $isPart ? $namaPart : null,
+            'nominal' => $nominal,
+            'keterangan' => $isPart
+                ? 'Biaya part mesin' . ($namaPart ? ': ' . $namaPart : '')
+                : 'Biaya maintenance mesin',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
+            'menu' => null,
+            'scan_type' => null,
+            'step' => 'ASK_MENU',
+            'last_image_scan_id' => null,
+            'master_mesin_id' => null,
+            'master_mesin_part_id' => null,
+            'updated_at' => now(),
+        ]);
+
+        SendSms::sendMessageWA(
+            $phone,
+            "✅ Biaya berhasil disimpan.\n\n" .
+            "Jenis: *" . ($isPart ? "Biaya Part" : "Biaya Maintenance") . "*\n" .
+            "Nominal: Rp " . number_format($nominal, 0, ',', '.') . "\n" .
             "Periode: " . $periodeStart->format('d/m/Y') . " - " . $periodeEnd->format('d/m/Y') . "\n\n" .
             "Ketik *ulang* untuk kembali ke menu."
         );

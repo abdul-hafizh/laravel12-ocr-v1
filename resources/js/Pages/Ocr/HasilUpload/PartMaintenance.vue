@@ -236,7 +236,7 @@ const getValidClass = (valid) => {
                                         </button>
                                     </div>
 
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                                         <div class="rounded-2xl bg-slate-50 p-4">
                                             <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                                 User Upload
@@ -269,6 +269,34 @@ const getValidClass = (valid) => {
                                                 {{ getValue(item, 'jenis_gambar') }}
                                             </div>
                                         </div>
+
+                                        <div class="rounded-2xl bg-emerald-50 p-4 border border-emerald-200">
+                                            <div class="text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                                                Biaya
+                                            </div>
+
+                                            <div class="mt-1 text-lg font-black text-[#1E293B]">
+                                                {{ formatRupiah(item.nominal) }}
+                                                {{ item.master_mesin?.nama_mesin || '-' }}
+                                            </div>
+
+                                            <div class="text-xs font-bold text-emerald-700 uppercase">
+                                                {{
+                                                    item.cost_type === 'part'
+                                                        ? 'Biaya Part'
+                                                        : item.cost_type === 'maintenance'
+                                                            ? 'Biaya Maintenance'
+                                                            : '-'
+                                                }}
+                                            </div>
+
+                                            <div
+                                                v-if="item.nama_part"
+                                                class="mt-1 text-xs font-bold text-slate-500"
+                                            >
+                                                Part: {{ item.nama_part }}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div class="rounded-2xl border border-slate-200 p-4">
@@ -278,59 +306,6 @@ const getValidClass = (valid) => {
 
                                         <div class="rounded-xl bg-slate-50 p-4 text-sm font-bold text-[#1E293B] leading-relaxed">
                                             {{ getValue(item, 'deskripsi_gambar') }}
-                                        </div>
-                                    </div>
-
-                                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                        <div class="rounded-2xl border border-slate-200 p-4">
-                                            <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                                                Informasi Bukti
-                                            </h4>
-
-                                            <div class="space-y-2">
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
-                                                    <span class="font-bold text-slate-500">Tanggal</span>
-                                                    <span class="font-black text-[#1E293B] text-right">
-                                                        {{ getValue(item, 'tanggal') }}
-                                                    </span>
-                                                </div>
-
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
-                                                    <span class="font-bold text-slate-500">Toko / Vendor</span>
-                                                    <span class="font-black text-[#1E293B] text-right">
-                                                        {{ getValue(item, 'nama_toko_atau_vendor') }}
-                                                    </span>
-                                                </div>
-
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
-                                                    <span class="font-bold text-slate-500">No Nota / Invoice / Ref</span>
-                                                    <span class="font-black text-[#1E293B] text-right">
-                                                        {{ getValue(item, 'nomor_nota_invoice_referensi') }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="rounded-2xl border border-slate-200 p-4">
-                                            <h4 class="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                                                Nominal
-                                            </h4>
-
-                                            <div class="space-y-2">
-                                                <div class="flex justify-between gap-4 rounded-xl bg-[#2DD4BF]/10 p-3 text-sm">
-                                                    <span class="font-bold text-[#0F766E]">Nominal Chat</span>
-                                                    <span class="font-black text-[#1E293B] text-right">
-                                                        {{ formatRupiah(getValue(item, 'nominal_chat', null)) }}
-                                                    </span>
-                                                </div>
-
-                                                <div class="flex justify-between gap-4 rounded-xl bg-slate-50 p-3 text-sm">
-                                                    <span class="font-bold text-slate-500">Nominal di Gambar</span>
-                                                    <span class="font-black text-[#1E293B] text-right">
-                                                        {{ formatRupiah(getValue(item, 'nominal_gambar', null)) }}
-                                                    </span>
-                                                </div>
-                                            </div>
                                         </div>
                                     </div>
 
