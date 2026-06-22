@@ -16,6 +16,9 @@ use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\DashboardScanController;
 use App\Http\Controllers\SummaryController;
 use App\Http\Controllers\EmployeeMeasurementController;
+use App\Models\MasterCabang;
+use App\Models\MasterMesin;
+use App\Models\User;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -23,7 +26,17 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', function () {
-        return Inertia::render('Ocr/Dashboard');
+        return Inertia::render('Ocr/Dashboard', [
+            'summary' => [
+                'total_cabang' => MasterCabang::where('is_active', true)->count(),
+
+                'total_mesin' => MasterMesin::where('is_active', true)->count(),
+
+                'total_user' => User::where('is_active', true)
+                    ->where('is_delete', false)
+                    ->count(),
+            ],
+        ]);
     })->name('dashboard');
 
     Route::get('/dashboard-scans', [DashboardScanController::class, 'index'])
