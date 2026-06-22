@@ -23,9 +23,11 @@ const props = defineProps({
 const defaultUrlMenus = [
     { url: '/dashboard', label: 'Dashboard' },
 
-    { url: '/summary/electricity', label: 'Report - Token Listrik' },
-    { url: '/summary/printer-billing', label: 'Report - Meter Mesin' },
-    { url: '/summary/asaba', label: 'Report - Asaba' },
+    { url: '/summary/electricity', label: 'Laporan - Token Listrik' },
+    { url: '/summary/printer-billing', label: 'Laporan - Meter Mesin' },
+    { url: '/summary/asaba', label: 'Laporan - Asaba' },
+    { url: '/summary/cea-milik', label: 'Laporan - CEA Milik' },
+    { url: '/summary/cea-sewa', label: 'Laporan - CEA Sewa' },
 
     { url: '/hasil-upload/token-listrik', label: 'Hasil Upload - Token Listrik' },
     { url: '/hasil-upload/mesin-cetak', label: 'Hasil Upload - Meter Mesin' },

@@ -70,9 +70,14 @@ const summaryMenus = [
         current: route().current('summary.printer-billing'),
     },
     {
-        name: 'CEA',
-        href: route('summary.cea'),
-        current: route().current('summary.cea'),
+        name: 'CEA Milik',
+        href: route('summary.cea-milik'),
+        current: route().current('summary.cea-milik'),
+    },
+    {
+        name: 'CEA Sewa',
+        href: route('summary.cea-sewa'),
+        current: route().current('summary.cea-sewa'),
     },
     {
         name: 'ASABA',
@@ -157,12 +162,12 @@ const hasilUploadMenus = [
         current: route().current('hasil-upload.mesin-cetak'),
     },
     {
-        name: 'CEA',
+        name: 'CEA Mesin',
         href: route('hasil-upload.cea'),
         current: route().current('hasil-upload.cea'),
     },
     {
-        name: 'ASABA',
+        name: 'ASABA Mesin',
         href: route('hasil-upload.asaba'),
         current: route().current('hasil-upload.asaba'),
     },

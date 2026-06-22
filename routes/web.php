@@ -133,8 +133,11 @@ Route::middleware(['auth', 'verified', 'role.url'])->group(function () {
     Route::get('/summary/asaba', [SummaryController::class, 'asabaBilling'])
         ->name('summary.asaba');
 
-    Route::get('/summary/cea', [SummaryController::class, 'ceaBilling'])
-        ->name('summary.cea');
+    Route::get('/summary/cea-milik', [SummaryController::class, 'ceaBilling'])
+        ->name('summary.cea-milik');
+
+    Route::get('/summary/cea-sewa', [SummaryController::class, 'ceaSewaBilling'])
+        ->name('summary.cea-sewa');
 
     Route::get('/employee-measurements', [EmployeeMeasurementController::class, 'index'])
         ->name('employee-measurements.index');

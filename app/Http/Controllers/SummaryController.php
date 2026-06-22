@@ -1494,7 +1494,7 @@ class SummaryController extends Controller
             dd($billings->items());
         }
 
-        return Inertia::render('Summary/Cea', [
+        return Inertia::render('Summary/CeaMilik', [
             'billings' => $billings,
 
             'vendors' => DB::table('dbo.master_vendors')
@@ -1519,6 +1519,276 @@ class SummaryController extends Controller
                 'search' => $request->input('search'),
                 'vendor' => $request->input('vendor'),
                 'billing_status' => $request->input('billing_status'),
+                'cabang_id' => $request->input('cabang_id'),
+                'month' => $month,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ],
+        ]);
+    }
+
+    public function ceaSewaBilling(Request $request)
+    {
+        $month = $request->input('month', now()->format('Y-m'));
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        if (!$startDate || !$endDate) {
+            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+
+            $startDateCarbon = Carbon::parse($month . '-28')
+                ->subMonthNoOverflow()
+                ->startOfDay();
+
+            $startDate = $startDateCarbon->toDateString();
+            $endDate = $endDateCarbon->toDateString();
+        }
+
+        $periodeStart = Carbon::parse($startDate)->startOfDay();
+        $periodeEnd = Carbon::parse($endDate)->endOfDay();
+
+        $query = DB::table('dbo.v_image_scan_cea_sewa as p')
+            ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
+            ->select([
+                'p.*',
+
+                'mm.harga_bw_a3',
+                'mm.harga_bw_a4',
+                'mm.minimum_charge_click',
+                'mm.minimum_charge_nominal',
+                'mm.minimum_charge_size',
+                'mm.status_kepemilikan',
+                'mm.keterangan as master_keterangan',
+            ])
+            ->whereBetween('p.created_at', [$periodeStart, $periodeEnd])
+            ->whereRaw("
+                p.created_at = (
+                    SELECT MAX(p2.created_at)
+                    FROM dbo.v_image_scan_cea_sewa p2
+                    WHERE p2.serial_number = p.serial_number
+                    AND ISNULL(p2.cabang_id, 0) = ISNULL(p.cabang_id, 0)
+                    AND p2.created_at BETWEEN ? AND ?
+                )
+            ", [$periodeStart, $periodeEnd]);
+
+        // Kalau data master sudah rapi, boleh aktifkan ini.
+        // $query->whereRaw("LOWER(ISNULL(mm.status_kepemilikan, '')) = 'sewa'");
+
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+
+            $query->where(function ($q) use ($search) {
+                $q->where('p.serial_number', 'like', "%{$search}%")
+                    ->orWhere('p.nama_mesin', 'like', "%{$search}%")
+                    ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
+                    ->orWhere('p.nama_vendor', 'like', "%{$search}%")
+                    ->orWhere('p.kode_vendor', 'like', "%{$search}%")
+                    ->orWhere('p.nama_cabang', 'like', "%{$search}%")
+                    ->orWhere('p.kode_cabang', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('vendor')) {
+            $query->where('p.master_vendor_id', $request->vendor);
+        }
+
+        if ($request->filled('cabang_id')) {
+            $query->where('p.cabang_id', $request->cabang_id);
+        }
+
+        $billings = $query
+            ->orderByDesc('p.created_at')
+            ->paginate(10)
+            ->withQueryString();
+
+        $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
+            $baseScanQuery = DB::table('dbo.v_image_scan_cea_sewa')
+                ->where('serial_number', $item->serial_number)
+                ->where('cabang_id', $item->cabang_id)
+                ->whereBetween('created_at', [$periodeStart, $periodeEnd]);
+
+            $firstScan = (clone $baseScanQuery)
+                ->orderBy('created_at', 'asc')
+                ->orderBy('id', 'asc')
+                ->first();
+
+            $currentScan = (clone $baseScanQuery)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->first();
+
+            $hasTwoScans =
+                $firstScan
+                && $currentScan
+                && (int) $firstScan->id !== (int) $currentScan->id;
+
+            $getCounter = function ($value) {
+                return (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
+            };
+
+            $currentTotal = $getCounter($currentScan->total_counter_mesin ?? 0);
+            $currentPrint = $getCounter($currentScan->print_counter ?? 0);
+            $currentCopy = $getCounter($currentScan->copy_counter ?? 0);
+
+            $previousTotal = $getCounter($firstScan->total_counter_mesin ?? 0);
+            $previousPrint = $getCounter($firstScan->print_counter ?? 0);
+            $previousCopy = $getCounter($firstScan->copy_counter ?? 0);
+
+            if (!$hasTwoScans) {
+                $usageTotal = 0;
+                $usagePrint = 0;
+                $usageCopy = 0;
+            } else {
+                $usageTotal = max(0, $currentTotal - $previousTotal);
+                $usagePrint = max(0, $currentPrint - $previousPrint);
+                $usageCopy = max(0, $currentCopy - $previousCopy);
+            }
+
+            $totalMeter = $usagePrint + $usageCopy;
+
+            $printPercent = $totalMeter > 0
+                ? round(($usagePrint / $totalMeter) * 100, 2)
+                : 0;
+
+            $copyPercent = $totalMeter > 0
+                ? round(($usageCopy / $totalMeter) * 100, 2)
+                : 0;
+
+            $minimumChargeSize = strtoupper((string) ($item->minimum_charge_size ?? 'A4'));
+
+            $hargaBw = $minimumChargeSize === 'A3'
+                ? (float) ($item->harga_bw_a3 ?? 0)
+                : (float) ($item->harga_bw_a4 ?? 0);
+
+            $minimumClick = (int) ($item->minimum_charge_click ?? 30000);
+            $minimumNominal = (float) ($item->minimum_charge_nominal ?? 2040000);
+
+            if ($minimumClick <= 0) {
+                $minimumClick = 30000;
+            }
+
+            if ($minimumNominal <= 0) {
+                $minimumNominal = 2040000;
+            }
+
+            if (!$hasTwoScans) {
+                $billingRule = 'need_two_scans_in_period';
+                $printBilling = 0;
+                $copyBilling = 0;
+                $totalTagihan = 0;
+            } elseif ($totalMeter <= 0) {
+                $billingRule = 'no_usage';
+                $printBilling = 0;
+                $copyBilling = 0;
+                $totalTagihan = 0;
+            } elseif ($totalMeter >= $minimumClick) {
+                $billingRule = 'minimum_charge';
+                $totalTagihan = $minimumNominal;
+
+                $printBilling = round($totalTagihan * ($printPercent / 100));
+                $copyBilling = round($totalTagihan * ($copyPercent / 100));
+            } else {
+                $billingRule = 'harga_bw_per_click';
+                $totalTagihan = round($totalMeter * $hargaBw);
+
+                $printBilling = round($totalTagihan * ($printPercent / 100));
+                $copyBilling = round($totalTagihan * ($copyPercent / 100));
+            }
+
+            $item->periode_start = $periodeStart->toDateString();
+            $item->periode_end = $periodeEnd->toDateString();
+
+            $item->foto_awal = $firstScan?->image_path;
+            $item->foto_akhir = $currentScan?->image_path;
+            $item->foto_awal_created_at = $firstScan?->created_at;
+            $item->foto_akhir_created_at = $currentScan?->created_at;
+
+            $item->usage_total_counter_mesin = $usageTotal;
+            $item->usage_print_counter = $usagePrint;
+            $item->usage_copy_counter = $usageCopy;
+
+            $item->total_meter = $totalMeter;
+            $item->print_percent = $printPercent;
+            $item->copy_percent = $copyPercent;
+
+            $item->minimum_charge_size = $minimumChargeSize;
+            $item->harga_bw = $hargaBw;
+            $item->minimum_click = $minimumClick;
+            $item->minimum_nominal = $minimumNominal;
+
+            $item->print_billing = $printBilling;
+            $item->copy_billing = $copyBilling;
+            $item->billing_rule = $billingRule;
+            $item->total_tagihan = $totalTagihan;
+
+            $item->billing_detail = [
+                'billing_rule' => $billingRule,
+                'minimum_charge_size' => $minimumChargeSize,
+                'harga_bw' => $hargaBw,
+                'minimum_click' => $minimumClick,
+                'minimum_nominal' => $minimumNominal,
+
+                'usage_print' => $usagePrint,
+                'usage_copy' => $usageCopy,
+                'usage_total_counter_mesin' => $usageTotal,
+                'total_meter' => $totalMeter,
+
+                'print_percent' => $printPercent,
+                'copy_percent' => $copyPercent,
+
+                'print_billing' => $printBilling,
+                'copy_billing' => $copyBilling,
+                'total_tagihan' => $totalTagihan,
+            ];
+
+            $item->laporan_detail = [
+                'biaya_fotocopy' => $copyBilling,
+                'biaya_print_bw' => $printBilling,
+                'total_laporan' => $totalTagihan,
+            ];
+
+            $item->notes = DB::table('scan_notes')
+                ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
+                ->where('scan_notes.image_scan_id', $currentScan->id ?? $item->id)
+                ->select(
+                    'scan_notes.id',
+                    'scan_notes.note',
+                    'scan_notes.created_at',
+                    'users.name as user_name'
+                )
+                ->orderBy('scan_notes.created_at')
+                ->get();
+
+            $item->new_note = '';
+
+            return $item;
+        });
+
+        return Inertia::render('Summary/CeaSewa', [
+            'billings' => $billings,
+
+            'vendors' => DB::table('dbo.master_vendors')
+                ->where('is_active', true)
+                ->orderBy('nama_vendor')
+                ->get([
+                    'id',
+                    'kode_vendor',
+                    'nama_vendor',
+                ]),
+
+            'cabangs' => DB::table('dbo.master_cabangs')
+                ->where('is_active', true)
+                ->orderBy('nama_cabang')
+                ->get([
+                    'id',
+                    'kode_cabang',
+                    'nama_cabang',
+                ]),
+
+            'filters' => [
+                'search' => $request->input('search'),
+                'vendor' => $request->input('vendor'),
                 'cabang_id' => $request->input('cabang_id'),
                 'month' => $month,
                 'start_date' => $startDate,

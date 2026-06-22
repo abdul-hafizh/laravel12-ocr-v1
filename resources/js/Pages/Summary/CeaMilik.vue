@@ -223,7 +223,7 @@ const printLaporan = () => {
 
 const applyFilter = () => {
     router.get(
-        route('summary.cea'),
+        route('summary.cea-milik'),
         {
             search: search.value,
             vendor: vendor.value,
@@ -248,7 +248,7 @@ const resetFilter = () => {
     endDate.value = defaultPeriod.end_date;
 
     router.get(
-        route('summary.cea'),
+        route('summary.cea-milik'),
         {
             start_date: startDate.value,
             end_date: endDate.value,
