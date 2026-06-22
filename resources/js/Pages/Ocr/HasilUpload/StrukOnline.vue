@@ -36,7 +36,7 @@ const deleteData = async (item) => {
     try {
         deleting.value = true;
 
-        await axios.delete(`/api/image-scans/${item.id}`);
+        await axios.delete(`/image-scans/${item.id}`);
 
         dataList.value = dataList.value.filter(
             x => x.id !== item.id
@@ -60,7 +60,7 @@ const getData = async () => {
     loading.value = true;
 
     try {
-        const res = await axios.get('/image-scans', {
+        const res = await axios.get('/api/image-scans', {
             params: { scan_type: 'online_receipt' },
         });
 
