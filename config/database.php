@@ -114,6 +114,19 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        'sqlsrv_external' => [
+            'driver' => 'sqlsrv',
+            'host' => env('DB_EXT_HOST'),
+            'port' => env('DB_EXT_PORT', '1433'),
+            'database' => env('DB_EXT_DATABASE'),
+            'username' => env('DB_EXT_USERNAME'),
+            'password' => env('DB_EXT_PASSWORD'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+        ],
+
     ],
 
     /*

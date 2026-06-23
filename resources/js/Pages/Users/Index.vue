@@ -33,6 +33,14 @@ watch(search, (value) => {
     );
 });
 
+const syncUsers = () => {
+    if (!confirm('Synchron user dari database eksternal?')) return;
+
+    router.post(route('users-management.sync'), {}, {
+        preserveScroll: true,
+    });
+};
+
 const formatPhone = () => {
     if (!form.phone) return;
 
@@ -144,12 +152,21 @@ const deleteUser = (user) => {
                     />
                 </div>
 
-                <button
-                    @click="openCreate"
-                    class="px-5 py-3 bg-[#2DD4BF] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-[#2DD4BF]/20 hover:bg-[#26bba8] transition-all"
-                >
-                    Tambah User
-                </button>
+                <div class="flex items-center gap-2">
+                    <button
+                        @click="syncUsers"
+                        class="px-5 py-3 bg-[#1E293B] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-black/10 hover:bg-slate-700 transition-all"
+                    >
+                        Sync User
+                    </button>
+
+                    <button
+                        @click="openCreate"
+                        class="px-5 py-3 bg-[#2DD4BF] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-[#2DD4BF]/20 hover:bg-[#26bba8] transition-all"
+                    >
+                        Tambah User
+                    </button>
+                </div>
             </div>
 
             <div class="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm">

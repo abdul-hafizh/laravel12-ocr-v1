@@ -11,12 +11,35 @@ class BmiWhatsappService extends BaseWhatsappService
 {
     public function start(string $phone): void
     {
+        $user = $this->findActiveUserByPhone($phone);
+
+        if (! $user) {
+            DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
+                'menu' => null,
+                'step' => 'ASK_MENU',
+                'employee_id' => null,
+                'employee_name' => null,
+                'gender' => null,
+                'updated_at' => now(),
+            ]);
+
+            SendSms::sendMessageWA(
+                $phone,
+                "⚠️ Nomor WhatsApp Anda belum terdaftar / tidak aktif.\n\n".
+                "Silakan hubungi admin agar nomor WA Anda didaftarkan di master user."
+            );
+
+            return;
+        }
+
+        $gender = $this->extractGender($user);
+
         DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
             'menu' => 'BMI',
-            'step' => 'ASK_ID',
-            'employee_id' => null,
-            'employee_name' => null,
-            'gender' => null,
+            'step' => 'ASK_ALL',
+            'employee_id' => $user->employee_id,
+            'employee_name' => $user->name,
+            'gender' => $gender,
             'temp_waist' => null,
             'temp_weight' => null,
             'temp_height' => null,
@@ -26,9 +49,14 @@ class BmiWhatsappService extends BaseWhatsappService
         SendSms::sendMessageWA(
             $phone,
             "Menu *BMI* dipilih ✅\n\n".
-            "Login dulu:\n".
-            "*EMPLOYEEID PASSWORD*\n".
-            "Contoh: *SPY-0025 123456*"
+            "Halo *{$user->name}* 👋\n".
+            "ID: *{$user->employee_id}*\n\n".
+            "Kirim data *sekalian* pakai spasi:\n".
+            "*LP BB TB*\n".
+            "Contoh: *80 70 164*\n\n".
+            "LP=Lingkar Pinggang(cm)\n".
+            "BB=Berat(kg)\n".
+            "TB=Tinggi(cm)"
         );
     }
 
@@ -406,5 +434,38 @@ class BmiWhatsappService extends BaseWhatsappService
         }
 
         return 'normal';
+    }
+
+    private function normalizePhone(string $phone): string
+    {
+        $phone = preg_replace('/\D/', '', $phone);
+
+        if (str_starts_with($phone, '08')) {
+            return '628' . substr($phone, 2);
+        }
+
+        if (str_starts_with($phone, '8')) {
+            return '62' . $phone;
+        }
+
+        return $phone;
+    }
+
+    private function findActiveUserByPhone(string $phone): ?object
+    {
+        $phone = $this->normalizePhone($phone);
+
+        $users = DB::table('users')
+            ->where('is_active', 1)
+            ->where('is_delete', 0)
+            ->get();
+
+        foreach ($users as $user) {
+            if ($this->normalizePhone($user->phone ?? '') === $phone) {
+                return $user;
+            }
+        }
+
+        return null;
     }
 }

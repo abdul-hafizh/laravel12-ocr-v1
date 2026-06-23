@@ -7,6 +7,8 @@ use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 class UserManagementController extends Controller
@@ -130,4 +132,108 @@ class UserManagementController extends Controller
 
         return back()->with('message', ['text' => 'Master User berhasil dihapus!', 'type' => 'success']);
     }
+
+    public function sync()
+    {
+        $defaultRoleId = 1; // default role id
+
+        $rows = DB::connection('sqlsrv_external')
+            ->table('db_laporan.dbo.w_user')
+            ->select([
+                'id',
+                'name',
+                'employeeid',
+                'password',
+                'phone',
+                'email',
+                'gender',
+            ])
+            ->whereNotNull('email')
+            ->orderBy('id')
+            ->get();
+
+        $inserted = 0;
+        $updated = 0;
+        $skipped = 0;
+
+        DB::beginTransaction();
+
+        try {
+            foreach ($rows as $row) {
+                $email = trim((string) $row->email);
+
+                if ($email === '') {
+                    $skipped++;
+                    continue;
+                }
+
+                $existing = DB::table('users')
+                    ->where('email', $email)
+                    ->first();
+
+                $data = [
+                    'name' => $row->name ?: $email,
+                    'email' => $email,
+                    'employee_id' => $row->employeeid,
+                    'password' => $row->password,
+                    'phone' => $this->normalizePhone($row->phone),
+                    'gender' => $row->gender,
+                    'role_id' => 1, // default role id
+                    'is_active' => true,
+                    'is_delete' => false,
+                    'updated_at' => now(),
+                ];
+
+                if ($existing) {
+                    DB::table('users')
+                        ->where('id', $existing->id)
+                        ->update($data);
+
+                    $updated++;
+                } else {
+                    $data['created_at'] = now();
+
+                    DB::table('users')->insert($data);
+
+                    $inserted++;
+                }
+            }
+
+            DB::commit();
+
+            return back()->with('message', [
+                'text' => "Sync user berhasil. Baru: {$inserted}, Update: {$updated}, Skip: {$skipped}",
+                'type' => 'success',
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            report($e);
+
+            return back()->with('message', [
+                'text' => 'Sync user gagal: ' . $e->getMessage(),
+                'type' => 'error',
+            ]);
+        }
+    }
+
+    private function normalizePhone(?string $phone): ?string
+    {
+        if (!$phone) {
+            return null;
+        }
+
+        $phone = preg_replace('/\D/', '', $phone);
+
+        if (str_starts_with($phone, '08')) {
+            return '628' . substr($phone, 2);
+        }
+
+        if (str_starts_with($phone, '8')) {
+            return '62' . $phone;
+        }
+
+        return $phone;
+    }
+
 }

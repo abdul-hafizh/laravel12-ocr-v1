@@ -42,6 +42,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard-scans', [DashboardScanController::class, 'index'])
         ->name('dashboard.scans');
 
+    Route::post('/users-management/sync', [UserManagementController::class, 'sync'])
+        ->name('users-management.sync');
+
     Route::get('/profile', [ProfileController::class, 'edit'])
         ->name('profile.edit');
 
