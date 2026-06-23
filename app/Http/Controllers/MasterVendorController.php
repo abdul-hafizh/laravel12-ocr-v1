@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\MasterVendor;
+use App\Mail\VendorMesinMail;
+use App\Models\MasterMesin;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 
 class MasterVendorController extends Controller
@@ -89,6 +92,42 @@ class MasterVendorController extends Controller
         return redirect()
             ->route('master-vendor.index')
             ->with('message', ['text' => 'Master Vendor berhasil Diperbarui!', 'type' => 'success']);
+    }
+
+    public function sendMesinEmail(MasterVendor $masterVendor)
+    {
+        $emails = collect($masterVendor->email ?? [])
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+
+        if (empty($emails)) {
+            return back()->with('message', [
+                'text' => 'Vendor tidak memiliki email.',
+                'type' => 'error',
+            ]);
+        }
+
+        $mesins = MasterMesin::with(['cabang', 'vendor'])
+            ->where('master_vendor_id', $masterVendor->id)
+            ->where('is_active', true)
+            ->orderBy('nama_mesin')
+            ->get();
+
+        if ($mesins->isEmpty()) {
+            return back()->with('message', [
+                'text' => 'Tidak ada mesin aktif untuk vendor ini.',
+                'type' => 'error',
+            ]);
+        }
+
+        Mail::to($emails)->send(new VendorMesinMail($masterVendor, $mesins));
+
+        return back()->with('message', [
+            'text' => 'Email daftar mesin berhasil dikirim ke vendor.',
+            'type' => 'success',
+        ]);
     }
 
     public function destroy(MasterVendor $masterVendor)

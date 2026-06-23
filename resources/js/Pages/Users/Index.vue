@@ -171,12 +171,12 @@ const deleteUser = (user) => {
 
             <div class="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
+                    <table class="w-full min-w-[1100px] text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-100">
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Email</th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee ID</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[130px]">Employee ID</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Gender</th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</th>
@@ -196,8 +196,8 @@ const deleteUser = (user) => {
                                         {{ item.email }}
                                     </td>
 
-                                    <td class="px-6 py-4">
-                                        <span class="text-[11px] font-black text-[#2DD4BF] bg-[#2DD4BF]/5 border border-[#2DD4BF]/10 px-2.5 py-1 rounded-lg uppercase">
+                                    <td class="px-6 py-4 whitespace-nowrap min-w-[130px]">
+                                        <span class="inline-flex whitespace-nowrap text-[11px] font-black text-[#2DD4BF] bg-[#2DD4BF]/5 border border-[#2DD4BF]/10 px-2.5 py-1 rounded-lg uppercase">
                                             {{ item.employee_id || '-' }}
                                         </span>
                                     </td>

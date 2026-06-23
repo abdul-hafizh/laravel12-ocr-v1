@@ -39,6 +39,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ]);
     })->name('dashboard');
 
+    Route::post('/master-vendor/{masterVendor}/send-mesin-email', [MasterVendorController::class, 'sendMesinEmail'])
+        ->name('master-vendor.send-mesin-email');
+
     Route::get('/dashboard-scans', [DashboardScanController::class, 'index'])
         ->name('dashboard.scans');
 
