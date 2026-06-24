@@ -38,7 +38,7 @@ const form = useForm({
     kode_cabang: '',
     nama_cabang: '',
     alamat: '',
-    pic_user_id: null,
+    user_ids: [],
     keterangan: '',
     is_active: true,
 });
@@ -67,7 +67,7 @@ const openCreate = () => {
     form.kode_cabang = '';
     form.nama_cabang = '';
     form.alamat = '';
-    form.pic_user_id = null;
+    form.user_ids = [];
     form.keterangan = '';
     form.is_active = true;
 
@@ -83,7 +83,7 @@ const openEdit = (item) => {
     form.kode_cabang = item.kode_cabang || '';
     form.nama_cabang = item.nama_cabang || '';
     form.alamat = item.alamat || '';
-    form.pic_user_id = item.pic_user_id || null;
+    form.user_ids = item.users?.map(user => user.id) || [];
     form.keterangan = item.keterangan || '';
     form.is_active = Boolean(item.is_active);
 
@@ -237,11 +237,21 @@ const executeDelete = () => {
                                     </td>
 
                                     <td class="px-6 py-4 text-[11px] font-black text-slate-600 uppercase">
-                                        {{ item.pic_user?.name || '-' }}
+                                        <div v-if="item.users?.length">
+                                            <div v-for="user in item.users" :key="user.id">
+                                                {{ user.name }}
+                                            </div>
+                                        </div>
+                                        <span v-else>-</span>
                                     </td>
 
                                     <td class="px-6 py-4 text-[11px] font-black text-slate-600">
-                                        {{ item.pic_user?.phone || '-' }}
+                                        <div v-if="item.users?.length">
+                                            <div v-for="user in item.users" :key="user.id">
+                                                {{ user.phone || '-' }}
+                                            </div>
+                                        </div>
+                                        <span v-else>-</span>
                                     </td>
 
                                     <td class="px-6 py-4 text-center">
@@ -428,8 +438,11 @@ const executeDelete = () => {
             v-if="showModal"
             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
         >
-            <div class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-xl p-8 shadow-2xl relative">
-                <div class="flex justify-between items-center mb-8 border-b border-slate-100 pb-4">
+            <div
+                class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-xl shadow-2xl relative
+                    max-h-[90vh] overflow-hidden flex flex-col"
+            >
+                <div class="flex justify-between items-center p-8 pb-4 border-b border-slate-100">
                     <h3 class="text-xl font-black text-[#1E293B] uppercase italic tracking-tighter">
                         {{ isEdit ? 'Modify' : 'Register' }}
                         <span class="text-[#2DD4BF]">Branch</span>
@@ -442,119 +455,133 @@ const executeDelete = () => {
                         Close
                     </button>
                 </div>
+                <div class="overflow-y-auto px-8 pb-8">
+                    <form @submit.prevent="submit" class="space-y-5">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1.5">
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    Branch Code
+                                </label>
 
-                <form @submit.prevent="submit" class="space-y-5">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Branch Code
-                            </label>
+                                <input
+                                    v-model="form.kode_cabang"
+                                    type="text"
+                                    placeholder="EX: CBR001"
+                                    class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
+                                />
 
-                            <input
-                                v-model="form.kode_cabang"
-                                type="text"
-                                placeholder="EX: CBR001"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                            />
+                                <div v-if="form.errors.kode_cabang" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
+                                    {{ form.errors.kode_cabang }}
+                                </div>
+                            </div>
 
-                            <div v-if="form.errors.kode_cabang" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
-                                {{ form.errors.kode_cabang }}
+                            <div class="space-y-1.5">
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    Branch Name
+                                </label>
+
+                                <input
+                                    v-model="form.nama_cabang"
+                                    type="text"
+                                    class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
+                                />
+
+                                <div v-if="form.errors.nama_cabang" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
+                                    {{ form.errors.nama_cabang }}
+                                </div>
                             </div>
                         </div>
 
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Branch Name
+                                PIC Cabang
                             </label>
 
-                            <input
-                                v-model="form.nama_cabang"
-                                type="text"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                            />
+                            <div class="max-h-48 overflow-y-auto border rounded-xl p-3">
+                                <label
+                                    v-for="user in users"
+                                    :key="user.id"
+                                    class="flex items-center gap-3 py-2 cursor-pointer"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        :value="user.id"
+                                        v-model="form.user_ids"
+                                    />
 
-                            <div v-if="form.errors.nama_cabang" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
-                                {{ form.errors.nama_cabang }}
+                                    <span class="text-sm">
+                                        {{ user.name }} - {{ user.phone }}
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                <span
+                                    v-for="user in users.filter(u => form.user_ids.includes(u.id))"
+                                    :key="user.id"
+                                    class="px-3 py-1 bg-[#2DD4BF]/10 text-[#2DD4BF] rounded-full text-xs font-bold"
+                                >
+                                    {{ user.name }}
+                                </span>
+                            </div>
+
+                            <div v-if="form.errors.user_ids" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
+                                {{ form.errors.user_ids }}
                             </div>
                         </div>
-                    </div>
 
-                    <div class="space-y-1.5">
-                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                            PIC Cabang
-                        </label>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Address
+                            </label>
 
-                        <select
-                            v-model="form.pic_user_id"
-                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
+                            <textarea
+                                v-model="form.alamat"
+                                rows="2"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"
+                            />
+
+                            <div v-if="form.errors.alamat" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
+                                {{ form.errors.alamat }}
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Keterangan
+                            </label>
+
+                            <textarea
+                                v-model="form.keterangan"
+                                rows="2"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"
+                            />
+
+                            <div v-if="form.errors.keterangan" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
+                                {{ form.errors.keterangan }}
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between bg-slate-900 p-4 rounded-2xl">
+                            <span class="text-[10px] font-black text-white uppercase tracking-widest">
+                                Active Branch Access
+                            </span>
+
+                            <label class="relative inline-flex cursor-pointer items-center">
+                                <input type="checkbox" v-model="form.is_active" class="peer sr-only" />
+                                <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2DD4BF]" />
+                            </label>
+                        </div>
+
+                        <button
+                            type="submit"
+                            :disabled="form.processing"
+                            class="w-full py-4 bg-[#2DD4BF] text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-[#2DD4BF]/20 hover:bg-[#26bba8] transition-all disabled:opacity-50"
                         >
-                            <option :value="null">Pilih PIC</option>
-
-                            <option
-                                v-for="user in users"
-                                :key="user.id"
-                                :value="user.id"
-                            >
-                                {{ user.name }} - {{ user.phone || 'No WA belum ada' }}
-                            </option>
-                        </select>
-
-                        <div v-if="form.errors.pic_user_id" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
-                            {{ form.errors.pic_user_id }}
-                        </div>
-                    </div>
-
-                    <div class="space-y-1.5">
-                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                            Address
-                        </label>
-
-                        <textarea
-                            v-model="form.alamat"
-                            rows="2"
-                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"
-                        />
-
-                        <div v-if="form.errors.alamat" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
-                            {{ form.errors.alamat }}
-                        </div>
-                    </div>
-
-                    <div class="space-y-1.5">
-                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                            Keterangan
-                        </label>
-
-                        <textarea
-                            v-model="form.keterangan"
-                            rows="2"
-                            class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"
-                        />
-
-                        <div v-if="form.errors.keterangan" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
-                            {{ form.errors.keterangan }}
-                        </div>
-                    </div>
-
-                    <div class="flex items-center justify-between bg-slate-900 p-4 rounded-2xl">
-                        <span class="text-[10px] font-black text-white uppercase tracking-widest">
-                            Active Branch Access
-                        </span>
-
-                        <label class="relative inline-flex cursor-pointer items-center">
-                            <input type="checkbox" v-model="form.is_active" class="peer sr-only" />
-                            <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2DD4BF]" />
-                        </label>
-                    </div>
-
-                    <button
-                        type="submit"
-                        :disabled="form.processing"
-                        class="w-full py-4 bg-[#2DD4BF] text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-[#2DD4BF]/20 hover:bg-[#26bba8] transition-all disabled:opacity-50"
-                    >
-                        {{ form.processing ? 'Saving...' : 'Execute Data' }}
-                    </button>
-                </form>
+                            {{ form.processing ? 'Saving...' : 'Execute Data' }}
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </AuthenticatedLayout>

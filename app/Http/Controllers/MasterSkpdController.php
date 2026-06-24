@@ -64,9 +64,10 @@ class MasterSkpdController extends Controller
                     return $item;
                 }),
 
-            'cabangs' => MasterCabang::whereIn('id', UserAccessHelper::cabangIds($user))
+            'cabangs' => MasterCabang::with(['users:id,name,phone'])
+                ->whereIn('id', UserAccessHelper::cabangIds($user))
                 ->orderBy('nama_cabang')
-                ->get(['id', 'kode_cabang', 'nama_cabang', 'pic_user_id']),
+                ->get(['id', 'kode_cabang', 'nama_cabang']),
 
             'financeUsers' => User::where('is_active', true)
                 ->where('is_delete', false)

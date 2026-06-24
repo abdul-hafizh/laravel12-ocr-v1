@@ -42,12 +42,10 @@ const filteredFinanceUsers = computed(() => {
         c => String(c.id) === String(form.master_cabang_id)
     );
 
-    const picUserId = cabang?.pic_user_id;
+    const picUserIds = cabang?.users?.map(user => Number(user.id)) || [];
 
     return props.financeUsers.filter((user) => {
-        const matchPic = picUserId
-            ? String(user.id) === String(picUserId)
-            : false;
+        const matchPic = picUserIds.includes(Number(user.id));
 
         const matchSearch = !keyword
             || user.name?.toLowerCase().includes(keyword)
@@ -77,9 +75,7 @@ watch(
             c => String(c.id) === String(cabangId)
         );
 
-        form.user_ids = cabang?.pic_user_id
-            ? [cabang.pic_user_id]
-            : [];
+        form.user_ids = cabang?.users?.map(user => user.id) || [];
     }
 );
 

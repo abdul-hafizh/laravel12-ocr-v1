@@ -19,8 +19,9 @@ class MasterCabang extends Model
         'is_active' => 'boolean',
     ];
 
-    public function picUser()
+    public function users()
     {
-        return $this->belongsTo(User::class, 'pic_user_id');
+        return $this->belongsToMany(User::class, 'master_cabang_user')
+            ->withTimestamps();
     }
 }

@@ -12,7 +12,7 @@ class MasterCabangController extends Controller
 {
     public function index(Request $request)
     {
-        $query = MasterCabang::with('picUser');
+        $query = MasterCabang::with('users');
 
         if ($request->filled('search')) {
             $search = trim($request->search);
@@ -20,7 +20,7 @@ class MasterCabangController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('kode_cabang', 'like', "%{$search}%")
                     ->orWhere('nama_cabang', 'like', "%{$search}%")
-                    ->orWhereHas('picUser', function ($userQuery) use ($search) {
+                    ->orWhereHas('users', function ($userQuery) use ($search) {
                         $userQuery->where('name', 'like', "%{$search}%")
                             ->orWhere('phone', 'like', "%{$search}%")
                             ->orWhere('email', 'like', "%{$search}%");
@@ -65,8 +65,8 @@ class MasterCabangController extends Controller
             ],
             'nama_cabang' => ['required', 'string', 'max:255'],
             'alamat' => ['nullable', 'string'],
-            'pic_user_id' => [
-                'nullable',
+            'user_ids' => ['nullable', 'array'],
+            'user_ids.*' => [
                 Rule::exists('users', 'id')->where(function ($query) {
                     $query->where('is_active', true)
                         ->where('is_delete', false);
@@ -76,7 +76,9 @@ class MasterCabangController extends Controller
             'is_active' => ['boolean'],
         ]);
 
-        MasterCabang::create($validated);
+        $cabang = MasterCabang::create($validated);
+
+        $cabang->users()->sync($request->input('user_ids', []));
 
         return redirect()
             ->route('master-cabang.index')
@@ -94,8 +96,8 @@ class MasterCabangController extends Controller
             ],
             'nama_cabang' => ['required', 'string', 'max:255'],
             'alamat' => ['nullable', 'string'],
-            'pic_user_id' => [
-                'nullable',
+            'user_ids' => ['nullable', 'array'],
+            'user_ids.*' => [
                 Rule::exists('users', 'id')->where(function ($query) {
                     $query->where('is_active', true)
                         ->where('is_delete', false);
@@ -106,6 +108,8 @@ class MasterCabangController extends Controller
         ]);
 
         $masterCabang->update($validated);
+
+        $masterCabang->users()->sync($request->input('user_ids', []));
 
         return redirect()
             ->route('master-cabang.index')

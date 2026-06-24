@@ -51,9 +51,11 @@ class WhatsappRouterService
             return;
         }
 
-        $cabang = DB::table('dbo.master_cabangs')
-            ->where('pic_user_id', $user->id)
-            ->where('is_active', 1)
+        $cabang = DB::table('dbo.master_cabangs as c')
+            ->join('dbo.master_cabang_user as mcu', 'mcu.master_cabang_id', '=', 'c.id')
+            ->where('mcu.user_id', $user->id)
+            ->where('c.is_active', 1)
+            ->select('c.*')
             ->first();
 
         $cmd = strtoupper(trim($message));

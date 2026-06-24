@@ -60,6 +60,7 @@ class ImageScanController extends Controller
             ->with([
                 'user:id,name,email,phone,employee_id',
                 'cabang:id,kode_cabang,nama_cabang,alamat',
+                'cabang.users:id,name,email,phone,employee_id',
                 'mesin:id,nama_mesin,serial_number',
             ])
             ->leftJoin('dbo.machine_maintenance_costs as mmc', 'mmc.image_scan_id', '=', 'image_scans.id')

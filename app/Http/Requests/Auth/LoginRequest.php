@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 
 class LoginRequest extends FormRequest
 {
@@ -42,13 +44,45 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        $user = User::where('email', $this->input('email'))->first();
+
+        $passwordInput = $this->input('password');
+
+        $valid = false;
+
+        if ($user) {
+            $storedPassword = $user->password;
+
+            // Cek bcrypt Laravel: $2y$...
+            if (str_starts_with($storedPassword, '$2y$')) {
+                $valid = Hash::check($passwordInput, $storedPassword);
+            }
+
+            // Cek password lama MD5 uppercase
+            elseif (preg_match('/^[A-F0-9]{32}$/', $storedPassword)) {
+                $valid = hash_equals(
+                    strtoupper($storedPassword),
+                    strtoupper(md5($passwordInput))
+                );
+
+                // Opsional tapi sangat disarankan:
+                // setelah berhasil login, ubah MD5 ke bcrypt Laravel
+                if ($valid) {
+                    $user->password = Hash::make($passwordInput);
+                    $user->save();
+                }
+            }
+        }
+
+        if (! $valid) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
             ]);
         }
+
+        Auth::login($user, $this->boolean('remember'));
 
         RateLimiter::clear($this->throttleKey());
     }
