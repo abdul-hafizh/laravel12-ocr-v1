@@ -36,6 +36,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'is_delete' => 'boolean',
+            'employee_id' => 'string',
         ];
     }
 

@@ -64,6 +64,7 @@ class MasterCabangController extends Controller
                 'unique:master_cabangs,kode_cabang',
             ],
             'nama_cabang' => ['required', 'string', 'max:255'],
+            'nama_pt'     => ['nullable', 'string', 'max:255'],
             'alamat' => ['nullable', 'string'],
             'user_ids' => ['nullable', 'array'],
             'user_ids.*' => [
@@ -95,6 +96,7 @@ class MasterCabangController extends Controller
                 'unique:master_cabangs,kode_cabang,' . $masterCabang->id,
             ],
             'nama_cabang' => ['required', 'string', 'max:255'],
+            'nama_pt'     => ['nullable', 'string', 'max:255'],
             'alamat' => ['nullable', 'string'],
             'user_ids' => ['nullable', 'array'],
             'user_ids.*' => [
