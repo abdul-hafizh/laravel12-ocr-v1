@@ -64,8 +64,6 @@ class MasterKendaraanController extends Controller
 
         $validated['finance_user_id'] = $validated['finance_user_ids'][0] ?? null;
 
-        $this->validateFinanceUsers($validated['finance_user_ids']);
-
         if (empty($validated['tanggal_ganti_kaleng']) && !empty($validated['tanggal_jatuh_tempo'])) {
             $validated['tanggal_ganti_kaleng'] = Carbon::parse($validated['tanggal_jatuh_tempo'])->addYears(5)->toDateString();
         }
@@ -84,8 +82,6 @@ class MasterKendaraanController extends Controller
         $validated = $this->validateRequest($request, $masterKendaraan->id);
 
         $validated['finance_user_id'] = $validated['finance_user_ids'][0] ?? null;
-
-        $this->validateFinanceUsers($validated['finance_user_ids']);
 
         if (empty($validated['tanggal_ganti_kaleng']) && !empty($validated['tanggal_jatuh_tempo'])) {
             $validated['tanggal_ganti_kaleng'] = Carbon::parse($validated['tanggal_jatuh_tempo'])->addYears(5)->toDateString();

@@ -83,7 +83,15 @@ class MasterTokenListrikController extends Controller
         $validated = $request->validate([
             'master_cabang_id' => ['required', 'exists:master_cabangs,id'],
             'master_daya_listrik_id' => ['required', 'exists:master_daya_listriks,id'],
-            'nomor_meter' => ['required', 'string', 'max:100', 'unique:master_token_listriks,nomor_meter'],
+
+            'nomor_meter' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('master_token_listriks', 'nomor_meter')
+                    ->ignore($masterTokenListrik->id),
+            ],
+
             'nama_pelanggan' => ['nullable', 'string', 'max:255'],
             'keterangan' => ['nullable', 'string'],
             'is_active' => ['boolean'],
@@ -91,7 +99,10 @@ class MasterTokenListrikController extends Controller
 
         $masterTokenListrik->update($validated);
 
-        return back()->with('message', ['text' => 'Master Token Listrik berhasil diperbarui!', 'type' => 'success']);
+        return back()->with('message', [
+            'text' => 'Master Token Listrik berhasil diperbarui!',
+            'type' => 'success',
+        ]);
     }
 
     public function destroy(MasterTokenListrik $masterTokenListrik)
