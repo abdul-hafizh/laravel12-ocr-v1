@@ -689,13 +689,17 @@ class ImageWhatsappService
 
         preg_match('/\d[\d\.\,\s]*/', $message, $matches);
 
-        if (empty($matches[0])) {
+        if (!isset($matches[0])) {
             return null;
         }
 
         $nominal = preg_replace('/[^0-9]/', '', $matches[0]);
 
-        return $nominal !== '' ? (int) $nominal : null;
+        if ($nominal === '') {
+            return null;
+        }
+
+        return (int) $nominal;
     }
 
     private function getBillingPeriod($date): array
