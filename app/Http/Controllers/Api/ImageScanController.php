@@ -54,13 +54,52 @@ class ImageScanController extends Controller
             $query->where('image_scans.status', $request->status);
         }
 
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+
+            $query->where(function ($q) use ($search) {
+                $q->where('image_scans.id', 'like', "%{$search}%")
+                    ->orWhere('image_scans.extracted_text', 'like', "%{$search}%")
+                    ->orWhere('image_scans.error_message', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($u) use ($search) {
+                        $u->where('name', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('cabang', function ($c) use ($search) {
+                        $c->where('nama_cabang', 'like', "%{$search}%")
+                            ->orWhere('kode_cabang', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('image_scans.created_at', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('image_scans.created_at', '<=', $request->date_to);
+        }
+
+        $perPage = (int) $request->input('per_page', 10);
+        $perPage = min(max($perPage, 5), 100);
+
         $scans = $query
             ->orderByDesc('image_scans.created_at')
-            ->get();
+            ->paginate($perPage)
+            ->withQueryString();
 
         return response()->json([
             'success' => true,
-            'data' => $scans,
+            'data' => $scans->items(),
+            'meta' => [
+                'current_page' => $scans->currentPage(),
+                'last_page' => $scans->lastPage(),
+                'per_page' => $scans->perPage(),
+                'total' => $scans->total(),
+                'from' => $scans->firstItem(),
+                'to' => $scans->lastItem(),
+            ],
         ]);
     }
 

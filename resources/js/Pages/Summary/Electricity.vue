@@ -5,8 +5,11 @@ import { ref } from 'vue';
 
 const props = defineProps({
     summary: {
-        type: Array,
-        default: () => [],
+        type: Object,
+        default: () => ({
+            data: [],
+            links: [],
+        }),
     },
     cabangs: {
         type: Array,
@@ -54,6 +57,16 @@ const formatRupiah = (value) => {
         currency: 'IDR',
         minimumFractionDigits: 0,
     }).format(value || 0);
+};
+
+const goToPage = (url) => {
+    if (!url) return;
+
+    router.visit(url, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
 };
 
 const formatNumber = (value) => {
@@ -178,7 +191,7 @@ const printSummary = () => {
 };
 
 const summaryHtml = () => {
-    return props.summary.map(item => `
+    return props.summary.data.map(item => `
         <tr>
             <td>
                 ${item.nama_cabang || '-'}<br>
@@ -387,7 +400,7 @@ const badgeClass = (status) => {
 
                         <tbody class="divide-y divide-slate-100">
                             <tr
-                                v-for="item in summary"
+                                v-for="item in summary.data"
                                 :key="item.cabang_id"
                                 class="hover:bg-slate-50/70 transition-all"
                             >
@@ -549,7 +562,7 @@ const badgeClass = (status) => {
                                 </td>
                             </tr>
 
-                            <tr v-if="summary.length === 0">
+                            <tr v-if="summary.data.length === 0">
                                 <td colspan="7" class="px-6 py-16 text-center">
                                     <p class="text-slate-400 font-semibold">
                                         Belum ada data summary token listrik pada periode ini.
@@ -558,6 +571,43 @@ const badgeClass = (status) => {
                             </tr>
                         </tbody>
                     </table>
+
+                    <div
+                        v-if="summary.data.length > 0"
+                        class="flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-5 border-t border-slate-100 bg-slate-50/50"
+                    >
+                        <div class="text-xs font-bold text-slate-500">
+                            Menampilkan
+                            {{ summary.from || 0 }}
+                            -
+                            {{ summary.to || 0 }}
+                            dari
+                            {{ summary.total || 0 }}
+                            data
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button
+                                v-for="(link, index) in summary.links"
+                                :key="index"
+                                type="button"
+                                @click="goToPage(link.url)"
+                                :disabled="!link.url"
+                                class="min-w-9 px-3 py-2 rounded-xl border text-[10px] font-black disabled:opacity-40 disabled:cursor-not-allowed"
+                                :class="link.active
+                                    ? 'bg-[#2DD4BF] border-[#2DD4BF] text-white'
+                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'"
+                            >
+                                {{
+                                    link.label.includes('Previous')
+                                        ? '‹'
+                                        : link.label.includes('Next')
+                                            ? '›'
+                                            : link.label
+                                }}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

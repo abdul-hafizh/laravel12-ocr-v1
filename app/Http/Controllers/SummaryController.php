@@ -6,14 +6,15 @@ use App\Exports\ElectricitySummaryExport;
 use App\Exports\PrinterBillingExport;
 use App\Libraries\SendSms;
 use App\Models\User;
-use Carbon\Carbon;
+use App\Models\ImageScan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
-use App\Models\ImageScan;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Excel as ExcelFormat;
+use Carbon\Carbon;
 
 class SummaryController extends Controller
 {
@@ -55,6 +56,22 @@ class SummaryController extends Controller
                 ->value('image_path');
         }
 
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 10;
+
+        $summaryCollection = collect($summary);
+
+        $summaryPaginated = new LengthAwarePaginator(
+            $summaryCollection->forPage($page, $perPage)->values(),
+            $summaryCollection->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
+
         $cabangs = DB::table('v_image_scan_electricity')
             ->select('cabang_id', 'nama_cabang', 'kode_cabang')
             ->where('scan_type', 'electricity')
@@ -64,7 +81,7 @@ class SummaryController extends Controller
             ->get();
 
         return Inertia::render('Summary/Electricity', [
-            'summary' => $summary,
+            'summary' => $summaryPaginated,
             'cabangs' => $cabangs,
             'filters' => [
                 'month' => $month,

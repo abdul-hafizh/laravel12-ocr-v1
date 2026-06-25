@@ -18,7 +18,24 @@ const canDeleteScan = computed(() => {
     return page.props.auth?.permissions?.includes('DELETE_IMAGE_SCAN');
 });
 
-const getData = async () => {
+const filters = ref({
+    search: '',
+    status: '',
+    valid: '',
+    date_from: '',
+    date_to: '',
+    per_page: 10,
+});
+
+const meta = ref({
+    current_page: 1,
+    last_page: 1,
+    total: 0,
+    from: null,
+    to: null,
+});
+
+const getData = async (pageNumber = 1) => {
     loading.value = true;
 
     try {
@@ -26,14 +43,47 @@ const getData = async () => {
             withCredentials: true,
             params: {
                 scan_type: 'asaba',
+                page: pageNumber,
+                search: filters.value.search,
+                status: filters.value.status,
+                valid: filters.value.valid,
+                date_from: filters.value.date_from,
+                date_to: filters.value.date_to,
+                per_page: filters.value.per_page,
             },
         });
 
         dataList.value = res.data.data || [];
+        meta.value = res.data.meta || meta.value;
     } catch (error) {
         console.error('Gagal mengambil data Asaba:', error);
     } finally {
         loading.value = false;
+    }
+};
+
+const resetFilter = () => {
+    filters.value = {
+        search: '',
+        status: '',
+        valid: '',
+        date_from: '',
+        date_to: '',
+        per_page: 10,
+    };
+
+    getData(1);
+};
+
+const nextPage = () => {
+    if (meta.value.current_page < meta.value.last_page) {
+        getData(meta.value.current_page + 1);
+    }
+};
+
+const prevPage = () => {
+    if (meta.value.current_page > 1) {
+        getData(meta.value.current_page - 1);
     }
 };
 
@@ -154,6 +204,72 @@ const getValidClass = (valid) => {
                             class="px-4 py-2 rounded-xl bg-[#1E293B] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#2DD4BF] transition"
                         >
                             Refresh
+                        </button>
+                    </div>
+
+                    <div class="mb-6 grid grid-cols-1 md:grid-cols-6 gap-3">
+                        <input
+                            v-model="filters.search"
+                            type="text"
+                            placeholder="Cari mesin, serial, user, cabang..."
+                            class="rounded-xl border-slate-300 text-sm"
+                            @keyup.enter="getData(1)"
+                        />
+
+                        <select
+                            v-model="filters.status"
+                            class="rounded-xl border-slate-300 text-sm"
+                        >
+                            <option value="">Semua Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="processing">Processing</option>
+                            <option value="success">Success</option>
+                            <option value="failed">Failed</option>
+                        </select>
+
+                        <select
+                            v-model="filters.valid"
+                            class="rounded-xl border-slate-300 text-sm"
+                        >
+                            <option value="">Semua Validasi</option>
+                            <option value="true">Valid</option>
+                            <option value="false">Tidak Valid</option>
+                        </select>
+
+                        <input
+                            v-model="filters.date_from"
+                            type="date"
+                            class="rounded-xl border-slate-300 text-sm"
+                        />
+
+                        <input
+                            v-model="filters.date_to"
+                            type="date"
+                            class="rounded-xl border-slate-300 text-sm"
+                        />
+
+                        <select
+                            v-model="filters.per_page"
+                            class="rounded-xl border-slate-300 text-sm"
+                        >
+                            <option :value="5">5 Data</option>
+                            <option :value="10">10 Data</option>
+                            <option :value="25">25 Data</option>
+                            <option :value="50">50 Data</option>
+                        </select>
+
+                        <button
+                            @click="getData(1)"
+                            class="px-4 py-2 rounded-xl bg-[#2DD4BF] text-white text-[10px] font-black uppercase tracking-widest"
+                        >
+                            Filter
+                        </button>
+
+                        <button
+                            @click="resetFilter"
+                            class="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest"
+                        >
+                            Reset
                         </button>
                     </div>
 
@@ -392,6 +508,38 @@ const getValidClass = (valid) => {
                             class="py-16 text-center text-sm font-bold text-slate-400"
                         >
                             Belum ada data hasil upload Develop / Asaba.
+                        </div>
+
+                        <div
+                            v-if="dataList.length > 0"
+                            class="mt-6 flex flex-col md:flex-row items-center justify-between gap-3 border-t border-slate-200 pt-5"
+                        >
+                            <div class="text-xs font-bold text-slate-500">
+                                Menampilkan {{ meta.from || 0 }} - {{ meta.to || 0 }}
+                                dari {{ meta.total }} data
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <button
+                                    @click="prevPage"
+                                    :disabled="meta.current_page <= 1 || loading"
+                                    class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-[10px] font-black uppercase disabled:opacity-40"
+                                >
+                                    Prev
+                                </button>
+
+                                <div class="text-xs font-black text-slate-600">
+                                    Page {{ meta.current_page }} / {{ meta.last_page }}
+                                </div>
+
+                                <button
+                                    @click="nextPage"
+                                    :disabled="meta.current_page >= meta.last_page || loading"
+                                    class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-[10px] font-black uppercase disabled:opacity-40"
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
