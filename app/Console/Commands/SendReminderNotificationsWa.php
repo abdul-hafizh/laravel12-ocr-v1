@@ -3,7 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Libraries\SendSms;
+use App\Models\MasterKendaraan;
 use App\Models\ReminderNotification;
+use App\Services\ReminderNotificationService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -46,6 +48,58 @@ class SendReminderNotificationsWa extends Command
             }
         }
 
+        $this->rolloverGantiKaleng();
+
         return Command::SUCCESS;
+    }
+
+    private function rolloverGantiKaleng(): void
+    {
+        $kendaraans = MasterKendaraan::with('cabang')
+            ->where('is_active', true)
+            ->whereNotNull('tanggal_ganti_kaleng')
+            ->whereDate('tanggal_ganti_kaleng', '<', today())
+            ->get();
+
+        foreach ($kendaraans as $kendaraan) {
+            $kendaraan->tanggal_ganti_kaleng = $kendaraan->tanggal_ganti_kaleng
+                ->copy()
+                ->addYears(5)
+                ->toDateString();
+
+            $kendaraan->save();
+
+            $reminderDays = $kendaraan->reminder_ganti_kaleng_hari ?: [90, 60, 30];
+
+            foreach ($kendaraan->finance_user_ids ?? [] as $userId) {
+                foreach ($reminderDays as $reminderDay) {
+                    ReminderNotificationService::createOrUpdate([
+                        'module' => 'kendaraan_ganti_kaleng',
+                        'reference_id' => $kendaraan->id,
+                        'user_id' => $userId,
+                        'due_date' => $kendaraan->tanggal_ganti_kaleng,
+                        'reminder_days' => $reminderDay,
+                        'title' => 'Reminder Ganti Kaleng Kendaraan',
+                        'message' => $this->buildGantiKalengMessage($kendaraan, $reminderDay),
+                    ]);
+                }
+            }
+        }
+    }
+
+    private function buildGantiKalengMessage(MasterKendaraan $kendaraan, int $reminderDay): string
+    {
+        return "Halo Finance,\n\n"
+            . "Reminder ganti kaleng / perpanjangan STNK 5 tahunan kendaraan.\n\n"
+            . "No. Polisi: {$kendaraan->nomor_polisi}\n"
+            . "Jenis: {$kendaraan->jenis_kendaraan}\n"
+            . "Merk/Tipe: {$kendaraan->merk} {$kendaraan->tipe}\n"
+            . "Cabang: " . ($kendaraan->cabang?->nama_cabang ?? '-') . "\n"
+            . "Pemilik STNK: " . ($kendaraan->nama_pemilik ?: '-') . "\n"
+            . "Tanggal Ganti Kaleng: " . optional($kendaraan->tanggal_ganti_kaleng)->format('d-m-Y') . "\n"
+            . "Reminder: H-{$reminderDay}\n"
+            . "Keterangan: " . ($kendaraan->keterangan ?: '-') . "\n\n"
+            . "Mohon segera dilakukan pengecekan dan tindak lanjut untuk proses ganti kaleng kendaraan.\n\n"
+            . "Terima kasih.";
     }
 }
