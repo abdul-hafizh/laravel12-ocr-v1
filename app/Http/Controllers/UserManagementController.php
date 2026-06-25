@@ -135,7 +135,23 @@ class UserManagementController extends Controller
 
     public function sync()
     {
-        $defaultRoleId = 1; // default role id
+        $defaultRoleId = 1; // STAFF
+
+        $roleMap = DB::table('roles')
+            ->where('is_active', 1)
+            ->pluck('id', 'slug')
+            ->mapWithKeys(function ($id, $slug) {
+                return [strtoupper(trim($slug)) => $id];
+            })
+            ->toArray();
+
+        $cabangMap = DB::table('master_cabangs')
+            ->where('is_active', 1)
+            ->pluck('id', 'kode_cabang')
+            ->mapWithKeys(function ($id, $kodeCabang) {
+                return [strtoupper(trim($kodeCabang)) => $id];
+            })
+            ->toArray();
 
         $rows = DB::connection('sqlsrv_external')
             ->table('db_laporan.dbo.w_user')
@@ -147,40 +163,61 @@ class UserManagementController extends Controller
                 'phone',
                 'email',
                 'gender',
+                'kodeJabatan',
+                'kodeCabang',
+                'isActive',
+                'isDelete',
             ])
-            ->whereNotNull('email')
+            ->whereNotNull('employeeid')
             ->orderBy('id')
             ->get();
 
         $inserted = 0;
         $updated = 0;
         $skipped = 0;
+        $cabangSynced = 0;
+        $cabangNotFound = 0;
 
         DB::beginTransaction();
 
         try {
             foreach ($rows as $row) {
-                $email = trim((string) $row->email);
+                $employeeId = trim((string) $row->employeeid);
 
-                if ($email === '') {
+                if ($employeeId === '') {
                     $skipped++;
                     continue;
                 }
 
+                $kodeJabatan = strtoupper(trim((string) ($row->kodeJabatan ?? '')));
+                $roleId = $roleMap[$kodeJabatan] ?? $defaultRoleId;
+
+                $kodeCabang = strtoupper(trim((string) ($row->kodeCabang ?? '')));
+                $masterCabangId = $kodeCabang !== ''
+                    ? ($cabangMap[$kodeCabang] ?? null)
+                    : null;
+
+                $email = trim((string) ($row->email ?? ''));
+
+                if ($email === '') {
+                    $email = strtolower($employeeId) . '@noemail.local';
+                }
+
                 $existing = DB::table('users')
-                    ->where('email', $email)
+                    ->where('employee_id', $employeeId)
+                    ->orWhere('email', $email)
                     ->first();
 
                 $data = [
-                    'name' => $row->name ?: $email,
+                    'name' => $row->name ?: $employeeId,
                     'email' => $email,
-                    'employee_id' => $row->employeeid,
+                    'employee_id' => $employeeId,
                     'password' => $row->password,
                     'phone' => $this->normalizePhone($row->phone),
                     'gender' => $row->gender,
-                    'role_id' => 1, // default role id
-                    'is_active' => true,
-                    'is_delete' => false,
+                    'role_id' => $roleId,
+                    'is_active' => strtoupper(trim((string) ($row->isActive ?? 'Y'))) === 'Y' ? 1 : 0,
+                    'is_delete' => 0,
                     'updated_at' => now(),
                 ];
 
@@ -189,20 +226,37 @@ class UserManagementController extends Controller
                         ->where('id', $existing->id)
                         ->update($data);
 
+                    $userId = $existing->id;
                     $updated++;
                 } else {
                     $data['created_at'] = now();
 
-                    DB::table('users')->insert($data);
-
+                    $userId = DB::table('users')->insertGetId($data);
                     $inserted++;
+                }
+
+                DB::table('master_cabang_user')
+                    ->where('user_id', $userId)
+                    ->delete();
+
+                if ($masterCabangId) {
+                    DB::table('master_cabang_user')->insert([
+                        'master_cabang_id' => $masterCabangId,
+                        'user_id' => $userId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+
+                    $cabangSynced++;
+                } elseif ($kodeCabang !== '') {
+                    $cabangNotFound++;
                 }
             }
 
             DB::commit();
 
             return back()->with('message', [
-                'text' => "Sync user berhasil. Baru: {$inserted}, Update: {$updated}, Skip: {$skipped}",
+                'text' => "Sync user berhasil. Baru: {$inserted}, Update: {$updated}, Cabang: {$cabangSynced}, Cabang tidak ditemukan: {$cabangNotFound}, Skip: {$skipped}",
                 'type' => 'success',
             ]);
         } catch (\Throwable $e) {

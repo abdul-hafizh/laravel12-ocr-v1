@@ -256,7 +256,15 @@ const generateBillingRows = () => {
             </td>
 
             <td>
-                ${formatCurrency(item.total_tagihan)}
+                Billing Mesin: ${formatCurrency(item.total_tagihan)}<br>
+                Biaya Part: ${formatCurrency(item.billing_detail?.biaya_part ?? item.biaya_part ?? 0)}<br>
+                Biaya Maintenance: ${formatCurrency(item.billing_detail?.biaya_maintenance ?? item.biaya_maintenance ?? 0)}<br>
+                <hr>
+                <b>Total: ${formatCurrency(item.billing_detail?.grand_total ?? item.grand_total ?? (
+                    Number(item.total_tagihan || 0) +
+                    Number(item.biaya_part || 0) +
+                    Number(item.biaya_maintenance || 0)
+                ))}</b>
             </td>
 
             <td>
@@ -553,7 +561,23 @@ const sendWa = () => {
 
                                     <td class="px-6 py-4 text-right">
                                         <div class="text-lg font-black text-emerald-600">
-                                            {{ formatCurrency(item.total_tagihan) }}
+                                            {{ formatCurrency(item.billing_detail?.grand_total ?? item.grand_total ?? (
+                                                Number(item.total_tagihan || 0) +
+                                                Number(item.biaya_part || 0) +
+                                                Number(item.biaya_maintenance || 0)
+                                            )) }}
+                                        </div>
+
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase">
+                                            Billing Mesin: {{ formatCurrency(item.total_tagihan) }}
+                                        </div>
+
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase">
+                                            Biaya Part: {{ formatCurrency(item.billing_detail?.biaya_part ?? item.biaya_part ?? 0) }}
+                                        </div>
+
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase">
+                                            Biaya Maintenance: {{ formatCurrency(item.billing_detail?.biaya_maintenance ?? item.biaya_maintenance ?? 0) }}
                                         </div>
 
                                         <div class="text-[9px] font-bold text-slate-400 uppercase">

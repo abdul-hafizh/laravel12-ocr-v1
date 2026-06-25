@@ -23,6 +23,7 @@ const getData = async () => {
 
     try {
         const res = await axios.get('/api/image-scans', {
+            withCredentials: true,
             params: {
                 scan_type: 'part_maintenance',
             },
@@ -277,7 +278,12 @@ const getValidClass = (valid) => {
 
                                             <div class="mt-1 text-lg font-black text-[#1E293B]">
                                                 {{ formatRupiah(item.nominal) }}
-                                                {{ item.master_mesin?.nama_mesin || '-' }}
+                                            </div>
+                                            <div class="mt-1 text-sm font-black text-[#1E293B]">
+                                                {{ item.mesin?.nama_mesin || '-' }}
+                                            </div>
+                                            <div class="mt-1 text-sm font-black text-[#1E293B]">
+                                                {{ item.mesin?.serial_number || '-' }}
                                             </div>
 
                                             <div class="text-xs font-bold text-emerald-700 uppercase">

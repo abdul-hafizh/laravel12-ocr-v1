@@ -5,6 +5,7 @@ namespace App\Helpers;
 use App\Models\MasterCabang;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class UserAccessHelper
 {
@@ -12,7 +13,9 @@ class UserAccessHelper
     {
         $user->loadMissing('role');
 
-        return in_array($user->role?->slug, ['admin', 'finance']);
+        $slug = strtolower(trim((string) $user->role?->slug));
+
+        return in_array($slug, ['admin', 'finance']);
     }
 
     public static function cabangIds(User $user): Collection
@@ -21,9 +24,11 @@ class UserAccessHelper
             return MasterCabang::where('is_active', true)->pluck('id');
         }
 
-        return MasterCabang::where('is_active', true)
-            ->where('pic_user_id', $user->id)
-            ->pluck('id');
+        return DB::table('master_cabang_user')
+            ->join('master_cabangs', 'master_cabang_user.master_cabang_id', '=', 'master_cabangs.id')
+            ->where('master_cabang_user.user_id', $user->id)
+            ->where('master_cabangs.is_active', true)
+            ->pluck('master_cabangs.id');
     }
 
     public static function applyCabangFilter($query, User $user, string $column = 'master_cabang_id')

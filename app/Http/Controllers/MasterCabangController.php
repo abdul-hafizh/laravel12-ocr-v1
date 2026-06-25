@@ -64,22 +64,20 @@ class MasterCabangController extends Controller
                 'unique:master_cabangs,kode_cabang',
             ],
             'nama_cabang' => ['required', 'string', 'max:255'],
-            'nama_pt'     => ['nullable', 'string', 'max:255'],
+            'nama_pt' => ['nullable', 'string', 'max:255'],
             'alamat' => ['nullable', 'string'],
             'user_ids' => ['nullable', 'array'],
-            'user_ids.*' => [
-                Rule::exists('users', 'id')->where(function ($query) {
-                    $query->where('is_active', true)
-                        ->where('is_delete', false);
-                }),
-            ],
+            'user_ids.*' => ['exists:users,id'],
             'keterangan' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
 
+        $userIds = $validated['user_ids'] ?? [];
+        unset($validated['user_ids']);
+
         $cabang = MasterCabang::create($validated);
 
-        $cabang->users()->sync($request->input('user_ids', []));
+        $cabang->users()->sync($userIds);
 
         return redirect()
             ->route('master-cabang.index')
@@ -96,22 +94,20 @@ class MasterCabangController extends Controller
                 'unique:master_cabangs,kode_cabang,' . $masterCabang->id,
             ],
             'nama_cabang' => ['required', 'string', 'max:255'],
-            'nama_pt'     => ['nullable', 'string', 'max:255'],
+            'nama_pt' => ['nullable', 'string', 'max:255'],
             'alamat' => ['nullable', 'string'],
             'user_ids' => ['nullable', 'array'],
-            'user_ids.*' => [
-                Rule::exists('users', 'id')->where(function ($query) {
-                    $query->where('is_active', true)
-                        ->where('is_delete', false);
-                }),
-            ],
+            'user_ids.*' => ['exists:users,id'],
             'keterangan' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
 
+        $userIds = $validated['user_ids'] ?? [];
+        unset($validated['user_ids']);
+
         $masterCabang->update($validated);
 
-        $masterCabang->users()->sync($request->input('user_ids', []));
+        $masterCabang->users()->sync($userIds);
 
         return redirect()
             ->route('master-cabang.index')

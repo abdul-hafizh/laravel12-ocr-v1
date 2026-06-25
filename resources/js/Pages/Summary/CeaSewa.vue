@@ -174,7 +174,16 @@ const generateBillingRows = () => {
             <td>
                 Print: ${formatCurrency(item.print_billing)}<br>
                 Copy: ${formatCurrency(item.copy_billing)}<br>
-                Total: ${formatCurrency(item.total_tagihan)}<br>
+                Tinta: ${formatCurrency(item.billing_detail?.biaya_tinta ?? 0)}<br>
+                Part: ${formatCurrency(item.billing_detail?.biaya_part ?? 0)}<br>
+                Maintenance: ${formatCurrency(item.billing_detail?.biaya_maintenance ?? 0)}<br>
+                <hr>
+                <b>Total: ${formatCurrency(
+                    Number(item.total_tagihan || 0) +
+                    Number(item.billing_detail?.biaya_tinta ?? 0) +
+                    Number(item.billing_detail?.biaya_part ?? 0) +
+                    Number(item.billing_detail?.biaya_maintenance ?? 0)
+                )}</b><br>
                 Rule: ${formatRule(item.billing_rule)}
             </td>
         </tr>
@@ -489,8 +498,28 @@ const printBilling = () => {
                                             {{ formatCurrency(item.copy_billing) }}
                                         </div>
 
+                                        <div class="text-[10px] font-black text-slate-500">
+                                            Tinta:
+                                            {{ formatCurrency(item.billing_detail?.biaya_tinta ?? 0) }}
+                                        </div>
+
+                                        <div class="text-[10px] font-black text-slate-500">
+                                            Part:
+                                            {{ formatCurrency(item.billing_detail?.biaya_part ?? 0) }}
+                                        </div>
+
+                                        <div class="text-[10px] font-black text-slate-500">
+                                            Maintenance:
+                                            {{ formatCurrency(item.billing_detail?.biaya_maintenance ?? 0) }}
+                                        </div>
+
                                         <div class="mt-2 text-lg font-black text-emerald-600">
-                                            {{ formatCurrency(item.total_tagihan) }}
+                                            {{ formatCurrency(
+                                                Number(item.total_tagihan || 0) +
+                                                Number(item.billing_detail?.biaya_tinta ?? 0) +
+                                                Number(item.billing_detail?.biaya_part ?? 0) +
+                                                Number(item.billing_detail?.biaya_maintenance ?? 0)
+                                            ) }}
                                         </div>
 
                                         <div class="text-[9px] font-bold text-slate-400 uppercase">

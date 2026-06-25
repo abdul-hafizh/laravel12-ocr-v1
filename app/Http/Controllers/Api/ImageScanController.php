@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Helpers\UserAccessHelper;
 use App\Http\Controllers\Controller;
 use App\Models\ImageScan;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class ImageScanController extends Controller
 {
     public function index(Request $request)
     {
+        $user = $request->user();
+
         $query = ImageScan::query()
             ->with([
                 'user:id,name,email,phone,employee_id',
@@ -28,6 +30,8 @@ class ImageScanController extends Controller
                 'mmc.periode_end',
             ]);
 
+        UserAccessHelper::applyCabangFilter($query, $user, 'image_scans.cabang_id');
+
         if ($request->filled('scan_type')) {
             $query->where('image_scans.scan_type', $request->scan_type);
         }
@@ -37,7 +41,13 @@ class ImageScanController extends Controller
         }
 
         if ($request->filled('cabang_id')) {
-            $query->where('image_scans.cabang_id', $request->cabang_id);
+            $allowedCabangIds = UserAccessHelper::cabangIds($user);
+
+            if ($allowedCabangIds->contains((int) $request->cabang_id)) {
+                $query->where('image_scans.cabang_id', $request->cabang_id);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
         }
 
         if ($request->filled('status')) {
@@ -54,9 +64,11 @@ class ImageScanController extends Controller
         ]);
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        $scan = ImageScan::query()
+        $user = $request->user();
+
+        $query = ImageScan::query()
             ->with([
                 'user:id,name,email,phone,employee_id',
                 'cabang:id,kode_cabang,nama_cabang,alamat',
@@ -73,8 +85,11 @@ class ImageScanController extends Controller
                 'mmc.periode_start',
                 'mmc.periode_end',
             ])
-            ->where('image_scans.id', $id)
-            ->firstOrFail();
+            ->where('image_scans.id', $id);
+
+        UserAccessHelper::applyCabangFilter($query, $user, 'image_scans.cabang_id');
+
+        $scan = $query->firstOrFail();
 
         return response()->json([
             'success' => true,

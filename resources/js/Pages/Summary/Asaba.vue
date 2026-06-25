@@ -134,33 +134,46 @@ const deleteNote = (noteId) => {
 };
 
 const generateBillingRows = () => {
-    return props.billings.data.map(item => `
-        <tr>
-            <td>${formatDate(item.created_at)}</td>
-            <td>${item.master_nama_mesin || item.nama_mesin || '-'}</td>
-            <td>${item.serial_number || '-'}</td>
-            <td>${item.nama_vendor || '-'}</td>
-            <td>${item.kode_cabang || '-'} - ${item.nama_cabang || '-'}</td>
-            <td>
-                Total: ${formatNumber(item.total_counter)}<br>
-                Printer: ${formatNumber(item.printer_counter)}<br>
-                Copy: ${formatNumber(item.copy_counter)}<br>
-                Full Color: ${formatNumber(item.full_color_counter)}<br>
-                Single Color: ${formatNumber(item.single_color_counter)}<br>
-                Black: ${formatNumber(item.black_counter)}
-            </td>
-            <td>${formatCurrency(item.total_tagihan)}</td>
-            <td>
-                <b>${item.master_mesin_id ? 'OK' : 'BELUM MAPPING'}</b><br><br>
-                <b>Catatan:</b><br>
-                ${
-                    item.notes && item.notes.length
-                        ? item.notes.map(note => `- ${note.user_name || '-'}: ${note.note || '-'}`).join('<br>')
-                        : '-'
-                }
-            </td>
-        </tr>
-    `).join('');
+    return props.billings.data.map(item => {
+        const biayaPart = Number(item.biaya_part || 0);
+        const biayaMaintenance = Number(item.biaya_maintenance || 0);
+        const billingMesin = Number(item.total_tagihan || 0);
+        const grandTotal = billingMesin + biayaPart + biayaMaintenance;
+
+        return `
+            <tr>
+                <td>${formatDate(item.created_at)}</td>
+                <td>${item.master_nama_mesin || item.nama_mesin || '-'}</td>
+                <td>${item.serial_number || '-'}</td>
+                <td>${item.nama_vendor || '-'}</td>
+                <td>${item.kode_cabang || '-'} - ${item.nama_cabang || '-'}</td>
+                <td>
+                    Total: ${formatNumber(item.total_counter)}<br>
+                    Printer: ${formatNumber(item.printer_counter)}<br>
+                    Copy: ${formatNumber(item.copy_counter)}<br>
+                    Full Color: ${formatNumber(item.full_color_counter)}<br>
+                    Single Color: ${formatNumber(item.single_color_counter)}<br>
+                    Black: ${formatNumber(item.black_counter)}
+                </td>
+                <td class="text-right">
+                    Billing Mesin: ${formatCurrency(billingMesin)}<br>
+                    Biaya Part: ${formatCurrency(biayaPart)}<br>
+                    Biaya Maintenance: ${formatCurrency(biayaMaintenance)}<br>
+                    <hr>
+                    <b>Grand Total: ${formatCurrency(grandTotal)}</b>
+                </td>
+                <td>
+                    <b>${item.master_mesin_id ? 'OK' : 'BELUM MAPPING'}</b><br><br>
+                    <b>Catatan:</b><br>
+                    ${
+                        item.notes && item.notes.length
+                            ? item.notes.map(note => `- ${note.user_name || '-'}: ${note.note || '-'}`).join('<br>')
+                            : '-'
+                    }
+                </td>
+            </tr>
+        `;
+    }).join('');
 };
 
 const printBilling = () => {
@@ -466,7 +479,23 @@ const printBilling = () => {
 
                                     <td class="px-6 py-4 text-right">
                                         <div class="text-lg font-black text-emerald-600">
-                                            {{ formatCurrency(item.total_tagihan) }}
+                                            {{ formatCurrency(
+                                                Number(item.total_tagihan || 0) +
+                                                Number(item.biaya_part || 0) +
+                                                Number(item.biaya_maintenance || 0)
+                                            ) }}
+                                        </div>
+
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase">
+                                            Billing Mesin: {{ formatCurrency(item.total_tagihan) }}
+                                        </div>
+
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase">
+                                            Biaya Part: {{ formatCurrency(item.biaya_part) }}
+                                        </div>
+
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase">
+                                            Biaya Maintenance: {{ formatCurrency(item.biaya_maintenance) }}
                                         </div>
 
                                         <div class="text-[9px] font-bold text-slate-400 uppercase">

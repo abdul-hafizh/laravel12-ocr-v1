@@ -21,6 +21,7 @@ const getData = async () => {
 
     try {
         const res = await axios.get('/api/image-scans', {
+            withCredentials: true,
             params: {
                 scan_type: 'printer',
             },
@@ -397,7 +398,7 @@ const getStatusClass = (status) => {
                     </div>
                 </div>
             </div>
-        </div>|
+        </div>
 
         <div v-if="showImageModal"
             class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"

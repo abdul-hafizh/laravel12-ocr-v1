@@ -307,6 +307,25 @@ class SummaryController extends Controller
                 }
             }
 
+            $maintenanceCosts = DB::table('dbo.machine_maintenance_costs')
+                ->where('master_mesin_id', $item->master_mesin_id)
+                ->where('cabang_id', $item->cabang_id)
+                ->whereDate('periode_start', $periodeStart->toDateString())
+                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->get();
+
+            $biayaPart = (float) $maintenanceCosts
+                ->where('cost_type', 'part')
+                ->sum('nominal');
+
+            $biayaMaintenance = (float) $maintenanceCosts
+                ->where('cost_type', 'maintenance')
+                ->sum('nominal');
+
+            $item->biaya_part = $biayaPart;
+            $item->biaya_maintenance = $biayaMaintenance;
+            $item->grand_total = $totalTagihan + $biayaPart + $biayaMaintenance;
+
             $item->periode_start = $periodeStart->toDateString();
             $item->periode_end = $periodeEnd->toDateString();
 
@@ -392,6 +411,10 @@ class SummaryController extends Controller
                 'nilai_free_klik' => $nilaiFreeKlik,
 
                 'total_tagihan' => $totalTagihan,
+
+                'biaya_part' => $biayaPart,
+                'biaya_maintenance' => $biayaMaintenance,
+                'grand_total' => $totalTagihan + $biayaPart + $biayaMaintenance,
             ];
 
             $item->usage_bw_a3 = $bwA3;
@@ -782,19 +805,31 @@ class SummaryController extends Controller
             ]);
         }
 
-        $billings = $billings->map(function ($item) {
-            $notes = DB::table('scan_notes')
-                ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
-                ->where('scan_notes.image_scan_id', $item->id)
-                ->select('scan_notes.note', 'users.name as user_name')
-                ->orderBy('scan_notes.created_at')
-                ->get()
-                ->map(function ($note) {
-                    return ($note->user_name ?? '-') . ': ' . ($note->note ?? '-');
-                })
-                ->implode("\n");
+        $billings = $billings->map(function ($item) use ($periodeStart, $periodeEnd) {
+            $ceaCost = DB::table('dbo.cea_billing_costs')
+                ->where('master_mesin_id', $item->master_mesin_id)
+                ->where('cabang_id', $item->cabang_id)
+                ->whereDate('periode_start', $periodeStart->toDateString())
+                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->first();
 
-            $item->notes_text = $notes ?: '-';
+            $maintenanceCosts = DB::table('dbo.machine_maintenance_costs')
+                ->where('master_mesin_id', $item->master_mesin_id)
+                ->where('cabang_id', $item->cabang_id)
+                ->whereDate('periode_start', $periodeStart->toDateString())
+                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->get();
+
+            $item->contract_service = (float) ($ceaCost->contract_service ?? 0);
+            $item->biaya_tinta = (float) ($ceaCost->biaya_tinta ?? 0);
+
+            $item->biaya_part = (float) $maintenanceCosts
+                ->where('cost_type', 'part')
+                ->sum('nominal');
+
+            $item->biaya_maintenance = (float) $maintenanceCosts
+                ->where('cost_type', 'maintenance')
+                ->sum('nominal');
 
             return $item;
         });
@@ -1084,6 +1119,24 @@ class SummaryController extends Controller
             $item->foto_awal_created_at = $firstScan?->created_at;
             $item->foto_akhir_created_at = $currentScanData?->created_at;
 
+            $maintenanceCosts = DB::table('dbo.machine_maintenance_costs')
+                ->where('master_mesin_id', $item->master_mesin_id)
+                ->where('cabang_id', $item->cabang_id)
+                ->whereDate('periode_start', $periodeStart->toDateString())
+                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->get();
+            
+            $biayaPart = (float) $maintenanceCosts
+                ->where('cost_type', 'part')
+                ->sum('nominal');
+
+            $biayaMaintenance = (float) $maintenanceCosts
+                ->where('cost_type', 'maintenance')
+                ->sum('nominal');
+
+            $item->biaya_part = $biayaPart;
+            $item->biaya_maintenance = $biayaMaintenance;
+
             $item->counter_detail = [
                 'has_first_scan' => $firstScan ? true : false,
                 'has_current_scan' => $currentScanData ? true : false,
@@ -1127,6 +1180,9 @@ class SummaryController extends Controller
                 'current_black_counter' => $currentBlack,
                 'previous_black_counter' => $previousBlack,
                 'usage_black_counter' => $usageBlack,
+
+                'biaya_part' => $biayaPart,
+                'biaya_maintenance' => $biayaMaintenance,
             ];
 
             $item->billing_detail = [
@@ -1353,21 +1409,35 @@ class SummaryController extends Controller
                 ? round(($usageCopy / $totalMeter) * 100, 2)
                 : 0;
 
-            $cost = DB::table('dbo.cea_billing_costs')
+            $cost = DB::table('cea_billing_costs')
+                ->where('master_mesin_id', $item->master_mesin_id)
+                ->where('cabang_id', $item->cabang_id)
                 ->whereDate('periode_start', $periodeStart->toDateString())
                 ->whereDate('periode_end', $periodeEnd->toDateString())
-                ->where('cabang_id', $item->cabang_id)
-                ->where('serial_number', $item->serial_number)
                 ->first();
 
-            $contractService = (float) ($cost->contract_service ?? 300000);
-            $biayaTinta = (float) ($cost->biaya_tinta ?? 0);
-            $biayaSparepart = 10000; // sementara statis
+            $maintenance = DB::table('machine_maintenance_costs')
+                ->where('master_mesin_id', $item->master_mesin_id)
+                ->where('cabang_id', $item->cabang_id)
+                ->whereDate('periode_start', $periodeStart->toDateString())
+                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->get();
+
+            $contractService = (float) ($cost->contract_service ?? 0);
+            $biayaTinta      = (float) ($cost->biaya_tinta ?? 0);
+            $biayaMaintenance = $maintenance
+                ->where('cost_type', 'maintenance')
+                ->sum('nominal');
+
+            $biayaPart = $maintenance
+                ->where('cost_type', 'part')
+                ->sum('nominal');
 
             $totalDasarBilling =
                 $contractService +
                 $biayaTinta +
-                $biayaSparepart;
+                $biayaMaintenance +
+                $biayaPart;
 
             $printBilling = $totalMeter > 0
                 ? round($totalDasarBilling * ($printPercent / 100))
@@ -1439,7 +1509,9 @@ class SummaryController extends Controller
 
                 'contract_service' => $contractService,
                 'biaya_tinta' => $biayaTinta,
-                'biaya_sparepart' => $biayaSparepart,
+                'biaya_part' => $biayaPart,
+                'biaya_maintenance' => $biayaMaintenance,
+
                 'total_dasar_billing' => $totalDasarBilling,
             ];
 
@@ -1477,7 +1549,8 @@ class SummaryController extends Controller
             $item->laporan_detail = [
                 'contract_service' => $contractService,
                 'biaya_tinta' => $biayaTinta,
-                'biaya_sparepart' => $biayaSparepart,
+                'biaya_part' => $biayaPart,
+                'biaya_maintenance' => $biayaMaintenance,
 
                 'biaya_fotocopy' => $copyBilling,
                 'biaya_print_bw' => $printBilling,
@@ -1722,6 +1795,34 @@ class SummaryController extends Controller
             $item->billing_rule = $billingRule;
             $item->total_tagihan = $totalTagihan;
 
+            $ceaCost = DB::table('dbo.cea_billing_costs')
+                ->where('master_mesin_id', $item->master_mesin_id)
+                ->where('cabang_id', $item->cabang_id)
+                ->whereDate('periode_start', $periodeStart->toDateString())
+                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->first();
+
+            $maintenanceCosts = DB::table('dbo.machine_maintenance_costs')
+                ->where('master_mesin_id', $item->master_mesin_id)
+                ->where('cabang_id', $item->cabang_id)
+                ->whereDate('periode_start', $periodeStart->toDateString())
+                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->get();
+
+            $biayaTinta = (float) ($ceaCost->biaya_tinta ?? 0);
+
+            $biayaPart = (float) $maintenanceCosts
+                ->where('cost_type', 'part')
+                ->sum('nominal');
+
+            $biayaMaintenance = (float) $maintenanceCosts
+                ->where('cost_type', 'maintenance')
+                ->sum('nominal');
+
+            $item->biaya_tinta = $biayaTinta;
+            $item->biaya_part = $biayaPart;
+            $item->biaya_maintenance = $biayaMaintenance;
+
             $item->billing_detail = [
                 'billing_rule' => $billingRule,
                 'minimum_charge_size' => $minimumChargeSize,
@@ -1740,12 +1841,20 @@ class SummaryController extends Controller
                 'print_billing' => $printBilling,
                 'copy_billing' => $copyBilling,
                 'total_tagihan' => $totalTagihan,
+
+                'biaya_tinta' => $biayaTinta,
+                'biaya_part' => $biayaPart,
+                'biaya_maintenance' => $biayaMaintenance,
             ];
 
             $item->laporan_detail = [
                 'biaya_fotocopy' => $copyBilling,
                 'biaya_print_bw' => $printBilling,
                 'total_laporan' => $totalTagihan,
+
+                'biaya_tinta' => $biayaTinta,
+                'biaya_part' => $biayaPart,
+                'biaya_maintenance' => $biayaMaintenance,
             ];
 
             $item->notes = DB::table('scan_notes')
@@ -1899,14 +2008,14 @@ class SummaryController extends Controller
         $scan = ImageScan::findOrFail($id);
 
         if ($scan->image_path) {
-        Storage::disk('public')->delete($scan->image_path);
+            Storage::disk('public')->delete($scan->image_path);
+        }
+
+        $scan->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Data berhasil dihapus.',
+        ]);
     }
-
-    $scan->delete();
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Data berhasil dihapus.',
-    ]);
-}
 }

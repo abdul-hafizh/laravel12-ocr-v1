@@ -68,10 +68,14 @@ const formatDate = (value) => {
 
 const generateLaporanRows = () => {
     return props.billings.data.map(item => {
-        const biayaFotocopy = item.laporan_detail?.biaya_fotocopy ?? item.copy_billing ?? 0;
-        const biayaPrintBw = item.laporan_detail?.biaya_print_bw ?? item.print_billing ?? 0;
-        const cadanganCea = item.laporan_detail?.cadangan_print_cea ?? 750000;
-        const total = item.laporan_detail?.total_laporan ?? (biayaFotocopy + biayaPrintBw + cadanganCea);
+        const biayaFotocopy = Number(item.laporan_detail?.biaya_fotocopy ?? item.copy_billing ?? 0);
+        const biayaPrintBw = Number(item.laporan_detail?.biaya_print_bw ?? item.print_billing ?? 0);
+        const biayaTinta = Number(item.laporan_detail?.biaya_tinta ?? 0);
+        const biayaPart = Number(item.laporan_detail?.biaya_part ?? 0);
+        const biayaMaintenance = Number(item.laporan_detail?.biaya_maintenance ?? 0);
+
+        const totalDebit = biayaFotocopy + biayaPrintBw + biayaTinta + biayaPart + biayaMaintenance;
+        const totalKredit = totalDebit;
 
         return `
             <div class="report-box">
@@ -81,49 +85,68 @@ const generateLaporanRows = () => {
 
                 <div style="margin-top:8px;font-size:16px;">
                     Mesin :
-                    <b>
-                        ${item.master_nama_mesin || item.nama_mesin || '-'}
-                    </b>
+                    <b>${item.master_nama_mesin || item.nama_mesin || '-'}</b>
                 </div>
 
                 <div style="margin-top:4px;font-size:14px;">
                     Serial :
-                    <b>
-                        ${item.serial_number || '-'}
-                    </b>
+                    <b>${item.serial_number || '-'}</b>
                 </div>
 
                 <div class="report-period">
                     ${endDate.value.substring(0, 7)}
                 </div>
 
-                <table>
+                <table class="journal-table">
                     <thead>
                         <tr>
-                            <th class="journal">Journal</th>
-                            <th class="debit">Debit</th>
+                            <th style="text-align:left;">Journal</th>
+                            <th style="text-align:right;width:180px;">Debit</th>
+                            <th style="text-align:right;width:180px;">Kredit</th>
                         </tr>
                     </thead>
 
                     <tbody>
                         <tr>
                             <td>biaya fotocopy [ms FC]</td>
-                            <td>${formatNumber(biayaFotocopy)}</td>
+                            <td style="text-align:right;">${formatNumber(biayaFotocopy)}</td>
+                            <td></td>
                         </tr>
 
                         <tr>
                             <td>biaya print bw [ms FC]</td>
-                            <td>${formatNumber(biayaPrintBw)}</td>
+                            <td style="text-align:right;">${formatNumber(biayaPrintBw)}</td>
+                            <td></td>
                         </tr>
 
                         <tr>
-                            <td>cadangan print - (CEA)</td>
-                            <td>${formatNumber(cadanganCea)}</td>
+                            <td>biaya tinta [ms FC]</td>
+                            <td style="text-align:right;">${formatNumber(biayaTinta)}</td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td>biaya part [ms FC]</td>
+                            <td style="text-align:right;">${formatNumber(biayaPart)}</td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td>biaya maintenance [ms FC]</td>
+                            <td style="text-align:right;">${formatNumber(biayaMaintenance)}</td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td style="padding-left:80px;">cadangan mesin</td>
+                            <td></td>
+                            <td style="text-align:right;">${formatNumber(totalKredit)}</td>
                         </tr>
 
                         <tr class="total-row">
                             <td></td>
-                            <td>${formatNumber(total)}</td>
+                            <td style="text-align:right;">${formatNumber(totalDebit)}</td>
+                            <td style="text-align:right;">${formatNumber(totalKredit)}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -318,10 +341,12 @@ const generateBillingRows = () => {
             <td>
                 Contract: ${formatCurrency(item.billing_detail?.contract_service ?? 0)}<br>
                 Tinta: ${formatCurrency(item.billing_detail?.biaya_tinta ?? 0)}<br>
-                Sparepart: ${formatCurrency(item.billing_detail?.biaya_sparepart ?? 0)}<br>
+                Part: ${formatCurrency(item.billing_detail?.biaya_part ?? 0)}<br>
+                Maintenance: ${formatCurrency(item.billing_detail?.biaya_maintenance ?? 0)}<br>
                 Print: ${formatCurrency(item.billing_detail?.print_billing ?? 0)}<br>
                 Copy: ${formatCurrency(item.billing_detail?.copy_billing ?? 0)}<br>
-                Total: ${formatCurrency(item.billing_detail?.total_tagihan ?? 0)}
+                <hr>
+                <b>Total: ${formatCurrency(item.billing_detail?.total_tagihan ?? 0)}</b>
             </td>
             <td>
                 <b>${item.master_mesin_id ? 'OK' : 'BELUM MAPPING'}</b><br><br>
@@ -639,8 +664,13 @@ const printBilling = () => {
                                         </div>
 
                                         <div class="text-[10px] font-black text-slate-500">
-                                            Sparepart:
-                                            {{ formatCurrency(item.billing_detail?.biaya_sparepart ?? 0) }}
+                                            Part:
+                                            {{ formatCurrency(item.billing_detail?.biaya_part ?? 0) }}
+                                        </div>
+
+                                        <div class="text-[10px] font-black text-slate-500">
+                                            Maintenance:
+                                            {{ formatCurrency(item.billing_detail?.biaya_maintenance ?? 0) }}
                                         </div>
 
                                         <div class="text-[10px] font-black text-slate-500">

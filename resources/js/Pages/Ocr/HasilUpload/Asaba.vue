@@ -23,6 +23,7 @@ const getData = async () => {
 
     try {
         const res = await axios.get('/api/image-scans', {
+            withCredentials: true,
             params: {
                 scan_type: 'asaba',
             },
