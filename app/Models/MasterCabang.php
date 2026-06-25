@@ -9,6 +9,7 @@ class MasterCabang extends Model
     protected $fillable = [
         'kode_cabang',
         'nama_cabang',
+        'nama_pt',
         'alamat',
         'pic_user_id',
         'keterangan',

@@ -30,7 +30,7 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
+            'email' => ['required', 'string'],
             'password' => ['required', 'string'],
         ];
     }
@@ -44,29 +44,27 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        $user = User::where('email', $this->input('email'))->first();
-
+        $loginInput = $this->input('email'); 
         $passwordInput = $this->input('password');
+
+        $user = User::where('email', $loginInput)
+            ->orWhere('employee_id', $loginInput)
+            ->first();
 
         $valid = false;
 
         if ($user) {
             $storedPassword = $user->password;
 
-            // Cek bcrypt Laravel: $2y$...
-            if (str_starts_with($storedPassword, '$2y$')) {
+            if (str_starts_with($storedPassword, '$2y$') || str_starts_with($storedPassword, '$2a$') || str_starts_with($storedPassword, '$2b$')) {
                 $valid = Hash::check($passwordInput, $storedPassword);
             }
-
-            // Cek password lama MD5 uppercase
-            elseif (preg_match('/^[A-F0-9]{32}$/', $storedPassword)) {
+            elseif (preg_match('/^[A-F0-9]{32}$/i', $storedPassword)) {
                 $valid = hash_equals(
                     strtoupper($storedPassword),
                     strtoupper(md5($passwordInput))
                 );
 
-                // Opsional tapi sangat disarankan:
-                // setelah berhasil login, ubah MD5 ke bcrypt Laravel
                 if ($valid) {
                     $user->password = Hash::make($passwordInput);
                     $user->save();
@@ -115,6 +113,6 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        return Str::transliterate(Str::lower($this->string('email')) . '|' . $this->ip());
     }
 }

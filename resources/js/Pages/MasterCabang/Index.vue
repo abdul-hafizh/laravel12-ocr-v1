@@ -37,6 +37,7 @@ const flashMessage = computed(() => {
 const form = useForm({
     kode_cabang: '',
     nama_cabang: '',
+    nama_pt: '',
     alamat: '',
     user_ids: [],
     keterangan: '',
@@ -66,6 +67,7 @@ const openCreate = () => {
 
     form.kode_cabang = '';
     form.nama_cabang = '';
+    form.nama_pt = '';
     form.alamat = '';
     form.user_ids = [];
     form.keterangan = '';
@@ -82,6 +84,7 @@ const openEdit = (item) => {
 
     form.kode_cabang = item.kode_cabang || '';
     form.nama_cabang = item.nama_cabang || '';
+    form.nama_pt = item.nama_pt || '';
     form.alamat = item.alamat || '';
     form.user_ids = item.users?.map(user => user.id) || [];
     form.keterangan = item.keterangan || '';
@@ -138,6 +141,7 @@ const executeDelete = () => {
 </script>
 
 <template>
+
     <Head title="Master Cabang" />
 
     <AuthenticatedLayout>
@@ -148,30 +152,22 @@ const executeDelete = () => {
         </template>
 
         <div class="space-y-6">
-            <div class="flex items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
+            <div
+                class="flex items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
                 <div class="relative flex-1 max-w-sm">
                     <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                                stroke-width="3"
-                                stroke-linecap="round"
-                            />
+                            <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="3"
+                                stroke-linecap="round" />
                         </svg>
                     </span>
 
-                    <input
-                        v-model="search"
-                        type="text"
-                        placeholder="Cari cabang..."
-                        class="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 transition-all placeholder:text-slate-400"
-                    />
+                    <input v-model="search" type="text" placeholder="Cari cabang..."
+                        class="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 transition-all placeholder:text-slate-400" />
                 </div>
 
-                <button
-                    @click="openCreate"
-                    class="px-5 py-2.5 bg-[#1E293B] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.15em] hover:bg-[#2DD4BF] transition-all flex items-center shadow-lg shadow-black/5"
-                >
+                <button @click="openCreate"
+                    class="px-5 py-2.5 bg-[#1E293B] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.15em] hover:bg-[#2DD4BF] transition-all flex items-center shadow-lg shadow-black/5">
                     <span class="mr-2 text-sm">+</span> Tambah Cabang
                 </button>
             </div>
@@ -188,6 +184,9 @@ const executeDelete = () => {
                                     Nama Cabang
                                 </th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Nama PT
+                                </th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     Alamat
                                 </th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -196,10 +195,12 @@ const executeDelete = () => {
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     No. WA
                                 </th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
                                     Status
                                 </th>
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
                                     Aksi
                                 </th>
                             </tr>
@@ -207,13 +208,11 @@ const executeDelete = () => {
 
                         <tbody class="divide-y divide-slate-50">
                             <template v-if="cabangs.data.length > 0">
-                                <tr
-                                    v-for="item in cabangs.data"
-                                    :key="item.id"
-                                    class="group hover:bg-slate-50/50 transition-colors"
-                                >
+                                <tr v-for="item in cabangs.data" :key="item.id"
+                                    class="group hover:bg-slate-50/50 transition-colors">
                                     <td class="px-6 py-4">
-                                        <span class="text-[11px] font-black text-[#2DD4BF] bg-[#2DD4BF]/5 border border-[#2DD4BF]/10 px-2.5 py-1 rounded-lg uppercase tracking-tighter">
+                                        <span
+                                            class="text-[11px] font-black text-[#2DD4BF] bg-[#2DD4BF]/5 border border-[#2DD4BF]/10 px-2.5 py-1 rounded-lg uppercase tracking-tighter">
                                             {{ item.kode_cabang }}
                                         </span>
                                     </td>
@@ -221,16 +220,19 @@ const executeDelete = () => {
                                     <td class="px-6 py-4 text-sm font-bold text-[#1E293B] uppercase tracking-tight">
                                         {{ item.nama_cabang }}
                                     </td>
+                                    <td class="px-6 py-4 text-sm font-bold text-[#1E293B] uppercase tracking-tight">
+                                        {{ item.nama_pt }}
+                                    </td>
 
                                     <td class="px-6 py-4">
-                                        <div
-                                            @click="openAddressDetail(item.alamat)"
-                                            class="group/address cursor-pointer"
-                                        >
-                                            <p class="text-[11px] text-slate-400 font-medium line-clamp-1 max-w-[100px] transition-all duration-300">
+                                        <div @click="openAddressDetail(item.alamat)"
+                                            class="group/address cursor-pointer">
+                                            <p
+                                                class="text-[11px] text-slate-400 font-medium line-clamp-1 max-w-[100px] transition-all duration-300">
                                                 {{ item.alamat || '-' }}
                                             </p>
-                                            <span class="block text-[8px] font-black uppercase tracking-tighter text-[#2DD4BF] opacity-0 group-hover/address:opacity-100 transition-opacity">
+                                            <span
+                                                class="block text-[8px] font-black uppercase tracking-tighter text-[#2DD4BF] opacity-0 group-hover/address:opacity-100 transition-opacity">
                                                 Click to see full detail
                                             </span>
                                         </div>
@@ -257,39 +259,32 @@ const executeDelete = () => {
                                     <td class="px-6 py-4 text-center">
                                         <span
                                             :class="item.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'"
-                                            class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest italic border border-current/10"
-                                        >
+                                            class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest italic border border-current/10">
                                             {{ item.is_active ? 'Active' : 'Offline' }}
                                         </span>
                                     </td>
 
                                     <td class="px-6 py-4 text-right">
                                         <div class="flex justify-end gap-1">
-                                            <button
-                                                @click="openEdit(item)"
-                                                class="p-2 text-slate-300 hover:text-[#2DD4BF] transition-colors"
-                                            >
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <button @click="openEdit(item)"
+                                                class="p-2 text-slate-300 hover:text-[#2DD4BF] transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
                                                     <path
                                                         d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                                                        stroke-width="2.5"
-                                                        stroke-linecap="round"
-                                                        stroke-linejoin="round"
-                                                    />
+                                                        stroke-width="2.5" stroke-linecap="round"
+                                                        stroke-linejoin="round" />
                                                 </svg>
                                             </button>
 
-                                            <button
-                                                @click="confirmDelete(item.id)"
-                                                class="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-                                            >
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <button @click="confirmDelete(item.id)"
+                                                class="p-2 text-slate-300 hover:text-rose-500 transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
                                                     <path
                                                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                                        stroke-width="2.5"
-                                                        stroke-linecap="round"
-                                                        stroke-linejoin="round"
-                                                    />
+                                                        stroke-width="2.5" stroke-linecap="round"
+                                                        stroke-linejoin="round" />
                                                 </svg>
                                             </button>
                                         </div>
@@ -300,18 +295,18 @@ const executeDelete = () => {
                             <tr v-else>
                                 <td colspan="7" class="px-6 py-20 text-center">
                                     <div class="flex flex-col items-center justify-center">
-                                        <div class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 border border-slate-100">
-                                            <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <div
+                                            class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 border border-slate-100">
+                                            <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
                                                 <path
                                                     d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2-2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                                                    stroke-width="2"
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                />
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                                             </svg>
                                         </div>
 
-                                        <h4 class="text-[13px] font-black text-[#1E293B] uppercase italic tracking-tighter">
+                                        <h4
+                                            class="text-[13px] font-black text-[#1E293B] uppercase italic tracking-tighter">
                                             No Data <span class="text-[#2DD4BF]">Cabang</span> Found
                                         </h4>
                                     </div>
@@ -321,7 +316,8 @@ const executeDelete = () => {
                     </table>
                 </div>
 
-                <div class="px-6 py-5 bg-slate-50/80 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div
+                    class="px-6 py-5 bg-slate-50/80 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div class="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
                         Showing <span class="text-[#1E293B]">{{ cabangs.from || 0 }}</span>
                         to <span class="text-[#1E293B]">{{ cabangs.to || 0 }}</span>
@@ -330,23 +326,16 @@ const executeDelete = () => {
 
                     <nav v-if="cabangs.links && cabangs.links.length > 0" class="flex flex-wrap gap-1.5">
                         <template v-for="(link, k) in cabangs.links" :key="k">
-                            <div
-                                v-if="link.url === null"
+                            <div v-if="link.url === null"
                                 class="px-3 py-2 text-[10px] font-black text-slate-300 border border-slate-100 rounded-xl bg-white/50 cursor-not-allowed uppercase tracking-tighter"
-                                v-html="link.label"
-                            />
+                                v-html="link.label" />
 
-                            <Link
-                                v-else
-                                :href="link.url"
+                            <Link v-else :href="link.url"
                                 class="px-3 py-2 text-[10px] font-black rounded-xl transition-all duration-200 border uppercase tracking-tighter"
                                 :class="{
                                     'bg-[#1E293B] text-white border-[#1E293B] shadow-lg shadow-black/10 scale-105 z-10': link.active,
                                     'bg-white text-slate-600 border-slate-200 hover:border-[#2DD4BF] hover:text-[#2DD4BF]': !link.active
-                                }"
-                                v-html="link.label"
-                                preserve-scroll
-                            />
+                                }" v-html="link.label" preserve-scroll />
                         </template>
                     </nav>
 
@@ -357,26 +346,19 @@ const executeDelete = () => {
             </div>
         </div>
 
-        <div
-            v-if="showDeleteModal"
-            class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
-        >
+        <div v-if="showDeleteModal"
+            class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
             <div class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-sm p-8 shadow-2xl text-center">
-                <div class="mx-auto w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mb-6 border border-rose-100">
-                    <svg :class="{ 'animate-spin': isDeleting }" class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                            v-if="!isDeleting"
+                <div
+                    class="mx-auto w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mb-6 border border-rose-100">
+                    <svg :class="{ 'animate-spin': isDeleting }" class="w-8 h-8" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path v-if="!isDeleting"
                             d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        />
-                        <path
-                            v-else
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <path v-else
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            fill="currentColor"
-                            opacity="0.75"
-                        />
+                            fill="currentColor" opacity="0.75" />
                     </svg>
                 </div>
 
@@ -389,39 +371,29 @@ const executeDelete = () => {
                 </p>
 
                 <div class="flex gap-3">
-                    <button
-                        @click="showDeleteModal = false"
-                        :disabled="isDeleting"
-                        class="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200"
-                    >
+                    <button @click="showDeleteModal = false" :disabled="isDeleting"
+                        class="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200">
                         Batal
                     </button>
 
-                    <button
-                        @click="executeDelete"
-                        :disabled="isDeleting"
-                        class="flex-1 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/30 hover:bg-rose-600"
-                    >
+                    <button @click="executeDelete" :disabled="isDeleting"
+                        class="flex-1 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/30 hover:bg-rose-600">
                         Ya, Hapus
                     </button>
                 </div>
             </div>
         </div>
 
-        <div
-            v-if="showDetailModal"
-            class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
-        >
+        <div v-if="showDetailModal"
+            class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
             <div class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-md p-8 shadow-2xl relative">
                 <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
                     <h3 class="text-lg font-black text-[#1E293B] uppercase italic tracking-tighter">
                         Full <span class="text-[#2DD4BF]">Address</span>
                     </h3>
 
-                    <button
-                        @click="showDetailModal = false"
-                        class="text-slate-300 hover:text-rose-500 transition-colors uppercase text-[10px] font-black tracking-widest"
-                    >
+                    <button @click="showDetailModal = false"
+                        class="text-slate-300 hover:text-rose-500 transition-colors uppercase text-[10px] font-black tracking-widest">
                         Close
                     </button>
                 </div>
@@ -434,24 +406,18 @@ const executeDelete = () => {
             </div>
         </div>
 
-        <div
-            v-if="showModal"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
-        >
-            <div
-                class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-xl shadow-2xl relative
-                    max-h-[90vh] overflow-hidden flex flex-col"
-            >
+        <div v-if="showModal"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <div class="bg-white rounded-[2rem] border border-slate-200 w-full max-w-xl shadow-2xl relative
+                    max-h-[90vh] overflow-hidden flex flex-col">
                 <div class="flex justify-between items-center p-8 pb-4 border-b border-slate-100">
                     <h3 class="text-xl font-black text-[#1E293B] uppercase italic tracking-tighter">
                         {{ isEdit ? 'Modify' : 'Register' }}
                         <span class="text-[#2DD4BF]">Branch</span>
                     </h3>
 
-                    <button
-                        @click="closeModal"
-                        class="text-slate-300 hover:text-rose-500 transition-colors uppercase text-[10px] font-black tracking-widest"
-                    >
+                    <button @click="closeModal"
+                        class="text-slate-300 hover:text-rose-500 transition-colors uppercase text-[10px] font-black tracking-widest">
                         Close
                     </button>
                 </div>
@@ -463,14 +429,11 @@ const executeDelete = () => {
                                     Branch Code
                                 </label>
 
-                                <input
-                                    v-model="form.kode_cabang"
-                                    type="text"
-                                    placeholder="EX: CBR001"
-                                    class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                                />
+                                <input v-model="form.kode_cabang" type="text" placeholder="EX: CBR001"
+                                    class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
 
-                                <div v-if="form.errors.kode_cabang" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
+                                <div v-if="form.errors.kode_cabang"
+                                    class="text-rose-500 text-[10px] font-bold uppercase mt-1">
                                     {{ form.errors.kode_cabang }}
                                 </div>
                             </div>
@@ -480,13 +443,11 @@ const executeDelete = () => {
                                     Branch Name
                                 </label>
 
-                                <input
-                                    v-model="form.nama_cabang"
-                                    type="text"
-                                    class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20"
-                                />
+                                <input v-model="form.nama_cabang" type="text"
+                                    class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20" />
 
-                                <div v-if="form.errors.nama_cabang" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
+                                <div v-if="form.errors.nama_cabang"
+                                    class="text-rose-500 text-[10px] font-bold uppercase mt-1">
                                     {{ form.errors.nama_cabang }}
                                 </div>
                             </div>
@@ -498,16 +459,9 @@ const executeDelete = () => {
                             </label>
 
                             <div class="max-h-48 overflow-y-auto border rounded-xl p-3">
-                                <label
-                                    v-for="user in users"
-                                    :key="user.id"
-                                    class="flex items-center gap-3 py-2 cursor-pointer"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        :value="user.id"
-                                        v-model="form.user_ids"
-                                    />
+                                <label v-for="user in users" :key="user.id"
+                                    class="flex items-center gap-3 py-2 cursor-pointer">
+                                    <input type="checkbox" :value="user.id" v-model="form.user_ids" />
 
                                     <span class="text-sm">
                                         {{ user.name }} - {{ user.phone }}
@@ -516,11 +470,8 @@ const executeDelete = () => {
                             </div>
 
                             <div class="flex flex-wrap gap-2 mb-3">
-                                <span
-                                    v-for="user in users.filter(u => form.user_ids.includes(u.id))"
-                                    :key="user.id"
-                                    class="px-3 py-1 bg-[#2DD4BF]/10 text-[#2DD4BF] rounded-full text-xs font-bold"
-                                >
+                                <span v-for="user in users.filter(u => form.user_ids.includes(u.id))" :key="user.id"
+                                    class="px-3 py-1 bg-[#2DD4BF]/10 text-[#2DD4BF] rounded-full text-xs font-bold">
                                     {{ user.name }}
                                 </span>
                             </div>
@@ -532,14 +483,24 @@ const executeDelete = () => {
 
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Company Name
+                            </label>
+
+                            <textarea v-model="form.nama_pt" rows="2"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none" />
+
+                            <div v-if="form.errors.nama_pt" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
+                                {{ form.errors.nama_pt }}
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                                 Address
                             </label>
 
-                            <textarea
-                                v-model="form.alamat"
-                                rows="2"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"
-                            />
+                            <textarea v-model="form.alamat" rows="2"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none" />
 
                             <div v-if="form.errors.alamat" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
                                 {{ form.errors.alamat }}
@@ -551,13 +512,11 @@ const executeDelete = () => {
                                 Keterangan
                             </label>
 
-                            <textarea
-                                v-model="form.keterangan"
-                                rows="2"
-                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none"
-                            />
+                            <textarea v-model="form.keterangan" rows="2"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20 resize-none" />
 
-                            <div v-if="form.errors.keterangan" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
+                            <div v-if="form.errors.keterangan"
+                                class="text-rose-500 text-[10px] font-bold uppercase mt-1">
                                 {{ form.errors.keterangan }}
                             </div>
                         </div>
@@ -569,15 +528,13 @@ const executeDelete = () => {
 
                             <label class="relative inline-flex cursor-pointer items-center">
                                 <input type="checkbox" v-model="form.is_active" class="peer sr-only" />
-                                <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2DD4BF]" />
+                                <div
+                                    class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2DD4BF]" />
                             </label>
                         </div>
 
-                        <button
-                            type="submit"
-                            :disabled="form.processing"
-                            class="w-full py-4 bg-[#2DD4BF] text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-[#2DD4BF]/20 hover:bg-[#26bba8] transition-all disabled:opacity-50"
-                        >
+                        <button type="submit" :disabled="form.processing"
+                            class="w-full py-4 bg-[#2DD4BF] text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-[#2DD4BF]/20 hover:bg-[#26bba8] transition-all disabled:opacity-50">
                             {{ form.processing ? 'Saving...' : 'Execute Data' }}
                         </button>
                     </form>
