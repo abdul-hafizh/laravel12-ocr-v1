@@ -11,76 +11,71 @@ class BmiWhatsappService extends BaseWhatsappService
 {
     public function start(string $phone): void
     {
-        $user = $this->findActiveUserByPhone($phone);
+        try {
+            $user = $this->findActiveUserByPhone($phone);
 
-        if (! $user) {
+            if (! $user) {
+                DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
+                    'menu' => null,
+                    'step' => 'ASK_MENU',
+                    'employee_id' => null,
+                    'employee_name' => null,
+                    'gender' => null,
+                    'updated_at' => now(),
+                ]);
+
+                SendSms::sendMessageWA(
+                    $phone,
+                    "⚠️ Nomor WhatsApp Anda belum terdaftar / tidak aktif.\n\n".
+                    "Silakan hubungi admin agar nomor WA Anda didaftarkan di master user."
+                );
+
+                return;
+            }
+
+            $gender = $this->extractGender($user);
+
             DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
-                'menu' => null,
-                'step' => 'ASK_MENU',
-                'employee_id' => null,
-                'employee_name' => null,
-                'gender' => null,
+                'menu' => 'BMI',
+                'step' => 'ASK_ALL',
+                'employee_id' => $user->employee_id,
+                'employee_name' => $user->name,
+                'gender' => $gender,
                 'updated_at' => now(),
             ]);
 
             SendSms::sendMessageWA(
                 $phone,
-                "⚠️ Nomor WhatsApp Anda belum terdaftar / tidak aktif.\n\n".
-                "Silakan hubungi admin agar nomor WA Anda didaftarkan di master user."
+                "Menu *BMI* dipilih ✅\n\n".
+                "Halo *{$user->name}* 👋\n".
+                "ID: *{$user->employee_id}*\n\n".
+                "Kirim data *sekalian* pakai spasi:\n".
+                "*LP BB TB*\n".
+                "Contoh: *80 70 164*\n\n".
+                "LP=Lingkar Pinggang(cm)\n".
+                "BB=Berat(kg)\n".
+                "TB=Tinggi(cm)"
             );
+        } catch (\Throwable $e) {
+            \Log::error('BMI_START_ERROR', [
+                'phone' => $phone,
+                'error' => $e->getMessage(),
+            ]);
 
-            return;
+            SendSms::sendMessageWA(
+                $phone,
+                "Maaf, menu BMI sedang error. Silakan coba lagi atau hubungi admin."
+            );
         }
-
-        $gender = $this->extractGender($user);
-
-        DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
-            'menu' => 'BMI',
-            'step' => 'ASK_ALL',
-            'employee_id' => $user->employee_id,
-            'employee_name' => $user->name,
-            'gender' => $gender,
-            'temp_waist' => null,
-            'temp_weight' => null,
-            'temp_height' => null,
-            'updated_at' => now(),
-        ]);
-
-        SendSms::sendMessageWA(
-            $phone,
-            "Menu *BMI* dipilih ✅\n\n".
-            "Halo *{$user->name}* 👋\n".
-            "ID: *{$user->employee_id}*\n\n".
-            "Kirim data *sekalian* pakai spasi:\n".
-            "*LP BB TB*\n".
-            "Contoh: *80 70 164*\n\n".
-            "LP=Lingkar Pinggang(cm)\n".
-            "BB=Berat(kg)\n".
-            "TB=Tinggi(cm)"
-        );
     }
 
     public function handle(string $phone, string $message, object $session): void
-    {   
+    {
         if ($this->handleGlobalCommand($phone, $message)) {
             return;
         }
 
-        $step = $session->step ?? 'ASK_ID';
-
-        if ($this->looksLikeEmployeeId($message)) {
-            DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
-                'step' => 'ASK_ID',
-                'updated_at' => now(),
-            ]);
-
-            $step = 'ASK_ID';
-        }
-
-        if ($step === 'ASK_ID') {
-            $this->handleLogin($phone, $message);
-            return;
-        }
+        $step = $session->step ?? 'ASK_ALL';
 
         if ($step === 'ASK_ALL') {
             $this->handleMeasurement($phone, $message, $session);
@@ -88,106 +83,6 @@ class BmiWhatsappService extends BaseWhatsappService
         }
 
         $this->start($phone);
-    }
-
-    private function handleLogin(string $phone, string $message): void
-    {
-        $parts = preg_split('/\s+/', trim($message), 2);
-
-        if (count($parts) < 2) {
-            SendSms::sendMessageWA(
-                $phone,
-                "Login dulu.\n".
-                "Kirim format:\n".
-                "*EMPLOYEEID PASSWORD*\n".
-                "Contoh: *SPY-0025 123456*"
-            );
-            return;
-        }
-
-        $employeeId = strtoupper(trim($parts[0]));
-        $passPlain = trim($parts[1]);
-
-        $useBypass = ($passPlain === 'SNAPY12');
-        $passMd5 = strtoupper(md5($passPlain));
-
-        try {
-            $user = DB::table('users')
-                ->whereRaw("UPPER(LTRIM(RTRIM(employee_id))) = ?", [$employeeId])
-                ->where('is_active', 1)
-                ->where('is_delete', 0)
-                ->first();
-
-            if (!$user) {
-                SendSms::sendMessageWA(
-                    $phone,
-                    "⚠️ Login gagal.\n".
-                    "Cek ID / password ya.\n".
-                    "Contoh: *SPY-0025 123456*\n".
-                    "Ketik *ULANG* untuk coba lagi."
-                );
-                return;
-            }
-
-            $useBypass = ($passPlain === 'SNAPY12');
-
-            if (!$useBypass && !Hash::check($passPlain, $user->password)) {
-                SendSms::sendMessageWA(
-                    $phone,
-                    "⚠️ Login gagal.\n".
-                    "Cek ID / password ya.\n".
-                    "Contoh: *SPY-0025 123456*\n".
-                    "Ketik *ULANG* untuk coba lagi."
-                );
-                return;
-            }
-            
-        } catch (\Throwable $e) {
-            Log::error('EMP_LOGIN_ERR', [
-                'err' => $e->getMessage(),
-            ]);
-
-            SendSms::sendMessageWA(
-                $phone,
-                "DB laporan error / koneksi lambat.\nCoba lagi sebentar ya."
-            );
-            return;
-        }
-
-        if (!$user) {
-            SendSms::sendMessageWA(
-                $phone,
-                "⚠️ Login gagal.\n".
-                "Cek ID / password ya.\n".
-                "Contoh: *SPY-0025 123456*\n".
-                "Ketik *ULANG* untuk coba lagi."
-            );
-            return;
-        }
-
-        $gender = $this->extractGender($user);
-
-        DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
-            'employee_id' => $employeeId,
-            'employee_name' => $user->name ?? null,
-            'gender' => $gender,
-            'step' => 'ASK_ALL',
-            'updated_at' => now(),
-        ]);
-
-        $nama = $user->name ?? $employeeId;
-
-        SendSms::sendMessageWA(
-            $phone,
-            "Halo *{$nama}* 👋\n".
-            "Login sukses ✅\n\n".
-            "Kirim data *sekalian* pakai spasi:\n".
-            "*LP BB TB*\n".
-            "Contoh: *80 70 164*\n\n".
-            "LP=Lingkar Pinggang(cm)\n".
-            "BB=Berat(kg)\n".
-            "TB=Tinggi(cm)"
-        );
     }
 
     private function handleMeasurement(string $phone, string $message, object $session): void
@@ -233,9 +128,10 @@ class BmiWhatsappService extends BaseWhatsappService
 
             SendSms::sendMessageWA(
                 $phone,
-                "Session error.\n".
-                "Silakan login lagi:\n".
-                "*EMPLOYEEID PASSWORD*"
+                "Session BMI diperbarui ✅\n\n".
+                "Silakan kirim data:\n".
+                "*LP BB TB*\n".
+                "Contoh: *80 70 164*"
             );
             return;
         }
@@ -319,12 +215,14 @@ class BmiWhatsappService extends BaseWhatsappService
 
     private function resetToBmiLogin(string $phone): void
     {
+        $user = $this->findActiveUserByPhone($phone);
+
         DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
             'menu' => 'BMI',
-            'step' => 'ASK_ID',
-            'employee_id' => null,
-            'employee_name' => null,
-            'gender' => null,
+            'step' => 'ASK_ALL',
+            'employee_id' => $user?->employee_id,
+            'employee_name' => $user?->name,
+            'gender' => $user ? $this->extractGender($user) : null,
             'temp_waist' => null,
             'temp_weight' => null,
             'temp_height' => null,
@@ -345,13 +243,6 @@ class BmiWhatsappService extends BaseWhatsappService
             'temp_height' => null,
             'updated_at' => now(),
         ]);
-    }
-
-    private function looksLikeEmployeeId(string $text): bool
-    {
-        $first = strtoupper(trim(explode(' ', trim($text))[0]));
-
-        return (bool) preg_match('/^[A-Z]{2,10}-\d{2,10}$/', $first);
     }
 
     private function extractGender(object $user): string
@@ -436,26 +327,11 @@ class BmiWhatsappService extends BaseWhatsappService
         return 'normal';
     }
 
-    private function normalizePhone(string $phone): string
-    {
-        $phone = preg_replace('/\D/', '', $phone);
-
-        if (str_starts_with($phone, '08')) {
-            return '628' . substr($phone, 2);
-        }
-
-        if (str_starts_with($phone, '8')) {
-            return '62' . $phone;
-        }
-
-        return $phone;
-    }
-
     private function findActiveUserByPhone(string $phone): ?object
     {
         $phone = $this->normalizePhone($phone);
 
-        $users = DB::table('users')
+        $users = DB::table('dbo.users')
             ->where('is_active', 1)
             ->where('is_delete', 0)
             ->get();
