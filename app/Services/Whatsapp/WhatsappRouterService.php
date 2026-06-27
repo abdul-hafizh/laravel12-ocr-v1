@@ -108,7 +108,24 @@ class WhatsappRouterService
             }
 
             if ($menu === 'BMI') {
-                app(BmiWhatsappService::class)->start($phone);
+                try {
+                    app(BmiWhatsappService::class)->start($phone);
+                } catch (\Throwable $e) {
+                    \Log::error('WA_BMI_MENU_ERROR', [
+                        'phone' => $phone,
+                        'error' => $e->getMessage(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                    ]);
+
+                    SendSms::sendMessageWA(
+                        $phone,
+                        "❌ Error saat membuka menu BMI:\n\n".
+                        $e->getMessage()."\n\n".
+                        "File: ".$e->getFile()."\n".
+                        "Line: ".$e->getLine()
+                    );
+                }
                 return;
             }
 

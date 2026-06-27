@@ -191,7 +191,7 @@ const printSummary = () => {
 };
 
 const summaryHtml = () => {
-    return props.summary.data.map(item => `
+    return (props.summary?.data ?? []).map(item => `
         <tr>
             <td>
                 ${item.nama_cabang || '-'}<br>
@@ -400,7 +400,7 @@ const badgeClass = (status) => {
 
                         <tbody class="divide-y divide-slate-100">
                             <tr
-                                v-for="item in summary.data"
+                                v-for="item in (summary.data ?? [])"
                                 :key="item.cabang_id"
                                 class="hover:bg-slate-50/70 transition-all"
                             >
@@ -562,7 +562,7 @@ const badgeClass = (status) => {
                                 </td>
                             </tr>
 
-                            <tr v-if="summary.data.length === 0">
+                            <tr v-if="(summary.data ?? []).length === 0">
                                 <td colspan="7" class="px-6 py-16 text-center">
                                     <p class="text-slate-400 font-semibold">
                                         Belum ada data summary token listrik pada periode ini.
@@ -573,7 +573,7 @@ const badgeClass = (status) => {
                     </table>
 
                     <div
-                        v-if="summary.data.length > 0"
+                        v-if="(summary.data ?? []).length > 0"
                         class="flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-5 border-t border-slate-100 bg-slate-50/50"
                     >
                         <div class="text-xs font-bold text-slate-500">
