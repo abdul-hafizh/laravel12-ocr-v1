@@ -315,27 +315,9 @@ const sendWa = () => {
                     <h2 class="font-bold text-2xl text-[#1E293B] leading-tight">
                         Billing <span class="text-[#2DD4BF]">Meter Printer</span>
                     </h2>
-                    <p class="text-sm text-slate-400 font-medium mt-1">
+                    <p class="hidden sm:block mt-1 text-sm text-slate-400 font-medium">
                         Periode billing printer/mesin
                     </p>
-                </div>
-
-                <div class="flex items-center space-x-3">
-                    <button
-                        type="button"
-                        @click="printBilling"
-                        class="px-5 py-3 bg-slate-700 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm"
-                    >
-                        Print
-                    </button>
-
-                    <button
-                        type="button"
-                        @click="sendWa"
-                        class="px-5 py-3 bg-[#2DD4BF] text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-[#26bba8] transition-all shadow-sm"
-                    >
-                        Kirim WA Finance
-                    </button>
                 </div>
             </div>
         </template>
@@ -372,7 +354,7 @@ const sendWa = () => {
                     />                    
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4">
                     <select
                         v-model="vendor"
                         class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
@@ -411,6 +393,21 @@ const sendWa = () => {
                         class="px-5 py-3 bg-white border border-slate-200 text-slate-500 rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all"
                     >
                         Reset
+                    </button>
+                     <button
+                        type="button"
+                        @click="printBilling"
+                        class="px-5 py-3 bg-slate-700 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm"
+                    >
+                        Print
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="sendWa"
+                        class="px-5 py-3 bg-[#2DD4BF] text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-[#26bba8] transition-all shadow-sm"
+                    >
+                        Kirim WA Finance
                     </button>
                 </div>
             </div>

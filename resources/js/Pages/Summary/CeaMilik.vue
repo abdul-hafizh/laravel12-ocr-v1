@@ -1,7 +1,7 @@
 <script setup>
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, router, Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
+import { Head, router, Link } from "@inertiajs/vue3";
+import { ref } from "vue";
 
 const props = defineProps({
     billings: Object,
@@ -17,8 +17,8 @@ const getDefaultPeriod = () => {
 
     const formatDate = (date) => {
         const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
 
         return `${y}-${m}-${d}`;
     };
@@ -31,66 +31,78 @@ const getDefaultPeriod = () => {
 
 const defaultPeriod = getDefaultPeriod();
 
-const search = ref(props.filters.search || '');
-const vendor = ref(props.filters.vendor || '');
-const cabangId = ref(props.filters.cabang_id || '');
+const search = ref(props.filters.search || "");
+const vendor = ref(props.filters.vendor || "");
+const cabangId = ref(props.filters.cabang_id || "");
 
 const startDate = ref(props.filters.start_date || defaultPeriod.start_date);
 const endDate = ref(props.filters.end_date || defaultPeriod.end_date);
 
 const formatCurrency = (value) => {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
+    return new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency: "IDR",
         minimumFractionDigits: 0,
     }).format(value || 0);
 };
 
 const formatNumber = (value) => {
-    return Number(value || 0).toLocaleString('id-ID');
+    return Number(value || 0).toLocaleString("id-ID");
 };
 
 const formatPercent = (value) => {
-    return `${Number(value || 0).toLocaleString('id-ID')}%`;
+    return `${Number(value || 0).toLocaleString("id-ID")}%`;
 };
 
 const formatDate = (value) => {
-    if (!value) return '-';
+    if (!value) return "-";
 
-    return new Date(value).toLocaleString('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
+    return new Date(value).toLocaleString("id-ID", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
     });
 };
 
 const generateLaporanRows = () => {
-    return props.billings.data.map(item => {
-        const biayaFotocopy = Number(item.laporan_detail?.biaya_fotocopy ?? item.copy_billing ?? 0);
-        const biayaPrintBw = Number(item.laporan_detail?.biaya_print_bw ?? item.print_billing ?? 0);
-        const biayaTinta = Number(item.laporan_detail?.biaya_tinta ?? 0);
-        const biayaPart = Number(item.laporan_detail?.biaya_part ?? 0);
-        const biayaMaintenance = Number(item.laporan_detail?.biaya_maintenance ?? 0);
+    return props.billings.data
+        .map((item) => {
+            const biayaFotocopy = Number(
+                item.laporan_detail?.biaya_fotocopy ?? item.copy_billing ?? 0,
+            );
+            const biayaPrintBw = Number(
+                item.laporan_detail?.biaya_print_bw ?? item.print_billing ?? 0,
+            );
+            const biayaTinta = Number(item.laporan_detail?.biaya_tinta ?? 0);
+            const biayaPart = Number(item.laporan_detail?.biaya_part ?? 0);
+            const biayaMaintenance = Number(
+                item.laporan_detail?.biaya_maintenance ?? 0,
+            );
 
-        const totalDebit = biayaFotocopy + biayaPrintBw + biayaTinta + biayaPart + biayaMaintenance;
-        const totalKredit = totalDebit;
+            const totalDebit =
+                biayaFotocopy +
+                biayaPrintBw +
+                biayaTinta +
+                biayaPart +
+                biayaMaintenance;
+            const totalKredit = totalDebit;
 
-        return `
+            return `
             <div class="report-box">
                 <div class="report-title">
-                    Estimasi Biaya print ${item.nama_cabang || '-'}
+                    Estimasi Biaya print ${item.nama_cabang || "-"}
                 </div>
 
                 <div style="margin-top:8px;font-size:16px;">
                     Mesin :
-                    <b>${item.master_nama_mesin || item.nama_mesin || '-'}</b>
+                    <b>${item.master_nama_mesin || item.nama_mesin || "-"}</b>
                 </div>
 
                 <div style="margin-top:4px;font-size:14px;">
                     Serial :
-                    <b>${item.serial_number || '-'}</b>
+                    <b>${item.serial_number || "-"}</b>
                 </div>
 
                 <div class="report-period">
@@ -152,11 +164,12 @@ const generateLaporanRows = () => {
                 </table>
             </div>
         `;
-    }).join('');
+        })
+        .join("");
 };
 
 const printLaporan = () => {
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open("", "_blank");
 
     printWindow.document.write(`
         <html>
@@ -246,7 +259,7 @@ const printLaporan = () => {
 
 const applyFilter = () => {
     router.get(
-        route('summary.cea-milik'),
+        route("summary.cea-milik"),
         {
             search: search.value,
             vendor: vendor.value,
@@ -259,19 +272,19 @@ const applyFilter = () => {
         {
             preserveState: true,
             replace: true,
-        }
+        },
     );
 };
 
 const resetFilter = () => {
-    search.value = '';
-    vendor.value = '';
-    cabangId.value = '';
+    search.value = "";
+    vendor.value = "";
+    cabangId.value = "";
     startDate.value = defaultPeriod.start_date;
     endDate.value = defaultPeriod.end_date;
 
     router.get(
-        route('summary.cea-milik'),
+        route("summary.cea-milik"),
         {
             start_date: startDate.value,
             end_date: endDate.value,
@@ -280,18 +293,18 @@ const resetFilter = () => {
         {
             preserveState: true,
             replace: true,
-        }
+        },
     );
 };
 
 const saveNote = (item) => {
     if (!item.new_note || !item.new_note.trim()) {
-        alert('Catatan tidak boleh kosong');
+        alert("Catatan tidak boleh kosong");
         return;
     }
 
     router.post(
-        route('summary.scan-notes.store'),
+        route("summary.scan-notes.store"),
         {
             image_scan_id: item.id,
             cabang_id: item.cabang_id,
@@ -300,30 +313,29 @@ const saveNote = (item) => {
         {
             preserveScroll: true,
             preserveState: true,
-        }
+        },
     );
 };
 
 const deleteNote = (noteId) => {
-    if (!confirm('Hapus catatan ini?')) return;
+    if (!confirm("Hapus catatan ini?")) return;
 
-    router.delete(
-        route('summary.scan-notes.delete', noteId),
-        {
-            preserveScroll: true,
-            preserveState: true,
-        }
-    );
+    router.delete(route("summary.scan-notes.delete", noteId), {
+        preserveScroll: true,
+        preserveState: true,
+    });
 };
 
 const generateBillingRows = () => {
-    return props.billings.data.map(item => `
+    return props.billings.data
+        .map(
+            (item) => `
         <tr>
             <td>${formatDate(item.created_at)}</td>
-            <td>${item.master_nama_mesin || item.nama_mesin || '-'}</td>
-            <td>${item.serial_number || '-'}</td>
-            <td>${item.nama_vendor || '-'}</td>
-            <td>${item.kode_cabang || '-'} - ${item.nama_cabang || '-'}</td>
+            <td>${item.master_nama_mesin || item.nama_mesin || "-"}</td>
+            <td>${item.serial_number || "-"}</td>
+            <td>${item.nama_vendor || "-"}</td>
+            <td>${item.kode_cabang || "-"} - ${item.nama_cabang || "-"}</td>
             <td>
                 Total Mesin: ${formatNumber(item.total_counter_mesin)}<br>
                 Print: ${formatNumber(item.print_counter)}<br>
@@ -349,20 +361,27 @@ const generateBillingRows = () => {
                 <b>Total: ${formatCurrency(item.billing_detail?.total_tagihan ?? 0)}</b>
             </td>
             <td>
-                <b>${item.master_mesin_id ? 'OK' : 'BELUM MAPPING'}</b><br><br>
+                <b>${item.master_mesin_id ? "OK" : "BELUM MAPPING"}</b><br><br>
                 <b>Catatan:</b><br>
                 ${
                     item.notes && item.notes.length
-                        ? item.notes.map(note => `- ${note.user_name || '-'}: ${note.note || '-'}`).join('<br>')
-                        : '-'
+                        ? item.notes
+                              .map(
+                                  (note) =>
+                                      `- ${note.user_name || "-"}: ${note.note || "-"}`,
+                              )
+                              .join("<br>")
+                        : "-"
                 }
             </td>
         </tr>
-    `).join('');
+    `,
+        )
+        .join("");
 };
 
 const printBilling = () => {
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open("", "_blank");
 
     printWindow.document.write(`
         <html>
@@ -417,32 +436,18 @@ const printBilling = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+            <div
+                class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full"
+            >
                 <div>
                     <h2 class="font-bold text-2xl text-[#1E293B] leading-tight">
                         Billing <span class="text-[#2DD4BF]">Counter CEA</span>
                     </h2>
 
-                    <p class="text-sm text-slate-400 font-medium mt-1">
+                    <p class="hidden sm:block mt-1 text-sm text-slate-400 font-medium">
                         Periode billing mesin CEA
                     </p>
                 </div>
-
-                <button
-                    type="button"
-                    @click="printBilling"
-                    class="px-5 py-3 bg-slate-700 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm"
-                >
-                    Print
-                </button>
-
-                <button
-                    type="button"
-                    @click="printLaporan"
-                    class="px-5 py-3 bg-[#2DD4BF] text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-[#26bba8] transition-all shadow-sm"
-                >
-                    Laporan
-                </button>
             </div>
         </template>
 
@@ -470,7 +475,7 @@ const printBilling = () => {
                     />
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4">
                     <select
                         v-model="vendor"
                         class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
@@ -506,43 +511,76 @@ const printBilling = () => {
                     >
                         Reset
                     </button>
+                    <button
+                        type="button"
+                        @click="printBilling"
+                        class="px-5 py-3 bg-slate-700 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm"
+                    >
+                        Print
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="printLaporan"
+                        class="px-5 py-3 bg-[#2DD4BF] text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-[#26bba8] transition-all shadow-sm"
+                    >
+                        Laporan
+                    </button>
                 </div>
             </div>
 
-            <div class="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm">
+            <div
+                class="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm"
+            >
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-100">
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest"
+                                >
                                     Foto
                                 </th>
 
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest"
+                                >
                                     Mesin
                                 </th>
 
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest"
+                                >
                                     Vendor / Cabang
                                 </th>
 
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right"
+                                >
                                     Counter Scan
                                 </th>
 
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right"
+                                >
                                     Pemakaian
                                 </th>
 
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right"
+                                >
                                     Persentase
                                 </th>
 
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right"
+                                >
                                     Billing
                                 </th>
 
-                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+                                <th
+                                    class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center"
+                                >
                                     Catatan
                                 </th>
                             </tr>
@@ -557,15 +595,23 @@ const printBilling = () => {
                                 >
                                     <td class="px-6 py-4">
                                         <div class="space-y-3">
-                                            <div class="flex gap-2 justify-center">
+                                            <div
+                                                class="flex gap-2 justify-center"
+                                            >
                                                 <div>
                                                     <a
                                                         v-if="item.foto_awal"
-                                                        :href="'/storage/' + item.foto_awal"
+                                                        :href="
+                                                            '/storage/' +
+                                                            item.foto_awal
+                                                        "
                                                         target="_blank"
                                                     >
                                                         <img
-                                                            :src="'/storage/' + item.foto_awal"
+                                                            :src="
+                                                                '/storage/' +
+                                                                item.foto_awal
+                                                            "
                                                             class="w-14 h-14 rounded-xl object-cover border border-slate-200"
                                                         />
                                                     </a>
@@ -574,159 +620,295 @@ const printBilling = () => {
                                                         v-else
                                                         class="w-14 h-14 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center"
                                                     >
-                                                        <span class="text-[8px] text-slate-400 text-center leading-tight">
+                                                        <span
+                                                            class="text-[8px] text-slate-400 text-center leading-tight"
+                                                        >
                                                             Belum ada
                                                         </span>
                                                     </div>
 
-                                                    <div class="text-[8px] text-center text-slate-400 mt-1">
+                                                    <div
+                                                        class="text-[8px] text-center text-slate-400 mt-1"
+                                                    >
                                                         Awal
                                                     </div>
                                                 </div>
 
                                                 <div>
-                                                    <template v-if="item.foto_akhir">
+                                                    <template
+                                                        v-if="item.foto_akhir"
+                                                    >
                                                         <a
-                                                            :href="'/storage/' + item.foto_akhir"
+                                                            :href="
+                                                                '/storage/' +
+                                                                item.foto_akhir
+                                                            "
                                                             target="_blank"
                                                         >
                                                             <img
-                                                                :src="'/storage/' + item.foto_akhir"
+                                                                :src="
+                                                                    '/storage/' +
+                                                                    item.foto_akhir
+                                                                "
                                                                 class="w-14 h-14 rounded-xl object-cover border border-slate-200"
                                                             />
                                                         </a>
                                                     </template>
 
                                                     <template v-else>
-                                                        <div class="w-14 h-14 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center">
-                                                            <span class="text-[8px] text-slate-400 text-center leading-tight">
+                                                        <div
+                                                            class="w-14 h-14 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center"
+                                                        >
+                                                            <span
+                                                                class="text-[8px] text-slate-400 text-center leading-tight"
+                                                            >
                                                                 Belum ada
                                                             </span>
                                                         </div>
                                                     </template>
 
-                                                    <div class="text-[8px] text-center text-slate-400 mt-1">
+                                                    <div
+                                                        class="text-[8px] text-center text-slate-400 mt-1"
+                                                    >
                                                         Akhir
                                                     </div>
                                                 </div>
-
                                             </div>
 
                                             <div class="text-center">
-                                                <div class="text-[11px] font-black text-[#1E293B]">
+                                                <div
+                                                    class="text-[11px] font-black text-[#1E293B]"
+                                                >
                                                     #{{ item.id }}
                                                 </div>
 
-                                                <div class="text-[9px] font-bold text-slate-400 uppercase">
-                                                    {{ formatDate(item.created_at) }}
+                                                <div
+                                                    class="text-[9px] font-bold text-slate-400 uppercase"
+                                                >
+                                                    {{
+                                                        formatDate(
+                                                            item.created_at,
+                                                        )
+                                                    }}
                                                 </div>
 
-                                                <div class="text-[9px] font-bold text-slate-400 uppercase">
-                                                    {{ item.user_name || '-' }}
+                                                <div
+                                                    class="text-[9px] font-bold text-slate-400 uppercase"
+                                                >
+                                                    {{ item.user_name || "-" }}
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
 
                                     <td class="px-6 py-4">
-                                        <div class="text-sm font-black text-[#1E293B] uppercase">
-                                            {{ item.master_nama_mesin || item.nama_mesin || '-' }}
+                                        <div
+                                            class="text-sm font-black text-[#1E293B] uppercase"
+                                        >
+                                            {{
+                                                item.master_nama_mesin ||
+                                                item.nama_mesin ||
+                                                "-"
+                                            }}
                                         </div>
 
-                                        <div class="mt-1 inline-block text-[10px] font-black text-[#2DD4BF] bg-[#2DD4BF]/5 border border-[#2DD4BF]/10 px-2 py-1 rounded-lg uppercase">
-                                            {{ item.serial_number || '-' }}
+                                        <div
+                                            class="mt-1 inline-block text-[10px] font-black text-[#2DD4BF] bg-[#2DD4BF]/5 border border-[#2DD4BF]/10 px-2 py-1 rounded-lg uppercase"
+                                        >
+                                            {{ item.serial_number || "-" }}
                                         </div>
                                     </td>
 
                                     <td class="px-6 py-4">
-                                        <div class="text-[11px] font-black text-[#1E293B] uppercase">
-                                            {{ item.nama_vendor || '-' }}
+                                        <div
+                                            class="text-[11px] font-black text-[#1E293B] uppercase"
+                                        >
+                                            {{ item.nama_vendor || "-" }}
                                         </div>
 
-                                        <div class="text-[10px] font-bold text-slate-400 uppercase">
-                                            {{ item.kode_vendor || '-' }}
+                                        <div
+                                            class="text-[10px] font-bold text-slate-400 uppercase"
+                                        >
+                                            {{ item.kode_vendor || "-" }}
                                         </div>
 
-                                        <div class="mt-1 text-[10px] font-black text-slate-500 uppercase">
-                                            {{ item.kode_cabang || '-' }} - {{ item.nama_cabang || '-' }}
-                                        </div>
-                                    </td>
-
-                                    <td class="px-6 py-4 text-right">
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Total Mesin: {{ formatNumber(item.total_counter_mesin) }}
-                                        </div>
-
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Print: {{ formatNumber(item.print_counter) }}
-                                        </div>
-
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Copy: {{ formatNumber(item.copy_counter) }}
+                                        <div
+                                            class="mt-1 text-[10px] font-black text-slate-500 uppercase"
+                                        >
+                                            {{ item.kode_cabang || "-" }} -
+                                            {{ item.nama_cabang || "-" }}
                                         </div>
                                     </td>
 
                                     <td class="px-6 py-4 text-right">
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Print: {{ formatNumber(item.usage_print_counter) }}
+                                        <div
+                                            class="text-[10px] font-black text-slate-600"
+                                        >
+                                            Total Mesin:
+                                            {{
+                                                formatNumber(
+                                                    item.total_counter_mesin,
+                                                )
+                                            }}
                                         </div>
 
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Copy: {{ formatNumber(item.usage_copy_counter) }}
-                                        </div>
-
-                                        <div class="mt-2 pt-2 border-t border-slate-100 text-[10px] font-black text-emerald-600">
-                                            Total Meter: {{ formatNumber(item.total_meter) }}
-                                        </div>
-                                    </td>
-
-                                    <td class="px-6 py-4 text-right">
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Print: {{ formatPercent(item.print_percent) }}
-                                        </div>
-
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Copy: {{ formatPercent(item.copy_percent) }}
-                                        </div>
-                                    </td>
-
-                                    <td class="px-6 py-4 text-right">
-                                        <div class="text-[10px] font-black text-slate-500">
-                                            Contract:
-                                            {{ formatCurrency(item.contract_service) }}
-                                        </div>
-
-                                        <div class="text-[10px] font-black text-slate-500">
-                                            Part:
-                                            {{ formatCurrency(item.billing_detail?.biaya_part ?? 0) }}
-                                        </div>
-
-                                        <div class="text-[10px] font-black text-slate-500">
-                                            Maintenance:
-                                            {{ formatCurrency(item.billing_detail?.biaya_maintenance ?? 0) }}
-                                        </div>
-
-                                        <div class="text-[10px] font-black text-slate-500">
-                                            Tinta:
-                                            {{ formatCurrency(item.billing_detail?.biaya_tinta ?? 0) }}
-                                        </div>
-
-                                        <div class="text-[10px] font-black text-slate-500">
+                                        <div
+                                            class="text-[10px] font-black text-slate-600"
+                                        >
                                             Print:
-                                            {{ formatCurrency(item.print_billing) }}
+                                            {{
+                                                formatNumber(item.print_counter)
+                                            }}
                                         </div>
 
-                                        <div class="text-[10px] font-black text-slate-500">
+                                        <div
+                                            class="text-[10px] font-black text-slate-600"
+                                        >
                                             Copy:
-                                            {{ formatCurrency(item.copy_billing) }}
+                                            {{
+                                                formatNumber(item.copy_counter)
+                                            }}
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-4 text-right">
+                                        <div
+                                            class="text-[10px] font-black text-slate-600"
+                                        >
+                                            Print:
+                                            {{
+                                                formatNumber(
+                                                    item.usage_print_counter,
+                                                )
+                                            }}
                                         </div>
 
-                                        <div class="mt-2 text-lg font-black text-emerald-600">
-                                            {{ formatCurrency(item.total_tagihan) }}
+                                        <div
+                                            class="text-[10px] font-black text-slate-600"
+                                        >
+                                            Copy:
+                                            {{
+                                                formatNumber(
+                                                    item.usage_copy_counter,
+                                                )
+                                            }}
                                         </div>
 
-                                        <div class="text-[9px] font-bold text-slate-400 uppercase">
-                                            Rule: {{ item.billing_rule || '-' }}
+                                        <div
+                                            class="mt-2 pt-2 border-t border-slate-100 text-[10px] font-black text-emerald-600"
+                                        >
+                                            Total Meter:
+                                            {{ formatNumber(item.total_meter) }}
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-4 text-right">
+                                        <div
+                                            class="text-[10px] font-black text-slate-600"
+                                        >
+                                            Print:
+                                            {{
+                                                formatPercent(
+                                                    item.print_percent,
+                                                )
+                                            }}
+                                        </div>
+
+                                        <div
+                                            class="text-[10px] font-black text-slate-600"
+                                        >
+                                            Copy:
+                                            {{
+                                                formatPercent(item.copy_percent)
+                                            }}
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-4 text-right">
+                                        <div
+                                            class="text-[10px] font-black text-slate-500"
+                                        >
+                                            Contract:
+                                            {{
+                                                formatCurrency(
+                                                    item.contract_service,
+                                                )
+                                            }}
+                                        </div>
+
+                                        <div
+                                            class="text-[10px] font-black text-slate-500"
+                                        >
+                                            Part:
+                                            {{
+                                                formatCurrency(
+                                                    item.billing_detail
+                                                        ?.biaya_part ?? 0,
+                                                )
+                                            }}
+                                        </div>
+
+                                        <div
+                                            class="text-[10px] font-black text-slate-500"
+                                        >
+                                            Maintenance:
+                                            {{
+                                                formatCurrency(
+                                                    item.billing_detail
+                                                        ?.biaya_maintenance ??
+                                                        0,
+                                                )
+                                            }}
+                                        </div>
+
+                                        <div
+                                            class="text-[10px] font-black text-slate-500"
+                                        >
+                                            Tinta:
+                                            {{
+                                                formatCurrency(
+                                                    item.billing_detail
+                                                        ?.biaya_tinta ?? 0,
+                                                )
+                                            }}
+                                        </div>
+
+                                        <div
+                                            class="text-[10px] font-black text-slate-500"
+                                        >
+                                            Print:
+                                            {{
+                                                formatCurrency(
+                                                    item.print_billing,
+                                                )
+                                            }}
+                                        </div>
+
+                                        <div
+                                            class="text-[10px] font-black text-slate-500"
+                                        >
+                                            Copy:
+                                            {{
+                                                formatCurrency(
+                                                    item.copy_billing,
+                                                )
+                                            }}
+                                        </div>
+
+                                        <div
+                                            class="mt-2 text-lg font-black text-emerald-600"
+                                        >
+                                            {{
+                                                formatCurrency(
+                                                    item.total_tagihan,
+                                                )
+                                            }}
+                                        </div>
+
+                                        <div
+                                            class="text-[9px] font-bold text-slate-400 uppercase"
+                                        >
+                                            Rule: {{ item.billing_rule || "-" }}
                                         </div>
                                     </td>
 
@@ -735,16 +917,25 @@ const printBilling = () => {
                                             <div class="text-center">
                                                 <span
                                                     class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border"
-                                                    :class="item.master_mesin_id
-                                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                                        : 'bg-rose-50 text-rose-600 border-rose-100'"
+                                                    :class="
+                                                        item.master_mesin_id
+                                                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                                            : 'bg-rose-50 text-rose-600 border-rose-100'
+                                                    "
                                                 >
-                                                    {{ item.master_mesin_id ? 'OK' : 'Belum Mapping' }}
+                                                    {{
+                                                        item.master_mesin_id
+                                                            ? "OK"
+                                                            : "Belum Mapping"
+                                                    }}
                                                 </span>
                                             </div>
 
                                             <div
-                                                v-if="item.notes && item.notes.length"
+                                                v-if="
+                                                    item.notes &&
+                                                    item.notes.length
+                                                "
                                                 class="space-y-1 max-h-24 overflow-y-auto"
                                             >
                                                 <div
@@ -752,20 +943,32 @@ const printBilling = () => {
                                                     :key="note.id"
                                                     class="bg-slate-50 border border-slate-100 rounded-lg px-2 py-2 text-left"
                                                 >
-                                                    <div class="flex items-start justify-between gap-2">
+                                                    <div
+                                                        class="flex items-start justify-between gap-2"
+                                                    >
                                                         <div>
-                                                            <div class="text-[9px] font-bold text-slate-600">
-                                                                {{ note.user_name }}
+                                                            <div
+                                                                class="text-[9px] font-bold text-slate-600"
+                                                            >
+                                                                {{
+                                                                    note.user_name
+                                                                }}
                                                             </div>
 
-                                                            <div class="text-[10px] text-slate-500">
+                                                            <div
+                                                                class="text-[10px] text-slate-500"
+                                                            >
                                                                 {{ note.note }}
                                                             </div>
                                                         </div>
 
                                                         <button
                                                             type="button"
-                                                            @click="deleteNote(note.id)"
+                                                            @click="
+                                                                deleteNote(
+                                                                    note.id,
+                                                                )
+                                                            "
                                                             class="text-red-500 hover:text-red-700 text-[10px] font-black"
                                                             title="Hapus"
                                                         >
@@ -796,7 +999,9 @@ const printBilling = () => {
 
                             <tr v-else>
                                 <td colspan="8" class="px-6 py-20 text-center">
-                                    <h4 class="text-[13px] font-black text-[#1E293B] uppercase italic tracking-tighter">
+                                    <h4
+                                        class="text-[13px] font-black text-[#1E293B] uppercase italic tracking-tighter"
+                                    >
                                         Belum ada data billing CEA
                                     </h4>
                                 </td>
@@ -805,18 +1010,31 @@ const printBilling = () => {
                     </table>
                 </div>
 
-                <div class="px-6 py-5 bg-slate-50/80 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div class="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
+                <div
+                    class="px-6 py-5 bg-slate-50/80 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4"
+                >
+                    <div
+                        class="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]"
+                    >
                         Showing
-                        <span class="text-[#1E293B]">{{ billings.from || 0 }}</span>
+                        <span class="text-[#1E293B]">{{
+                            billings.from || 0
+                        }}</span>
                         to
-                        <span class="text-[#1E293B]">{{ billings.to || 0 }}</span>
+                        <span class="text-[#1E293B]">{{
+                            billings.to || 0
+                        }}</span>
                         of
-                        <span class="text-[#2DD4BF]">{{ billings.total || 0 }}</span>
+                        <span class="text-[#2DD4BF]">{{
+                            billings.total || 0
+                        }}</span>
                         Billings
                     </div>
 
-                    <nav v-if="billings.links && billings.links.length > 0" class="flex flex-wrap gap-1.5">
+                    <nav
+                        v-if="billings.links && billings.links.length > 0"
+                        class="flex flex-wrap gap-1.5"
+                    >
                         <template v-for="(link, k) in billings.links" :key="k">
                             <div
                                 v-if="link.url === null"
@@ -829,8 +1047,10 @@ const printBilling = () => {
                                 :href="link.url"
                                 class="px-3 py-2 text-[10px] font-black rounded-xl transition-all duration-200 border uppercase tracking-tighter"
                                 :class="{
-                                    'bg-[#1E293B] text-white border-[#1E293B] shadow-lg shadow-black/10 scale-105 z-10': link.active,
-                                    'bg-white text-slate-600 border-slate-200 hover:border-[#2DD4BF] hover:text-[#2DD4BF]': !link.active,
+                                    'bg-[#1E293B] text-white border-[#1E293B] shadow-lg shadow-black/10 scale-105 z-10':
+                                        link.active,
+                                    'bg-white text-slate-600 border-slate-200 hover:border-[#2DD4BF] hover:text-[#2DD4BF]':
+                                        !link.active,
                                 }"
                                 v-html="link.label"
                                 preserve-scroll

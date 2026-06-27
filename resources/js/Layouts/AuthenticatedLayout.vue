@@ -1,27 +1,101 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
-import { usePage, Link } from '@inertiajs/vue3';
-import Dropdown from '@/Components/Dropdown.vue';
-import DropdownLink from '@/Components/DropdownLink.vue';
-import Toast from '@/Components/Toast.vue';
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { usePage, Link } from "@inertiajs/vue3";
+import Dropdown from "@/Components/Dropdown.vue";
+import DropdownLink from "@/Components/DropdownLink.vue";
+import Toast from "@/Components/Toast.vue";
 
 const page = usePage();
-
 const flashMessage = computed(() => {
-    return page.props.flash?.message
-        || page.props.flash?.success
-        || page.props.flash?.error
-        || null;
+    return (
+        page.props.flash?.message ||
+        page.props.flash?.success ||
+        page.props.flash?.error ||
+        null
+    );
 });
 
 const isSidebarOpen = ref(true);
+const isMobileMenuOpen = ref(false)
+const isMobile = ref(window.innerWidth < 1024)
 
 const allowedUrls = computed(() => page.props.allowedUrls || []);
 
-const publicUrls = [
-    '/dashboard',
-    '/profile',
-];
+const publicUrls = ["/dashboard", "/profile"];
+
+const handleResize = () => {
+    isMobile.value = window.innerWidth < 1024
+
+    if (!isMobile.value) {
+        isMobileMenuOpen.value = false
+    }
+}
+
+watch(
+    () => page.url,
+
+    () => {
+
+        isMobileMenuOpen.value = false
+
+    }
+)
+
+watch(isMobileMenuOpen, (open) => {
+
+    document.body.style.overflow = open
+
+        ? "hidden"
+
+        : ""
+
+})
+
+const handleEscape = (event) => {
+
+    if (event.key === "Escape") {
+
+        isMobileMenuOpen.value = false
+
+    }
+
+}
+
+onMounted(() => {
+
+    window.addEventListener("resize", handleResize)
+
+    window.addEventListener("keydown", handleEscape)
+
+})
+
+onUnmounted(() => {
+
+    window.removeEventListener("resize", handleResize)
+
+    window.removeEventListener("keydown", handleEscape)
+
+})
+
+watch(isMobile, (mobile) => {
+
+    if (!mobile) {
+
+        isMobileMenuOpen.value = false
+
+    }
+
+})
+
+const closeMobileMenu = () => {
+
+    if (isMobile.value) {
+
+        isMobileMenuOpen.value = false
+
+    }
+
+}
 
 const canAccess = (href) => {
     if (!href) return false;
@@ -32,7 +106,7 @@ const canAccess = (href) => {
 
         if (
             publicUrls.some((publicUrl) => {
-                return path === publicUrl || path.startsWith(publicUrl + '/');
+                return path === publicUrl || path.startsWith(publicUrl + "/");
             })
         ) {
             return true;
@@ -43,11 +117,10 @@ const canAccess = (href) => {
         }
 
         return allowedUrls.value.some((allowed) => {
-            const cleanAllowed = '/' + String(allowed)
-                .replace(/^\/+/, '')
-                .replace(/\/+$/, '');
+            const cleanAllowed =
+                "/" + String(allowed).replace(/^\/+/, "").replace(/\/+$/, "");
 
-            return path === cleanAllowed || path.startsWith(cleanAllowed + '/');
+            return path === cleanAllowed || path.startsWith(cleanAllowed + "/");
         });
     } catch {
         return false;
@@ -60,139 +133,139 @@ const filterMenus = (menus) => {
 
 const summaryMenus = [
     {
-        name: 'Token Listrik',
-        href: route('summary.electricity'),
-        current: route().current('summary.electricity'),
+        name: "Token Listrik",
+        href: route("summary.electricity"),
+        current: route().current("summary.electricity"),
     },
     {
-        name: 'Meter Mesin',
-        href: route('summary.printer-billing'),
-        current: route().current('summary.printer-billing'),
+        name: "Meter Mesin",
+        href: route("summary.printer-billing"),
+        current: route().current("summary.printer-billing"),
     },
     {
-        name: 'CEA Milik',
-        href: route('summary.cea-milik'),
-        current: route().current('summary.cea-milik'),
+        name: "CEA Milik",
+        href: route("summary.cea-milik"),
+        current: route().current("summary.cea-milik"),
     },
     {
-        name: 'CEA Sewa',
-        href: route('summary.cea-sewa'),
-        current: route().current('summary.cea-sewa'),
+        name: "CEA Sewa",
+        href: route("summary.cea-sewa"),
+        current: route().current("summary.cea-sewa"),
     },
     {
-        name: 'ASABA',
-        href: route('summary.asaba'),
-        current: route().current('summary.asaba'),
+        name: "ASABA",
+        href: route("summary.asaba"),
+        current: route().current("summary.asaba"),
     },
 ];
 
 const masterDataMenus = [
     {
-        name: 'Master Cabang',
-        href: route('master-cabang.index'),
-        current: route().current('master-cabang.*'),
+        name: "Master Cabang",
+        href: route("master-cabang.index"),
+        current: route().current("master-cabang.*"),
     },
     {
-        name: 'Master Vendor',
-        href: route('master-vendor.index'),
-        current: route().current('master-vendor.*'),
+        name: "Master Vendor",
+        href: route("master-vendor.index"),
+        current: route().current("master-vendor.*"),
     },
     {
-        name: 'Master Mesin',
-        href: route('master-mesin.index'),
-        current: route().current('master-mesin.*'),
+        name: "Master Mesin",
+        href: route("master-mesin.index"),
+        current: route().current("master-mesin.*"),
     },
     {
-        name: 'Master Daya Listrik',
-        href: route('master-daya-listrik.index'),
-        current: route().current('master-daya-listrik.*'),
+        name: "Master Daya Listrik",
+        href: route("master-daya-listrik.index"),
+        current: route().current("master-daya-listrik.*"),
     },
     {
-        name: 'Master Token Listrik',
-        href: route('master-token-listrik.index'),
-        current: route().current('master-token-listrik.*'),
+        name: "Master Token Listrik",
+        href: route("master-token-listrik.index"),
+        current: route().current("master-token-listrik.*"),
     },
     {
-        name: 'Master Kendaraan',
-        href: route('master-kendaraan.index'),
-        current: route().current('master-kendaraan.*'),
+        name: "Master Kendaraan",
+        href: route("master-kendaraan.index"),
+        current: route().current("master-kendaraan.*"),
     },
     {
-        name: 'Master SKPD',
-        href: route('master-skpd.index'),
-        current: route().current('master-skpd.*'),
+        name: "Master SKPD",
+        href: route("master-skpd.index"),
+        current: route().current("master-skpd.*"),
     },
     {
-        name: 'Master Biaya',
-        href: route('master-harga-biaya.index'),
-        current: route().current('master-harga-biaya.*'),
+        name: "Master Biaya",
+        href: route("master-harga-biaya.index"),
+        current: route().current("master-harga-biaya.*"),
     },
 ];
 
 const navigation = [
     {
-        name: 'Dashboard',
-        href: route('dashboard'),
-        icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
-        current: route().current('dashboard'),
+        name: "Dashboard",
+        href: route("dashboard"),
+        icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
+        current: route().current("dashboard"),
     },
     {
-        name: 'BMI Karyawan',
-        href: route('employee-measurements.index'),
-        icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
-        current: route().current('employee-measurements.*'),
+        name: "BMI Karyawan",
+        href: route("employee-measurements.index"),
+        icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
+        current: route().current("employee-measurements.*"),
     },
     {
-        name: 'Settings',
-        href: route('profile.edit'),
-        icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',
-        current: route().current('profile.edit'),
+        name: "Settings",
+        href: route("profile.edit"),
+        icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z",
+        current: route().current("profile.edit"),
     },
 ];
 
 const hasilUploadMenus = [
     {
-        name: 'Token Listrik',
-        href: route('hasil-upload.token-listrik'),
-        current: route().current('hasil-upload.token-listrik'),
+        name: "Token Listrik",
+        href: route("hasil-upload.token-listrik"),
+        current: route().current("hasil-upload.token-listrik"),
     },
     {
-        name: 'Meter Mesin',
-        href: route('hasil-upload.mesin-cetak'),
-        current: route().current('hasil-upload.mesin-cetak'),
+        name: "Meter Mesin",
+        href: route("hasil-upload.mesin-cetak"),
+        current: route().current("hasil-upload.mesin-cetak"),
     },
     {
-        name: 'CEA Mesin',
-        href: route('hasil-upload.cea'),
-        current: route().current('hasil-upload.cea'),
+        name: "CEA Mesin",
+        href: route("hasil-upload.cea"),
+        current: route().current("hasil-upload.cea"),
     },
     {
-        name: 'ASABA Mesin',
-        href: route('hasil-upload.asaba'),
-        current: route().current('hasil-upload.asaba'),
+        name: "ASABA Mesin",
+        href: route("hasil-upload.asaba"),
+        current: route().current("hasil-upload.asaba"),
     },
     {
-        name: 'Part Maintenance',
-        href: route('hasil-upload.part-maintenance'),
-        current: route().current('hasil-upload.part-maintenance'),
+        name: "Part Maintenance",
+        href: route("hasil-upload.part-maintenance"),
+        current: route().current("hasil-upload.part-maintenance"),
     },
     {
-        name: 'Bukti Bayar',
-        href: route('hasil-upload.struk-online'),
-        current: route().current('hasil-upload.struk-online'),
+        name: "Bukti Bayar",
+        href: route("hasil-upload.struk-online"),
+        current: route().current("hasil-upload.struk-online"),
     },
 ];
 
 const userAccessMenus = [
     {
-        name: 'Master Role',
-        href: route('roles.index'),
-        current: route().current('roles.*'),
+        name: "Master Role",
+        href: route("roles.index"),
+        current: route().current("roles.*"),
     },
     {
-        name: 'Manajemen User',
-        href: route('users-management.index'),
-        current: route().current('users-management.*'),
+        name: "Manajemen User",
+        href: route("users-management.index"),
+        current: route().current("users-management.*"),
     },
 ];
 
@@ -203,72 +276,101 @@ const filteredHasilUploadMenus = computed(() => filterMenus(hasilUploadMenus));
 const filteredUserAccessMenus = computed(() => filterMenus(userAccessMenus));
 
 const isSummaryOpen = ref(
-    route().current('summary.*') ||
-    route().current('printer-billing.*')
+    route().current("summary.*") || route().current("printer-billing.*"),
 );
 
 const isMasterDataOpen = ref(
-    route().current('master-cabang.*') ||
-    route().current('master-vendor.*') ||
-    route().current('master-mesin.*') ||
-    route().current('master-token-listrik.*') ||
-    route().current('master-kendaraan.*') ||
-    route().current('master-skpd.*') ||
-    route().current('master-harga-biaya.*')
+    route().current("master-cabang.*") ||
+        route().current("master-vendor.*") ||
+        route().current("master-mesin.*") ||
+        route().current("master-token-listrik.*") ||
+        route().current("master-kendaraan.*") ||
+        route().current("master-skpd.*") ||
+        route().current("master-harga-biaya.*"),
 );
 
-const isHasilUploadOpen = ref(route().current('hasil-upload.*'));
+const isHasilUploadOpen = ref(route().current("hasil-upload.*"));
 
 const isUserAccessOpen = ref(
-    route().current('roles.*') ||
-    route().current('users-management.*')
+    route().current("roles.*") || route().current("users-management.*"),
 );
 
-watch(() => route().current(), () => {
-    if (
-        route().current('summary.*') ||
-        route().current('printer-billing.*')
-    ) {
-        isSummaryOpen.value = true;
-    }
+watch(
+    () => route().current(),
+    () => {
+        if (
+            route().current("summary.*") ||
+            route().current("printer-billing.*")
+        ) {
+            isSummaryOpen.value = true;
+        }
 
-    if (
-        route().current('master-cabang.*') ||
-        route().current('master-vendor.*') ||
-        route().current('master-mesin.*') ||
-        route().current('master-token-listrik.*') ||
-        route().current('master-kendaraan.*') ||
-        route().current('master-skpd.*') ||
-        route().current('master-harga-biaya.*')
-    ) {
-        isMasterDataOpen.value = true;
-    }
+        if (
+            route().current("master-cabang.*") ||
+            route().current("master-vendor.*") ||
+            route().current("master-mesin.*") ||
+            route().current("master-token-listrik.*") ||
+            route().current("master-kendaraan.*") ||
+            route().current("master-skpd.*") ||
+            route().current("master-harga-biaya.*")
+        ) {
+            isMasterDataOpen.value = true;
+        }
 
-    if (route().current('hasil-upload.*')) {
-        isHasilUploadOpen.value = true;
-    }
+        if (route().current("hasil-upload.*")) {
+            isHasilUploadOpen.value = true;
+        }
 
-    if (
-        route().current('roles.*') ||
-        route().current('users-management.*')
-    ) {
-        isUserAccessOpen.value = true;
-    }
-});
+        if (
+            route().current("roles.*") ||
+            route().current("users-management.*")
+        ) {
+            isUserAccessOpen.value = true;
+        }
+    },
+);
 </script>
 
 <template>
-    <div class="min-h-screen bg-[#F8FAFC] flex">
+    <div class="min-h-screen bg-[#F8FAFC] relative overflow-x-hidden">
         <Toast :message="flashMessage" />
 
+        <Transition
+            enter-active-class="transition-opacity duration-300"
+            leave-active-class="transition-opacity duration-300"
+            enter-from-class="opacity-0"
+            leave-to-class="opacity-0"
+        >
+            <div
+                v-if="isMobileMenuOpen"
+                class="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                @click="closeMobileMenu"
+            />
+        </Transition>
+
         <aside
-            class="fixed inset-y-0 left-0 bg-white border-r border-slate-200/60 transition-all duration-300 z-50 overflow-hidden"
-            :class="[isSidebarOpen ? 'w-72' : 'w-20']"
+            class="fixed inset-y-0 left-0 bg-white border-r border-slate-200/60 transition-all duration-300 ease-in-out z-50 overflow-hidden"
+            :class="[
+                isSidebarOpen ? 'lg:w-72 w-72' : 'lg:w-20 w-72',
+
+                isMobileMenuOpen
+                    ? 'translate-x-0'
+                    : '-translate-x-full lg:translate-x-0',
+            ]"
         >
             <div class="flex flex-col h-full px-4 py-6">
-                <div class="flex items-center space-x-3 px-2 mb-10">
-                    <div class="w-10 h-10 bg-[#2DD4BF] rounded-xl flex shrink-0 items-center justify-center shadow-lg shadow-teal-100/50">
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div
+                    class="flex items-center justify-center lg:justify-start space-x-3 px-2 mb-8"
+                >
+                    <div
+                        class="w-10 h-10 bg-[#2DD4BF] rounded-xl flex shrink-0 items-center justify-center shadow-lg shadow-teal-100/50"
+                    >
+                        <svg
+                            class="w-6 h-6 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
                             <path
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
@@ -279,36 +381,53 @@ watch(() => route().current(), () => {
                     </div>
 
                     <span
-                        v-if="isSidebarOpen"
+                        v-if="isSidebarOpen || isMobileMenuOpen"
                         class="text-xl font-bold text-[#1E293B] tracking-tight"
                     >
                         OCR<span class="text-[#2DD4BF]">Hub</span>
                     </span>
                 </div>
 
-                <nav class="flex-1 space-y-1.5 overflow-y-auto pr-1">
+                <nav
+                    class="flex-1 overflow-y-auto overflow-x-hidden space-y-1.5 pr-1 scrollbar-thin"
+                >
                     <Link
-                        v-for="item in filteredNavigation.filter((menu) => menu.name === 'Dashboard')"
+                        v-for="item in filteredNavigation.filter(
+                            (menu) => menu.name === 'Dashboard',
+                        )"
                         :key="item.name"
                         :href="item.href"
+                        @click="closeMobileMenu"
                         :class="[
                             item.current
                                 ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent',
                         ]"
                         class="group flex items-center px-4 py-3.5 text-sm font-bold rounded-[1.25rem] transition-all duration-200"
                     >
                         <svg
                             class="w-6 h-6 shrink-0 transition-colors"
-                            :class="[item.current ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
+                            :class="[
+                                item.current
+                                    ? 'text-[#2DD4BF]'
+                                    : 'text-slate-300 group-hover:text-slate-500',
+                            ]"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                :d="item.icon"
+                            />
                         </svg>
 
-                        <span v-if="isSidebarOpen" class="ms-4">
+                        <span
+                            v-if="isSidebarOpen || isMobileMenuOpen"
+                            class="ms-4"
+                        >
                             {{ item.name }}
                         </span>
                     </Link>
@@ -327,48 +446,70 @@ watch(() => route().current(), () => {
                         :class="[
                             isSummaryOpen
                                 ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent',
                         ]"
                         class="group flex w-full items-center px-4 py-3.5 text-sm font-bold rounded-[1.25rem] transition-all duration-200"
                     >
                         <svg
                             class="w-6 h-6 shrink-0 transition-colors"
-                            :class="[isSummaryOpen ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
+                            :class="[
+                                isSummaryOpen
+                                    ? 'text-[#2DD4BF]'
+                                    : 'text-slate-300 group-hover:text-slate-500',
+                            ]"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3v18m4-14v14m4-10v10M7 13v8M3 17v4" />
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M11 3v18m4-14v14m4-10v10M7 13v8M3 17v4"
+                            />
                         </svg>
 
-                        <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
+                        <span
+                            v-if="isSidebarOpen || isMobileMenuOpen"
+                            class="ms-4 flex-1 text-left"
+                        >
                             Laporan
                         </span>
 
                         <svg
-                            v-if="isSidebarOpen"
+                            v-if="isSidebarOpen || isMobileMenuOpen"
                             class="h-4 w-4 transition-transform"
                             :class="{ 'rotate-180': isSummaryOpen }"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M19 9l-7 7-7-7"
+                            />
                         </svg>
                     </button>
 
                     <div
-                        v-if="isSidebarOpen && isSummaryOpen && filteredSummaryMenus.length > 0"
+                        v-if="
+                            isSidebarOpen &&
+                            isSummaryOpen &&
+                            filteredSummaryMenus.length > 0
+                        "
                         class="ml-6 space-y-1 border-l border-slate-100 pl-3"
                     >
                         <Link
                             v-for="item in filteredSummaryMenus"
                             :key="item.name"
                             :href="item.href"
+                            @click="closeMobileMenu"
                             :class="[
                                 item.current
                                     ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
-                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]',
                             ]"
                             class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
                         >
@@ -390,48 +531,70 @@ watch(() => route().current(), () => {
                         :class="[
                             isHasilUploadOpen
                                 ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent',
                         ]"
                         class="group flex w-full items-center px-4 py-3.5 text-sm font-bold rounded-[1.25rem] transition-all duration-200"
                     >
                         <svg
                             class="w-6 h-6 shrink-0 transition-colors"
-                            :class="[isHasilUploadOpen ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
+                            :class="[
+                                isHasilUploadOpen
+                                    ? 'text-[#2DD4BF]'
+                                    : 'text-slate-300 group-hover:text-slate-500',
+                            ]"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M12 12v9m0-9l-3 3m3-3l3 3" />
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M12 12v9m0-9l-3 3m3-3l3 3"
+                            />
                         </svg>
 
-                        <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
+                        <span
+                            v-if="isSidebarOpen || isMobileMenuOpen"
+                            class="ms-4 flex-1 text-left"
+                        >
                             Hasil Upload
                         </span>
 
                         <svg
-                            v-if="isSidebarOpen"
+                            v-if="isSidebarOpen || isMobileMenuOpen"
                             class="h-4 w-4 transition-transform"
                             :class="{ 'rotate-180': isHasilUploadOpen }"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M19 9l-7 7-7-7"
+                            />
                         </svg>
                     </button>
 
                     <div
-                        v-if="isSidebarOpen && isHasilUploadOpen && filteredHasilUploadMenus.length > 0"
+                        v-if="
+                            isSidebarOpen &&
+                            isHasilUploadOpen &&
+                            filteredHasilUploadMenus.length > 0
+                        "
                         class="ml-6 space-y-1 border-l border-slate-100 pl-3"
                     >
                         <Link
                             v-for="item in filteredHasilUploadMenus"
                             :key="item.name"
                             :href="item.href"
+                            @click="closeMobileMenu"
                             :class="[
                                 item.current
                                     ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
-                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]',
                             ]"
                             class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
                         >
@@ -453,48 +616,70 @@ watch(() => route().current(), () => {
                         :class="[
                             isMasterDataOpen
                                 ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent',
                         ]"
                         class="group flex w-full items-center px-4 py-3.5 text-sm font-bold rounded-[1.25rem] transition-all duration-200"
                     >
                         <svg
                             class="w-6 h-6 shrink-0 transition-colors"
-                            :class="[isMasterDataOpen ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
+                            :class="[
+                                isMasterDataOpen
+                                    ? 'text-[#2DD4BF]'
+                                    : 'text-slate-300 group-hover:text-slate-500',
+                            ]"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                            />
                         </svg>
 
-                        <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
+                        <span
+                            v-if="isSidebarOpen || isMobileMenuOpen"
+                            class="ms-4 flex-1 text-left"
+                        >
                             Master Data
                         </span>
 
                         <svg
-                            v-if="isSidebarOpen"
+                            v-if="isSidebarOpen || isMobileMenuOpen"
                             class="h-4 w-4 transition-transform"
                             :class="{ 'rotate-180': isMasterDataOpen }"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M19 9l-7 7-7-7"
+                            />
                         </svg>
                     </button>
 
                     <div
-                        v-if="isSidebarOpen && isMasterDataOpen && filteredMasterDataMenus.length > 0"
+                        v-if="
+                            isSidebarOpen &&
+                            isMasterDataOpen &&
+                            filteredMasterDataMenus.length > 0
+                        "
                         class="ml-6 space-y-1 border-l border-slate-100 pl-3"
                     >
                         <Link
                             v-for="item in filteredMasterDataMenus"
                             :key="item.name"
                             :href="item.href"
+                            @click="closeMobileMenu"
                             :class="[
                                 item.current
                                     ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
-                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]',
                             ]"
                             class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
                         >
@@ -516,48 +701,70 @@ watch(() => route().current(), () => {
                         :class="[
                             isUserAccessOpen
                                 ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent',
                         ]"
                         class="group flex w-full items-center px-4 py-3.5 text-sm font-bold rounded-[1.25rem] transition-all duration-200"
                     >
                         <svg
                             class="w-6 h-6 shrink-0 transition-colors"
-                            :class="[isUserAccessOpen ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
+                            :class="[
+                                isUserAccessOpen
+                                    ? 'text-[#2DD4BF]'
+                                    : 'text-slate-300 group-hover:text-slate-500',
+                            ]"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 11-8 0 4 4 0 018 0zm6 4a4 4 0 10-3.46-6M3 14a4 4 0 013.46-6" />
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 11-8 0 4 4 0 018 0zm6 4a4 4 0 10-3.46-6M3 14a4 4 0 013.46-6"
+                            />
                         </svg>
 
-                        <span v-if="isSidebarOpen" class="ms-4 flex-1 text-left">
+                        <span
+                            v-if="isSidebarOpen || isMobileMenuOpen"
+                            class="ms-4 flex-1 text-left"
+                        >
                             User Access
                         </span>
 
                         <svg
-                            v-if="isSidebarOpen"
+                            v-if="isSidebarOpen || isMobileMenuOpen"
                             class="h-4 w-4 transition-transform"
                             :class="{ 'rotate-180': isUserAccessOpen }"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M19 9l-7 7-7-7"
+                            />
                         </svg>
                     </button>
 
                     <div
-                        v-if="isSidebarOpen && isUserAccessOpen && filteredUserAccessMenus.length > 0"
+                        v-if="
+                            isSidebarOpen &&
+                            isUserAccessOpen &&
+                            filteredUserAccessMenus.length > 0
+                        "
                         class="ml-6 space-y-1 border-l border-slate-100 pl-3"
                     >
                         <Link
                             v-for="item in filteredUserAccessMenus"
                             :key="item.name"
                             :href="item.href"
+                            @click="closeMobileMenu"
                             :class="[
                                 item.current
                                     ? 'bg-[#2DD4BF]/10 text-[#2DD4BF]'
-                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B]',
                             ]"
                             class="block rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
                         >
@@ -566,27 +773,42 @@ watch(() => route().current(), () => {
                     </div>
 
                     <Link
-                        v-for="item in filteredNavigation.filter((menu) => menu.name !== 'Dashboard')"
+                        v-for="item in filteredNavigation.filter(
+                            (menu) => menu.name !== 'Dashboard',
+                        )"
                         :key="item.name"
                         :href="item.href"
+                        @click="closeMobileMenu"
                         :class="[
                             item.current
                                 ? 'bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/20'
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent'
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-[#1E293B] border border-transparent',
                         ]"
                         class="group flex items-center px-4 py-3.5 text-sm font-bold rounded-[1.25rem] transition-all duration-200"
                     >
                         <svg
                             class="w-6 h-6 shrink-0 transition-colors"
-                            :class="[item.current ? 'text-[#2DD4BF]' : 'text-slate-300 group-hover:text-slate-500']"
+                            :class="[
+                                item.current
+                                    ? 'text-[#2DD4BF]'
+                                    : 'text-slate-300 group-hover:text-slate-500',
+                            ]"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                         >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                :d="item.icon"
+                            />
                         </svg>
 
-                        <span v-if="isSidebarOpen" class="ms-4">
+                        <span
+                            v-if="isSidebarOpen || isMobileMenuOpen"
+                            class="ms-4"
+                        >
                             {{ item.name }}
                         </span>
                     </Link>
@@ -594,7 +816,7 @@ watch(() => route().current(), () => {
 
                 <button
                     @click="isSidebarOpen = !isSidebarOpen"
-                    class="mt-auto flex items-center justify-center w-full py-3 bg-slate-50 border border-slate-100 text-slate-400 hover:text-[#1E293B] rounded-2xl transition-all"
+                    class="hidden lg:flex mt-auto items-center justify-center w-full py-3 bg-slate-50 border border-slate-100 text-slate-400 hover:text-[#1E293B] rounded-2xl transition-all"
                 >
                     <svg
                         class="w-5 h-5 transition-transform"
@@ -603,7 +825,12 @@ watch(() => route().current(), () => {
                         stroke="currentColor"
                         viewBox="0 0 24 24"
                     >
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+                        />
                     </svg>
                 </button>
             </div>
@@ -611,28 +838,63 @@ watch(() => route().current(), () => {
 
         <div
             class="flex-1 flex flex-col transition-all duration-300 min-w-0"
-            :class="[isSidebarOpen ? 'ms-72' : 'ms-20']"
+            :class="[isSidebarOpen ? 'lg:ml-72' : 'lg:ml-20']"
         >
-            <header class="h-20 bg-white/90 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-40 px-8 flex items-center justify-between">
-                <div>
+            <header
+                class="sticky top-0 z-30 h-16 lg:h-20 bg-white/90 backdrop-blur-md border-b border-slate-200/60 flex items-center justify-between px-4 lg:px-8"
+            >
+                <div class="flex items-center gap-3">
+                    <button
+                        class="lg:hidden p-2 rounded-lg hover:bg-slate-100"
+                        @click="isMobileMenuOpen = true"
+                    >
+                        <svg
+                            class="w-6 h-6"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h16"
+                            />
+                        </svg>
+                    </button>
+
                     <slot name="header" />
                 </div>
-
                 <div class="flex items-center space-x-4">
                     <Dropdown align="right" width="48">
                         <template #trigger>
-                            <button class="flex items-center space-x-3 bg-white border border-slate-200/80 p-1.5 pe-4 rounded-2xl hover:border-[#2DD4BF]/30 transition-all shadow-sm">
-                                <div class="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center text-[#2DD4BF] font-extrabold">
-                                    {{ $page.props.auth.user.name.charAt(0).toUpperCase() }}
+                            <button
+                                class="flex items-center space-x-3 bg-white border border-slate-200/80 p-1.5 pe-4 rounded-2xl hover:border-[#2DD4BF]/30 transition-all shadow-sm"
+                            >
+                                <div
+                                    class="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center text-[#2DD4BF] font-extrabold"
+                                >
+                                    {{
+                                        $page.props.auth.user.name
+                                            .charAt(0)
+                                            .toUpperCase()
+                                    }}
                                 </div>
 
-                                <div class="text-left hidden md:block">
-                                    <p class="text-[13px] font-bold text-[#1E293B] leading-none">
+                                <div class="text-left hidden sm:block">
+                                    <p
+                                        class="text-[13px] font-bold text-[#1E293B] leading-none"
+                                    >
                                         {{ $page.props.auth.user.name }}
                                     </p>
 
-                                    <p class="text-[10px] text-[#2DD4BF] font-black mt-1 uppercase tracking-widest">
-                                        {{ $page.props.auth.user.role?.name || 'USER' }}
+                                    <p
+                                        class="text-[10px] text-[#2DD4BF] font-black mt-1 uppercase tracking-widest"
+                                    >
+                                        {{
+                                            $page.props.auth.user.role?.name ||
+                                            "USER"
+                                        }}
                                     </p>
                                 </div>
                             </button>
@@ -656,7 +918,7 @@ watch(() => route().current(), () => {
                 </div>
             </header>
 
-            <main class="p-8">
+            <main class="p-4 lg:p-8">
                 <slot />
             </main>
         </div>
