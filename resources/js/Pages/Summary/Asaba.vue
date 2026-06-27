@@ -234,18 +234,10 @@ const printBilling = () => {
                     <h2 class="font-bold text-2xl text-[#1E293B] leading-tight">
                         Billing <span class="text-[#2DD4BF]">Counter Asaba</span>
                     </h2>
-                    <p class="text-sm text-slate-400 font-medium mt-1">
+                    <p class="hidden sm:block mt-1 text-sm text-slate-400 font-medium">
                         Periode billing mesin Develop / Asaba
                     </p>
                 </div>
-
-                <button
-                    type="button"
-                    @click="printBilling"
-                    class="px-5 py-3 bg-slate-700 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm"
-                >
-                    Print
-                </button>
             </div>
         </template>
 
@@ -275,7 +267,7 @@ const printBilling = () => {
                     />
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
                     <select
                         v-model="vendor"
                         class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
@@ -311,6 +303,13 @@ const printBilling = () => {
                     >
                         Reset
                     </button>
+                    <button
+                    type="button"
+                    @click="printBilling"
+                    class="px-5 py-3 bg-slate-700 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm"
+                >
+                    Print
+                </button>
                 </div>
             </div>
 

@@ -27,7 +27,7 @@ const activeCategory = ref('All');
                     <h2 class="font-bold text-2xl text-[#1E293B] leading-tight">
                         My <span class="text-[#2DD4BF]">Documents</span>
                     </h2>
-                    <p class="text-sm text-slate-400 font-medium mt-1">Kelola dan cari hasil ekstraksi data Anda.</p>
+                    <p class="hidden sm:block mt-1 text-sm text-slate-400 font-medium">Kelola dan cari hasil ekstraksi data Anda.</p>
                 </div>
                 
                 <div class="flex items-center space-x-3">

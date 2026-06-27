@@ -66,7 +66,7 @@ const historyLogs = [
                 <h2 class="font-bold text-2xl text-[#1E293B] leading-tight">
                     Activity <span class="text-[#2DD4BF]">History</span>
                 </h2>
-                <p class="text-sm text-slate-400 font-medium mt-1">Lacak semua aktivitas sistem dan audit log Anda.</p>
+                <p class="hidden sm:block mt-1 text-sm text-slate-400 font-medium">Lacak semua aktivitas sistem dan audit log Anda.</p>
             </div>
         </template>
 
