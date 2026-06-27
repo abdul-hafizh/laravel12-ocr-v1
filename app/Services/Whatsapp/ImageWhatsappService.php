@@ -90,12 +90,6 @@ class ImageWhatsappService
                 mimeType: $contentType
             );
 
-            $validation = $this->validateImageByScanType(
-                scanType: $scanType,
-                imageBody: $response->body(),
-                mimeType: $contentType
-            );
-
             if (!($validation['valid'] ?? false)) {
                 SendSms::sendMessageWA(
                     $phone,
@@ -106,6 +100,23 @@ class ImageWhatsappService
                 );
 
                 return;
+            }
+
+            if ($scanType === 'electricity') {
+                $kwh = $validation['data']['kwh'] ?? null;
+
+                if (!$kwh || !$this->isValidKwh($kwh)) {
+                    SendSms::sendMessageWA(
+                        $phone,
+                        "❌ Nilai kWh pada layar LCD tidak terbaca jelas.\n\n" .
+                        "Foto tidak disimpan ke database.\n\n" .
+                        "Silakan foto ulang dengan jarak dekat, dan hindari pantulan cahaya."
+                    );
+
+                    return;
+                }
+
+                $validation['data']['kwh'] = $this->normalizeKwh($kwh);
             }
 
             if (in_array($scanType, ['printer', 'cea', 'asaba'], true)) {
@@ -164,18 +175,6 @@ class ImageWhatsappService
                             ($longSheet * (int) $mesin->harga_long_sheet),
                     ];
                 }
-            }
-
-            if (!($validation['valid'] ?? false)) {
-                SendSms::sendMessageWA(
-                    $phone,
-                    "❌ Gambar tidak sesuai dengan menu yang dipilih.\n\n" .
-                    "Alasan: " . ($validation['message'] ?? 'Data wajib tidak ditemukan.') . "\n\n" .
-                    "Silakan kirim gambar yang sesuai.\n" .
-                    "Ketik *ulang* untuk kembali ke menu."
-                );
-
-                return;
             }
 
             $extension = $this->extensionFromMime($contentType);
@@ -668,6 +667,22 @@ class ImageWhatsappService
         $text .= "Pilih nomor.";
 
         SendSms::sendMessageWA($phone, $text);
+    }
+
+    private function isValidKwh($kwh): bool
+    {
+        $kwh = trim((string) $kwh);
+        $kwh = str_replace(',', '.', $kwh);
+
+        return preg_match('/^\d+\.\d{2}$/', $kwh) === 1;
+    }
+
+    private function normalizeKwh($kwh): string
+    {
+        $kwh = trim((string) $kwh);
+        $kwh = str_replace(',', '.', $kwh);
+
+        return number_format((float) $kwh, 2, '.', '');
     }
 
     private function extensionFromMime(string $mime): string

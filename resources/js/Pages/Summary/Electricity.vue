@@ -413,11 +413,25 @@ const badgeClass = (status) => {
                                             <p class="text-[10px] text-slate-400 mt-1 text-center">Awal</p>
                                         </div>
 
-                                        <div v-if="item.foto_akhir">
-                                            <a :href="`/storage/${item.foto_akhir}`" target="_blank">
-                                                <img :src="`/storage/${item.foto_akhir}`" class="w-20 h-20 rounded-xl object-cover border" />
-                                            </a>
-                                            <p class="text-[10px] text-slate-400 mt-1 text-center">Akhir</p>
+                                        <div>
+                                            <template v-if="item.foto_akhir">
+                                                <a :href="`/storage/${item.foto_akhir}`" target="_blank">
+                                                    <img
+                                                        :src="`/storage/${item.foto_akhir}`"
+                                                        class="w-20 h-20 rounded-xl object-cover border"
+                                                    />
+                                                </a>
+                                                <p class="text-[10px] text-slate-400 mt-1 text-center">Akhir</p>
+                                            </template>
+
+                                            <template v-else>
+                                                <div class="w-20 h-20 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-center px-2">
+                                                    <span class="text-[10px] text-slate-400 leading-tight">
+                                                        Belum ada foto akhir
+                                                    </span>
+                                                </div>
+                                                <p class="text-[10px] text-slate-400 mt-1 text-center">Akhir</p>
+                                            </template>
                                         </div>
                                     </div>
                                 </td>

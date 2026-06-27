@@ -40,4 +40,10 @@ return [
         'model' => env('OPENAI_MODEL', 'gpt-5.4-mini'),
     ],
 
+    'wablas' => [
+        'base_url'   => env('WABLAS_BASE_URL'),
+        'token'      => env('WABLAS_TOKEN'),
+        'secret_key' => env('WABLAS_SECRET_KEY'),
+    ],
+
 ];

@@ -23,17 +23,39 @@ class ImageAnalysisPromptService
 
             Tugas:
             - Analisa gambar meter listrik/token listrik.
-            - Baca semua angka dengan teliti.
+            - Baca angka hanya jika benar-benar terlihat jelas.
             - Fokus utama pada:
             1. nilai kWh di layar LCD
-            2. barcode / nomor meter yang berada DI BAWAH layar kWh
-            3. nomor token jika ada
+            2. barcode / nomor meter resmi yang berada di bawah layar kWh
+            3. nomor token / ID pelanggan jika ada
             4. tanggal pada foto
             5. lokasi/alamat overlay pada foto jika ada
 
-            ATURAN PENTING:
+            ATURAN PALING PENTING:
+            - JANGAN mengarang angka.
+            - JANGAN menebak angka yang buram, redup, tertutup pantulan cahaya, atau tidak terbaca utuh.
+            - Jika nilai kWh di layar LCD tidak terlihat jelas sampai digit terakhir, maka valid=false.
+            - Jika nilai kWh hanya terlihat sebagian, maka valid=false.
+            - Jika ragu antara dua angka, maka valid=false.
+            - Data hanya valid jika kWh terbaca jelas dan lengkap.
+
+            ATURAN KWH:
+            - Nilai kWh harus berasal dari layar LCD meter.
+            - kWh wajib berformat angka desimal dengan 2 digit setelah titik.
+            - Contoh format benar:
+                1321.34
+                3022.48
+                1006.52
+                2462.61
+                3138.30
+            - Jika layar menampilkan koma, ubah menjadi titik.
+            - Jika layar menampilkan 3138.3, ubah menjadi 3138.30.
+            - Jika layar menampilkan angka tanpa desimal dan tidak jelas digit desimalnya, maka valid=false.
+            - Jangan mengambil angka selain dari LCD sebagai kWh.
+
+            ATURAN BARCODE / NOMOR METER:
             - Barcode/nomor meter biasanya berupa angka panjang di bawah layar kWh.
-            - Ambil angka yang berada tepat di bawah barcode.
+            - Ambil angka yang berada tepat di bawah barcode resmi PLN.
             - Jangan mengambil angka tulisan tangan putih besar pada cover meter jika ada barcode resmi.
             - Hilangkan spasi saat menyimpan barcode dan nomor meter.
             - Jika barcode terlihat seperti:
@@ -41,23 +63,33 @@ class ImageAnalysisPromptService
             maka simpan menjadi:
             "32902727265"
 
-            - Nilai kWh harus angka dari layar LCD meter.
-            - Jika ada titik/koma pada kWh tetap pertahankan.
-            - Jika ada beberapa angka, prioritaskan angka yang paling jelas dan paling dekat dengan barcode resmi PLN.
+            ATURAN NOMOR TOKEN / ID PELANGGAN:
+            - nomor_token diisi dengan angka tulisan tangan besar warna putih jika ada.
+            - Semua nomor hanya boleh berisi angka.
+            - Jangan tambahkan spasi.
+            - Jangan tambahkan tanda "-".
 
             VALID jika:
-            - Ada tampilan meter listrik
-            - Ada nilai kWh
-            - Ada barcode/nomor meter resmi
+            - Gambar adalah meter listrik/token listrik.
+            - Nilai kWh di layar LCD terbaca jelas, lengkap, dan memiliki 2 digit desimal.
+            - Barcode/nomor meter resmi terbaca, atau meter jelas terlihat tetapi barcode tidak terbaca.
 
-            Jika barcode tidak terbaca tetapi meter jelas terlihat:
+            Jika barcode tidak terbaca tetapi kWh terlihat jelas:
             - tetap valid=true
             - isi barcode=null
+            - isi nomor_meter=null
             - isi message penjelasan singkat
 
-            Kembalikan HANYA JSON valid tanpa markdown. nomor_token isi dengan id pelanggan biasannya tulisan warna putih besar. nomor_meter sama dengan barcode.
+            Jika kWh tidak terbaca jelas:
+            {
+                "valid": false,
+                "message": "Nilai kWh pada layar LCD tidak terbaca jelas. Foto tidak disimpan.",
+                "data_penting": {}
+            }
 
-            Format:
+            Kembalikan HANYA JSON valid tanpa markdown.
+
+            Format valid:
             {
                 "valid": true,
                 "message": "",
@@ -79,9 +111,8 @@ class ImageAnalysisPromptService
             - barcode = nomor barcode resmi di bawah LCD meter
             - nomor_meter = sama dengan barcode
             - nomor_token = angka tulisan tangan besar warna putih
+            - kwh wajib string/angka format 0.00
             - Semua nomor hanya boleh berisi angka
-            - Jangan tambahkan spasi
-            - Jangan tambahkan tanda "-"
             - Jangan mengarang data
 
             Jika gambar bukan meter listrik/token listrik:

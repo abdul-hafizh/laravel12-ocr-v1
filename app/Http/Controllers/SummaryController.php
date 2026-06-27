@@ -38,24 +38,6 @@ class SummaryController extends Controller
 
         $summary = $this->getElectricitySummaryData($startDate, $endDate, $search, $cabangId);
 
-        foreach ($summary as $index => $item) {
-            $summary[$index]['foto_awal'] = DB::table('v_image_scan_electricity')
-                ->where('cabang_id', $item['cabang_id'])
-                ->where('nomor_meter', $item['nomor_meter'])
-                ->whereDate('created_at', '>=', $startDate)
-                ->whereDate('created_at', '<=', $endDate)
-                ->orderBy('created_at', 'asc')
-                ->value('image_path');
-
-            $summary[$index]['foto_akhir'] = DB::table('v_image_scan_electricity')
-                ->where('cabang_id', $item['cabang_id'])
-                ->where('nomor_meter', $item['nomor_meter'])
-                ->whereDate('created_at', '>=', $startDate)
-                ->whereDate('created_at', '<=', $endDate)
-                ->orderBy('created_at', 'desc')
-                ->value('image_path');
-        }
-
         $page = LengthAwarePaginator::resolveCurrentPage();
         $perPage = 10;
 
@@ -347,10 +329,10 @@ class SummaryController extends Controller
             $item->periode_end = $periodeEnd->toDateString();
 
             $item->foto_awal = $firstScan?->image_path;
-            $item->foto_akhir = $currentScan?->image_path;
+            $item->foto_akhir = $hasTwoScans ? $currentScan?->image_path : null;
 
             $item->foto_awal_created_at = $firstScan?->created_at;
-            $item->foto_akhir_created_at = $currentScan?->created_at;
+            $item->foto_akhir_created_at = $hasTwoScans ? $currentScan?->created_at : null;
 
             $item->counter_detail = [
                 'has_first_scan' => $hasFirstScan,
@@ -604,6 +586,8 @@ class SummaryController extends Controller
             $awal = $items->first();
             $akhir = $items->last();
 
+            $hasTwoScans = $awal && $akhir && (int) $awal->id !== (int) $akhir->id;
+
             $kwhAwal = $this->toFloat($awal->kwh ?? 0);
             $kwhAkhir = $this->toFloat($akhir->kwh ?? 0);
 
@@ -668,7 +652,13 @@ class SummaryController extends Controller
                 'jumlah_foto' => $items->count(),
 
                 'image_scan_id_awal' => $awal->id,
-                'image_scan_id_akhir' => $akhir->id,
+                'image_scan_id_akhir' => $hasTwoScans ? $akhir->id : null,
+
+                'foto_awal' => $awal->image_path,
+                'foto_akhir' => $hasTwoScans ? $akhir->image_path : null,
+
+                'foto_awal_created_at' => $awal->created_at,
+                'foto_akhir_created_at' => $hasTwoScans ? $akhir->created_at : null,
 
                 'notes' => DB::table('scan_notes')
                     ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
@@ -1132,9 +1122,10 @@ class SummaryController extends Controller
             $item->periode_end = $periodeEnd->toDateString();
 
             $item->foto_awal = $firstScan?->image_path;
-            $item->foto_akhir = $currentScanData?->image_path;
+            $item->foto_akhir = $hasTwoScans ? $currentScanData?->image_path : null;
+
             $item->foto_awal_created_at = $firstScan?->created_at;
-            $item->foto_akhir_created_at = $currentScanData?->created_at;
+            $item->foto_akhir_created_at = $hasTwoScans ? $currentScanData?->created_at : null;
 
             $maintenanceCosts = DB::table('dbo.machine_maintenance_costs')
                 ->where('master_mesin_id', $item->master_mesin_id)
@@ -1480,9 +1471,10 @@ class SummaryController extends Controller
             $item->periode_end = $periodeEnd->toDateString();
 
             $item->foto_awal = $firstScan?->image_path;
-            $item->foto_akhir = $currentScan?->image_path;
+            $item->foto_akhir = $hasTwoScans ? $currentScan?->image_path : null;
+
             $item->foto_awal_created_at = $firstScan?->created_at;
-            $item->foto_akhir_created_at = $currentScan?->created_at;
+            $item->foto_akhir_created_at = $hasTwoScans ? $currentScan?->created_at : null;
 
             $item->counter_detail = [
                 'has_first_scan' => $firstScan ? true : false,
@@ -1790,9 +1782,10 @@ class SummaryController extends Controller
             $item->periode_end = $periodeEnd->toDateString();
 
             $item->foto_awal = $firstScan?->image_path;
-            $item->foto_akhir = $currentScan?->image_path;
+            $item->foto_akhir = $hasTwoScans ? $currentScan?->image_path : null;
+
             $item->foto_awal_created_at = $firstScan?->created_at;
-            $item->foto_akhir_created_at = $currentScan?->created_at;
+            $item->foto_akhir_created_at = $hasTwoScans ? $currentScan?->created_at : null;
 
             $item->usage_total_counter_mesin = $usageTotal;
             $item->usage_print_counter = $usagePrint;

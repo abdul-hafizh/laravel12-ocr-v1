@@ -56,7 +56,7 @@ class BaseWhatsappService
             'BMI' => '*1* BMI',
             'BIAYA_UMUM' => '*2* Biaya Umum',
             'BIAYA_TOKEN_LISTRIK' => '*3* Biaya Token Listrik',
-            'BIAYA_KLIK_METER' => '*4* Biaya Klik Meter',
+            'BIAYA_KLIK_METER' => '*4* Mesin Samafitro',
             'MESIN_CEA' => '*5* Mesin CEA',
             'ASABA' => '*6* Asaba',
             'BIAYA_PART' => '*7* Biaya Part',

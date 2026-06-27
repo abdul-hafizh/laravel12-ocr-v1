@@ -61,7 +61,7 @@ class RoleController extends Controller
             ['key' => 'BMI', 'label' => '1 - BMI'],
             ['key' => 'BIAYA_UMUM', 'label' => '2 - Biaya Umum'],
             ['key' => 'BIAYA_TOKEN_LISTRIK', 'label' => '3 - Biaya Token Listrik'],
-            ['key' => 'BIAYA_KLIK_METER', 'label' => '4 - Biaya Klik Meter'],
+            ['key' => 'BIAYA_KLIK_METER', 'label' => '4 - Mesin Samafitro'],
             ['key' => 'MESIN_CEA', 'label' => '5 - Mesin CEA'],
             ['key' => 'ASABA', 'label' => '6 - Asaba'],
             ['key' => 'BIAYA_PART', 'label' => '7 - Biaya Part'],

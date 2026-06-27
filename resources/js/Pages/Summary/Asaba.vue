@@ -354,24 +354,57 @@ const printBilling = () => {
                                         <div class="space-y-3">
                                             <div class="flex gap-2 justify-center">
                                                 <div>
-                                                    <img
-                                                        :src="item.foto_awal ? '/storage/' + item.foto_awal : '/no-image.png'"
-                                                        class="w-14 h-14 rounded-xl object-cover border border-slate-200"
-                                                    />
+                                                    <a
+                                                        v-if="item.foto_awal"
+                                                        :href="'/storage/' + item.foto_awal"
+                                                        target="_blank"
+                                                    >
+                                                        <img
+                                                            :src="'/storage/' + item.foto_awal"
+                                                            class="w-14 h-14 rounded-xl object-cover border border-slate-200"
+                                                        />
+                                                    </a>
+
+                                                    <div
+                                                        v-else
+                                                        class="w-14 h-14 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center"
+                                                    >
+                                                        <span class="text-[8px] text-slate-400 text-center leading-tight">
+                                                            Belum ada
+                                                        </span>
+                                                    </div>
+
                                                     <div class="text-[8px] text-center text-slate-400 mt-1">
                                                         Awal
                                                     </div>
                                                 </div>
 
                                                 <div>
-                                                    <img
-                                                        :src="item.foto_akhir ? '/storage/' + item.foto_akhir : '/no-image.png'"
-                                                        class="w-14 h-14 rounded-xl object-cover border border-slate-200"
-                                                    />
+                                                    <template v-if="item.foto_akhir">
+                                                        <a
+                                                            :href="'/storage/' + item.foto_akhir"
+                                                            target="_blank"
+                                                        >
+                                                            <img
+                                                                :src="'/storage/' + item.foto_akhir"
+                                                                class="w-14 h-14 rounded-xl object-cover border border-slate-200"
+                                                            />
+                                                        </a>
+                                                    </template>
+
+                                                    <template v-else>
+                                                        <div class="w-14 h-14 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center">
+                                                            <span class="text-[8px] text-slate-400 text-center leading-tight">
+                                                                Belum ada
+                                                            </span>
+                                                        </div>
+                                                    </template>
+
                                                     <div class="text-[8px] text-center text-slate-400 mt-1">
                                                         Akhir
                                                     </div>
                                                 </div>
+
                                             </div>
 
                                             <div class="text-center">
