@@ -6,6 +6,7 @@ use App\Jobs\AnalyzeImageJob;
 use App\Libraries\SendSms;
 use App\Models\ImageScan;
 use App\Models\MasterMesin;
+use App\Models\MasterTokenListrik;
 use App\Services\ImageAnalysisPromptService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -32,6 +33,16 @@ class ImageWhatsappService
 
     public function handle(string $phone, string $message, object $session, array $payload): void
     {
+        if (($session->step ?? '') === 'ASK_ELECTRICITY_CORRECTION') {
+            $this->handleElectricityCorrection($phone, $message, $session);
+            return;
+        }
+
+        if (($session->step ?? '') === 'ASK_MACHINE_SERIAL_CORRECTION') {
+            $this->handleMachineSerialCorrection($phone, $message, $session);
+            return;
+        }
+
         if (($session->step ?? '') === 'ASK_MACHINE') {
             $this->handleMachineSelection($phone, $message, $session);
             return;
@@ -667,6 +678,177 @@ class ImageWhatsappService
         $text .= "Pilih nomor.";
 
         SendSms::sendMessageWA($phone, $text);
+    }
+
+    private function handleElectricityCorrection(string $phone, string $message, object $session): void
+    {
+        $parts = array_map('trim', explode(',', $message));
+
+        if (count($parts) < 2) {
+            SendSms::sendMessageWA(
+                $phone,
+                "Format tidak valid.\n\nContoh:\n12345678901, 25.60"
+            );
+            return;
+        }
+
+        $nomorMeter = preg_replace('/[^0-9]/', '', $parts[0]);
+        $kwh = str_replace(',', '.', $parts[1]);
+
+        if (!$nomorMeter || !$this->isValidKwh($kwh)) {
+            SendSms::sendMessageWA(
+                $phone,
+                "Nomor meter atau kWh tidak valid.\n\nContoh:\n12345678901, 25.60"
+            );
+            return;
+        }
+
+        $masterToken = MasterTokenListrik::where('nomor_meter', $nomorMeter)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$masterToken) {
+            SendSms::sendMessageWA(
+                $phone,
+                "❌ Nomor meter *{$nomorMeter}* tetap tidak ditemukan di database.\n\n" .
+                "Silakan cek kembali dan kirim ulang dengan format:\n" .
+                "nomor meter, kwh\n\n" .
+                "Contoh:\n12345678901, 25.60"
+            );
+            return;
+        }
+
+        $scan = ImageScan::find($session->last_image_scan_id);
+
+        if (!$scan) {
+            SendSms::sendMessageWA(
+                $phone,
+                "Data scan terakhir tidak ditemukan. Silakan ulangi upload foto."
+            );
+            return;
+        }
+
+        $analysis = is_array($scan->analysis_result)
+            ? $scan->analysis_result
+            : [];
+
+        $dataPenting = $analysis['data_penting'] ?? [];
+
+        $dataPenting['nomor_meter_lama_ocr'] = $dataPenting['nomor_meter'] ?? null;
+        $dataPenting['kwh_lama_ocr'] = $dataPenting['kwh'] ?? null;
+
+        $dataPenting['nomor_meter'] = $nomorMeter;
+        $dataPenting['kwh'] = $this->normalizeKwh($kwh);
+
+        $dataPenting['is_manual_correction'] = true;
+        $dataPenting['corrected_at'] = now()->toDateTimeString();
+
+        $analysis['data_penting'] = $dataPenting;
+
+        $scan->update([
+            'analysis_result' => $analysis,
+            'status' => 'success',
+            'error_message' => null,
+        ]);
+
+        DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
+            'menu' => null,
+            'scan_type' => null,
+            'step' => 'ASK_MENU',
+            'last_image_scan_id' => null,
+            'master_mesin_id' => null,
+            'master_mesin_part_id' => null,
+            'updated_at' => now(),
+        ]);
+
+        SendSms::sendMessageWA(
+            $phone,
+            "✅ Data token listrik berhasil diperbaiki dan disimpan.\n\n" .
+            "Nomor Meter: *{$nomorMeter}*\n" .
+            "kWh: *" . $this->normalizeKwh($kwh) . "*\n\n" .
+            "Ketik *ulang* untuk kembali ke menu."
+        );
+    }
+
+    private function handleMachineSerialCorrection(string $phone, string $message, object $session): void
+    {
+        $serialNumber = strtoupper(trim($message));
+
+        if ($serialNumber === '') {
+            SendSms::sendMessageWA(
+                $phone,
+                "Serial number tidak valid.\n\nContoh:\nABC123456"
+            );
+            return;
+        }
+
+        $mesin = MasterMesin::where('serial_number', $serialNumber)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$mesin) {
+            SendSms::sendMessageWA(
+                $phone,
+                "❌ Serial number *{$serialNumber}* tetap tidak ditemukan di database.\n\n" .
+                "Silakan cek kembali dan kirim ulang serial number yang benar."
+            );
+            return;
+        }
+
+        $scan = ImageScan::find($session->last_image_scan_id);
+
+        if (!$scan) {
+            SendSms::sendMessageWA(
+                $phone,
+                "Data scan terakhir tidak ditemukan. Silakan ulangi upload foto."
+            );
+            return;
+        }
+
+        $analysis = is_array($scan->analysis_result)
+            ? $scan->analysis_result
+            : [];
+
+        $dataPenting = $analysis['data_penting'] ?? [];
+
+        $dataPenting['serial_number_lama_ocr'] = $dataPenting['serial_number'] ?? null;
+        $dataPenting['serial_number'] = $serialNumber;
+
+        $dataPenting['master_mesin'] = [
+            'id' => $mesin->id,
+            'nama_mesin' => $mesin->nama_mesin,
+            'serial_number' => $mesin->serial_number,
+        ];
+
+        $dataPenting['is_manual_correction'] = true;
+        $dataPenting['corrected_at'] = now()->toDateTimeString();
+
+        $analysis['data_penting'] = $dataPenting;
+
+        $scan->update([
+            'master_mesin_id' => $mesin->id,
+            'analysis_result' => $analysis,
+            'status' => 'success',
+            'error_message' => null,
+        ]);
+
+        DB::table('dbo.wa_sessions')->where('phone', $phone)->update([
+            'menu' => null,
+            'scan_type' => null,
+            'step' => 'ASK_MENU',
+            'last_image_scan_id' => null,
+            'master_mesin_id' => null,
+            'master_mesin_part_id' => null,
+            'updated_at' => now(),
+        ]);
+
+        SendSms::sendMessageWA(
+            $phone,
+            "✅ Data mesin berhasil diperbaiki dan disimpan.\n\n" .
+            "Mesin: *{$mesin->nama_mesin}*\n" .
+            "Serial Number: *{$mesin->serial_number}*\n\n" .
+            "Ketik *ulang* untuk kembali ke menu."
+        );
     }
 
     private function isValidKwh($kwh): bool

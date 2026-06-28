@@ -48,15 +48,16 @@ class ImageAnalysisPromptService
                 1006.52
                 2462.61
                 3138.30
+            - Jadi selalu ada 2 angka setelah tanda titik (.) 
             - Jika layar menampilkan koma, ubah menjadi titik.
-            - Jika layar menampilkan 3138.3, ubah menjadi 3138.30.
+            - Jika layar menampilkan 3138.3, maka valid=false
+            - Jika layar menampilkan tanpa titik misal 31383, maka ubah jadi 313.83 lalu valid=true
             - Jika layar menampilkan angka tanpa desimal dan tidak jelas digit desimalnya, maka valid=false.
             - Jangan mengambil angka selain dari LCD sebagai kWh.
 
             ATURAN BARCODE / NOMOR METER:
-            - Barcode/nomor meter biasanya berupa angka panjang di bawah layar kWh.
-            - Ambil angka yang berada tepat di bawah barcode resmi PLN.
-            - Jangan mengambil angka tulisan tangan putih besar pada cover meter jika ada barcode resmi.
+            - Barcode/nomor meter biasanya berupa angka panjang terpisah di sekitar barcode.
+            - Ambil angka yang berada tepat di sekitar atau dekat barcode resmi PLN.
             - Hilangkan spasi saat menyimpan barcode dan nomor meter.
             - Jika barcode terlihat seperti:
             "32 9027 2726 5"
@@ -64,7 +65,7 @@ class ImageAnalysisPromptService
             "32902727265"
 
             ATURAN NOMOR TOKEN / ID PELANGGAN:
-            - nomor_token diisi dengan angka tulisan tangan besar warna putih jika ada.
+            - nomor_token atau ID PELANGGAN diisi dengan angka tulisan tangan besar warna putih jika ada.
             - Semua nomor hanya boleh berisi angka.
             - Jangan tambahkan spasi.
             - Jangan tambahkan tanda "-".

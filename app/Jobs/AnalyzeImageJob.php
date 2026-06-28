@@ -2,8 +2,11 @@
 
 namespace App\Jobs;
 
-use App\Models\ImageScan;
+use App\Libraries\SendSms;
 use App\Services\ImageAnalysisPromptService;
+use App\Models\ImageScan;
+use App\Models\MasterTokenListrik;
+use App\Models\MasterMesin;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -12,6 +15,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class AnalyzeImageJob implements ShouldQueue
@@ -122,6 +126,132 @@ class AnalyzeImageJob implements ShouldQueue
             'scan_type' => $scan->scan_type,
             'analysis_result' => $parsed,
         ]);
+
+        if ($scan->scan_type === 'electricity') {
+            $dataPenting = $parsed['data_penting'] ?? [];
+
+            $nomorMeter = $dataPenting['nomor_meter'] ?? null;
+            $kwh = $dataPenting['kwh'] ?? null;
+
+            $nomorMeterClean = $nomorMeter
+                ? preg_replace('/[^0-9]/', '', (string) $nomorMeter)
+                : null;
+
+            $meterExists = false;
+
+            if ($nomorMeterClean) {
+                $meterExists = MasterTokenListrik::where('nomor_meter', $nomorMeterClean)
+                    ->where('is_active', true)
+                    ->exists();
+            }
+
+            if (!$meterExists) {
+                $scan->update([
+                    'status' => 'success',
+                    'analysis_result' => $parsed,
+                    'extracted_text' => $parsed['teks_terbaca']
+                        ?? $parsed['data']['teks_terbaca']
+                        ?? $parsed['data_penting']['teks_terbaca']
+                        ?? $text,
+                    'error_message' => null,
+                ]);
+
+                $phone = DB::table('dbo.users')
+                    ->where('id', $scan->user_id)
+                    ->value('phone');
+
+                if ($phone) {
+                    DB::table('dbo.wa_sessions')
+                        ->where('user_id', $scan->user_id)
+                        ->update([
+                            'step' => 'ASK_ELECTRICITY_CORRECTION',
+                            'last_image_scan_id' => $scan->id,
+                            'updated_at' => now(),
+                        ]);
+
+                    SendSms::sendMessageWA(
+                        $phone,
+                        "⚠️ Nomor meter token listrik tidak ditemukan di database.\n\n" .
+                        "Apakah benar data ini?\n\n" .
+                        "Nomor Meter: *" . ($nomorMeterClean ?: '-') . "*\n" .
+                        "kWh: *" . ($kwh ?: '-') . "*\n\n" .
+                        "Silakan kirim data yang benar dengan format:\n" .
+                        "nomor meter, kwh\n\n" .
+                        "Contoh:\n12345678901, 25.60"
+                    );
+                }
+
+                return;
+            }
+        }
+
+        if (in_array($scan->scan_type, ['printer', 'cea', 'asaba'], true)) {
+            $dataPenting = $parsed['data_penting'] ?? [];
+
+            $serialNumber = $dataPenting['serial_number'] ?? null;
+
+            $serialNumberClean = $serialNumber
+                ? strtoupper(trim((string) $serialNumber))
+                : null;
+
+            $mesin = null;
+
+            if ($serialNumberClean) {
+                $mesin = MasterMesin::where('serial_number', $serialNumberClean)
+                    ->where('is_active', true)
+                    ->first();
+            }
+
+            if (!$mesin) {
+                $scan->update([
+                    'status' => 'success',
+                    'analysis_result' => $parsed,
+                    'extracted_text' => $parsed['teks_terbaca']
+                        ?? $parsed['data']['teks_terbaca']
+                        ?? $parsed['data_penting']['teks_terbaca']
+                        ?? $text,
+                    'error_message' => null,
+                ]);
+
+                $phone = DB::table('dbo.users')
+                    ->where('id', $scan->user_id)
+                    ->value('phone');
+
+                if ($phone) {
+                    DB::table('dbo.wa_sessions')
+                        ->where('user_id', $scan->user_id)
+                        ->update([
+                            'step' => 'ASK_MACHINE_SERIAL_CORRECTION',
+                            'last_image_scan_id' => $scan->id,
+                            'updated_at' => now(),
+                        ]);
+
+                    $namaMenu = match ($scan->scan_type) {
+                        'printer' => 'Mesin Samafitro',
+                        'cea' => 'Mesin CEA',
+                        'asaba' => 'Mesin Asaba',
+                        default => 'Mesin',
+                    };
+
+                    SendSms::sendMessageWA(
+                        $phone,
+                        "⚠️ Serial number {$namaMenu} tidak ditemukan di database.\n\n" .
+                        "Apakah benar serial number ini?\n\n" .
+                        "Serial Number: *" . ($serialNumberClean ?: '-') . "*\n\n" .
+                        "Silakan kirim serial number yang benar.\n\n" .
+                        "Contoh:\nABC123456"
+                    );
+                }
+
+                return;
+            }
+
+            $parsed['data_penting']['master_mesin'] = [
+                'id' => $mesin->id,
+                'nama_mesin' => $mesin->nama_mesin,
+                'serial_number' => $mesin->serial_number,
+            ];
+        }
 
         $scan->update([
             'status' => 'success',
