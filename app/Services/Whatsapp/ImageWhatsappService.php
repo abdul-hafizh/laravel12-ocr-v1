@@ -710,11 +710,17 @@ class ImageWhatsappService
         if (!$masterToken) {
             SendSms::sendMessageWA(
                 $phone,
-                "❌ Nomor meter *{$nomorMeter}* tetap tidak ditemukan di database.\n\n" .
-                "Silakan cek kembali dan kirim ulang dengan format:\n" .
-                "nomor meter, kwh\n\n" .
+                "❌ Nomor meter tetap tidak ditemukan di database.\n\n" .
+                "Silakan copy nomor meter pada pesan berikut, perbaiki jika ada yang salah, kemudian kirim ulang dengan format:\n\n" .
+                "nomor meter, kWh\n\n" .
                 "Contoh:\n12345678901, 25.60"
             );
+
+            SendSms::sendMessageWA(
+                $phone,
+                $nomorMeter
+            );
+
             return;
         }
 
@@ -789,9 +795,15 @@ class ImageWhatsappService
         if (!$mesin) {
             SendSms::sendMessageWA(
                 $phone,
-                "❌ Serial number *{$serialNumber}* tetap tidak ditemukan di database.\n\n" .
-                "Silakan cek kembali dan kirim ulang serial number yang benar."
+                "❌ Serial number tetap tidak ditemukan di database.\n\n" .
+                "Silakan copy serial number pada pesan berikut, perbaiki jika ada yang salah, kemudian kirim ulang serial number yang benar."
             );
+
+            SendSms::sendMessageWA(
+                $phone,
+                $serialNumber
+            );
+
             return;
         }
 
