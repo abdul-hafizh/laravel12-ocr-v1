@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Libraries\SendSms;
+use App\Libraries\SendTelegram;
 use App\Services\ImageAnalysisPromptService;
 use App\Models\ImageScan;
 use App\Models\MasterTokenListrik;
@@ -156,29 +156,31 @@ class AnalyzeImageJob implements ShouldQueue
                     'error_message' => null,
                 ]);
 
-                $phone = DB::table('dbo.users')
-                    ->where('id', $scan->user_id)
-                    ->value('phone');
+                $telegramSession = DB::table('dbo.telegram_sessions')
+                    ->where('user_id', $scan->user_id)
+                    ->first();
 
-                if ($phone) {
-                    DB::table('dbo.wa_sessions')
-                        ->where('user_id', $scan->user_id)
+                if ($telegramSession) {
+                    DB::table('dbo.telegram_sessions')
+                        ->where('id', $telegramSession->id)
                         ->update([
                             'step' => 'ASK_ELECTRICITY_CORRECTION',
                             'last_image_scan_id' => $scan->id,
                             'updated_at' => now(),
                         ]);
 
-                    SendSms::sendMessageWA(
-                        $phone,
+                    SendTelegram::sendMessage(
+                        $telegramSession->chat_id,
                         "⚠️ Nomor meter token listrik tidak ditemukan di database.\n\n" .
                         "Apakah benar data ini?\n\n" .
-                        "Nomor Meter: *" . ($nomorMeterClean ?: '-') . "*\n" .
-                        "kWh: *" . ($kwh ?: '-') . "*\n\n" .
+                        "Nomor Meter: " . ($nomorMeterClean ?: '-') . "\n" .
+                        "kWh: " . ($kwh ?: '-') . "\n\n" .
                         "Silakan kirim data yang benar dengan format:\n" .
                         "nomor meter, kwh\n\n" .
                         "Contoh:\n12345678901, 25.60"
                     );
+
+                    return;
                 }
 
                 return;
@@ -213,31 +215,31 @@ class AnalyzeImageJob implements ShouldQueue
                     'error_message' => null,
                 ]);
 
-                $phone = DB::table('dbo.users')
-                    ->where('id', $scan->user_id)
-                    ->value('phone');
+                $namaMenu = match ($scan->scan_type) {
+                    'printer' => 'Mesin Samafitro',
+                    'cea' => 'Mesin CEA',
+                    'asaba' => 'Mesin Asaba',
+                    default => 'Mesin',
+                };
 
-                if ($phone) {
-                    DB::table('dbo.wa_sessions')
-                        ->where('user_id', $scan->user_id)
+                $telegramSession = DB::table('dbo.telegram_sessions')
+                    ->where('user_id', $scan->user_id)
+                    ->first();
+
+                if ($telegramSession) {
+                    DB::table('dbo.telegram_sessions')
+                        ->where('id', $telegramSession->id)
                         ->update([
                             'step' => 'ASK_MACHINE_SERIAL_CORRECTION',
                             'last_image_scan_id' => $scan->id,
                             'updated_at' => now(),
                         ]);
 
-                    $namaMenu = match ($scan->scan_type) {
-                        'printer' => 'Mesin Samafitro',
-                        'cea' => 'Mesin CEA',
-                        'asaba' => 'Mesin Asaba',
-                        default => 'Mesin',
-                    };
-
-                    SendSms::sendMessageWA(
-                        $phone,
+                    SendTelegram::sendMessage(
+                        $telegramSession->chat_id,
                         "⚠️ Serial number {$namaMenu} tidak ditemukan di database.\n\n" .
                         "Apakah benar serial number ini?\n\n" .
-                        "Serial Number: *" . ($serialNumberClean ?: '-') . "*\n\n" .
+                        "Serial Number: " . ($serialNumberClean ?: '-') . "\n\n" .
                         "Silakan kirim serial number yang benar.\n\n" .
                         "Contoh:\nABC123456"
                     );
