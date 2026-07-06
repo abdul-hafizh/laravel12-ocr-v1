@@ -2,10 +2,10 @@
 
 namespace App\Services\Telegram;
 
-use App\Libraries\SendTelegram;
-use App\Services\Telegram\ImageTelegramService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Libraries\SendTelegram;
 
 class TelegramRouterService
 {
@@ -19,9 +19,20 @@ class TelegramRouterService
 
         $chatId = $message['chat']['id'] ?? null;
         $telegramUserId = $message['from']['id'] ?? null;
-        $text = trim($message['text'] ?? '');
+        $username = $message['from']['username'] ?? null;
+        $firstName = $message['from']['first_name'] ?? null;
+        $lastName = $message['from']['last_name'] ?? null;
 
-        if (!$chatId) {
+        $text = trim((string)($message['text'] ?? ''));
+
+        $hasPhoto = isset($message['photo']);
+        $hasDocument = isset($message['document']);
+
+        if (!$chatId || !$telegramUserId) {
+            return;
+        }
+
+        if ($text === '' && !$hasPhoto && !$hasDocument) {
             return;
         }
 
@@ -32,13 +43,24 @@ class TelegramRouterService
             ->first();
 
         if (!$mapping) {
+            Log::info('TELEGRAM IGNORED USER', [
+                'chat_id' => $chatId,
+                'telegram_user_id' => $telegramUserId,
+                'username' => $username,
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'text' => $text,
+            ]);
+
             SendTelegram::sendMessage(
                 $chatId,
                 "Maaf, akun Telegram Anda belum terdaftar di sistem.\n\n" .
-                "Telegram ID Anda: {$telegramUserId}\n" .
-                "Chat ID Anda: {$chatId}\n\n" .
+                "Telegram User ID: <b>{$telegramUserId}</b>\n" .
+                "Chat ID: <b>{$chatId}</b>\n" .
+                "Username: <b>" . ($username ? '@' . $username : '-') . "</b>\n\n" .
                 "Silakan hubungi admin."
             );
+
             return;
         }
 
@@ -60,27 +82,26 @@ class TelegramRouterService
             ->select('c.*')
             ->first();
 
-        $cmd = strtoupper($text);
+        $cmd = strtoupper(trim($text));
 
-        if (in_array($cmd, ['MENU', 'RESET', 'ULANG', 'BATAL', '/START'], true)) {
-            DB::table('dbo.telegram_sessions')->updateOrInsert(
-                ['chat_id' => $chatId],
-                [
-                    'telegram_user_id' => $telegramUserId,
-                    'user_id' => $user->id,
-                    'cabang_id' => $cabang?->id,
-                    'menu' => null,
-                    'scan_type' => null,
-                    'step' => 'ASK_MENU',
-                    'updated_at' => now(),
-                    'created_at' => now(),
-                ]
+        if ($cmd === 'PING') {
+            SendTelegram::sendMessage($chatId, 'pong ✅ webhook Telegram aktif');
+            return;
+        }
+
+        if (in_array($cmd, ['MENU', '/START', 'START', 'RESET', 'ULANG', 'CANCEL', 'BATAL'], true)) {
+            $this->resetSession(
+                chatId: $chatId,
+                telegramUserId: $telegramUserId,
+                userId: $user->id,
+                cabangId: $cabang?->id
             );
 
             SendTelegram::sendMessage(
                 $chatId,
                 "Halo {$user->name} 👋\n\n" . $this->menuText($user->role_id)
             );
+
             return;
         }
 
@@ -106,11 +127,9 @@ class TelegramRouterService
                 ->first();
         }
 
-        if (($session->step ?? '') === 'ASK_IMAGE') {
-            app(ImageTelegramService::class)->handle($chatId, $text, $session, $request->all());
-            return;
-        }
-
+        /**
+         * STEP: ASK_MENU
+         */
         if (($session->step ?? '') === 'ASK_MENU') {
             $menu = $this->detectMenu($text);
 
@@ -125,12 +144,31 @@ class TelegramRouterService
                     "Maaf, Anda tidak memiliki akses ke menu tersebut.\n\n" .
                     $this->menuText($user->role_id)
                 );
+
                 return;
             }
 
             if ($menu === 'BMI') {
-                // nanti kita buat BmiTelegramService
-                SendTelegram::sendMessage($chatId, "Menu BMI Telegram belum diaktifkan.");
+                try {
+                    app(BmiTelegramService::class)->start($chatId);
+                } catch (\Throwable $e) {
+                    Log::error('TELEGRAM_BMI_MENU_ERROR', [
+                        'chat_id' => $chatId,
+                        'telegram_user_id' => $telegramUserId,
+                        'error' => $e->getMessage(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                    ]);
+
+                    SendTelegram::sendMessage(
+                        $chatId,
+                        "❌ Error saat membuka menu BMI:\n\n" .
+                        e($e->getMessage()) . "\n\n" .
+                        "File: " . e($e->getFile()) . "\n" .
+                        "Line: " . $e->getLine()
+                    );
+                }
+
                 return;
             }
 
@@ -178,9 +216,56 @@ class TelegramRouterService
             }
         }
 
-        SendTelegram::sendMessage(
-            $chatId,
-            "Ketik MENU untuk kembali ke menu utama."
+        /**
+         * ROUTING LANJUTAN
+         * Ini bagian penting yang sebelumnya kurang di versi Telegram.
+         */
+        match ($session->menu) {
+            'BMI' => app(BmiTelegramService::class)->handle(
+                $chatId,
+                $text,
+                $session,
+                $request->all()
+            ),
+
+            'BIAYA_TOKEN_LISTRIK',
+            'BIAYA_KLIK_METER',
+            'MESIN_CEA',
+            'ASABA',
+            'MAINTENANCE_MESIN',
+            'BIAYA_PART',
+            'BIAYA_UMUM' => app(ImageTelegramService::class)->handle(
+                $chatId,
+                $text,
+                $session,
+                $request->all()
+            ),
+
+            default => SendTelegram::sendMessage(
+                $chatId,
+                "Ketik <b>MENU</b> untuk kembali ke menu utama."
+            ),
+        };
+    }
+
+    private function resetSession(
+        string|int $chatId,
+        string|int $telegramUserId,
+        int $userId,
+        ?int $cabangId
+    ): void {
+        DB::table('dbo.telegram_sessions')->updateOrInsert(
+            ['chat_id' => $chatId],
+            [
+                'telegram_user_id' => $telegramUserId,
+                'user_id' => $userId,
+                'cabang_id' => $cabangId,
+                'menu' => null,
+                'scan_type' => null,
+                'step' => 'ASK_MENU',
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
         );
     }
 
@@ -200,14 +285,14 @@ class TelegramRouterService
     private function menuText(?int $roleId = null): string
     {
         $menus = [
-            'BMI' => '*1* BMI',
-            'BIAYA_UMUM' => '*2* Biaya Umum',
-            'BIAYA_TOKEN_LISTRIK' => '*3* Biaya Token Listrik',
-            'BIAYA_KLIK_METER' => '*4* Mesin Samafitro',
-            'MESIN_CEA' => '*5* Mesin CEA',
-            'ASABA' => '*6* Mesin Asaba',
-            'BIAYA_PART' => '*7* Biaya Part',
-            'MAINTENANCE_MESIN' => '*8* Maintenance Mesin',
+            'BMI' => '<b>1</b> BMI',
+            'BIAYA_UMUM' => '<b>2</b> Biaya Umum',
+            'BIAYA_TOKEN_LISTRIK' => '<b>3</b> Biaya Token Listrik',
+            'BIAYA_KLIK_METER' => '<b>4</b> Mesin Samafitro',
+            'MESIN_CEA' => '<b>5</b> Mesin CEA',
+            'ASABA' => '<b>6</b> Mesin Asaba',
+            'BIAYA_PART' => '<b>7</b> Biaya Part',
+            'MAINTENANCE_MESIN' => '<b>8</b> Maintenance Mesin',
         ];
 
         if ($roleId) {
@@ -225,14 +310,13 @@ class TelegramRouterService
         }
 
         if (empty($menus)) {
-            return "Halo 👋\n\nAnda belum memiliki akses menu WhatsApp.\nSilakan hubungi admin.";
+            return "Halo 👋\n\nAnda belum memiliki akses menu Telegram.\nSilakan hubungi admin.";
         }
 
         return
-            "Halo 👋\n".
-            "Silakan pilih menu:\n\n".
-            implode("\n", $menus) . "\n\n".
-            "Ketik angka menu.\n";
+            "Silakan pilih menu:\n\n" .
+            implode("\n", $menus) . "\n\n" .
+            "Ketik angka menu.";
     }
 
     private function detectMenu(string $message): ?string
@@ -241,28 +325,12 @@ class TelegramRouterService
             '1', 'BMI' => 'BMI',
             '2', 'BIAYA UMUM' => 'BIAYA_UMUM',
             '3', 'TOKEN LISTRIK', 'BIAYA TOKEN LISTRIK' => 'BIAYA_TOKEN_LISTRIK',
-            '4', 'KLIK METER', 'BIAYA KLIK METER' => 'BIAYA_KLIK_METER',
+            '4', 'KLIK METER', 'BIAYA KLIK METER', 'MESIN SAMAFITRO', 'SAMAFITRO' => 'BIAYA_KLIK_METER',
             '5', 'MESIN CEA', 'CEA' => 'MESIN_CEA',
             '6', 'ASABA', 'MESIN ASABA' => 'ASABA',
             '7', 'PART', 'BIAYA PART' => 'BIAYA_PART',
             '8', 'MAINTENANCE', 'MAINTENANCE MESIN' => 'MAINTENANCE_MESIN',
             default => null,
         };
-    }
-
-    private function normalizePhone(string $phone): string
-    {
-        $phone = trim($phone);
-        $phone = str_replace(['+', ' ', '-', '(', ')'], '', $phone);
-
-        if (preg_match('/^0\d+$/', $phone)) {
-            $phone = preg_replace('/^0/', '62', $phone);
-        }
-
-        if (preg_match('/^8\d+$/', $phone)) {
-            $phone = '62' . $phone;
-        }
-
-        return $phone;
     }
 }

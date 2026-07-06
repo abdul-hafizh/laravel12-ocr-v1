@@ -156,13 +156,26 @@ class AnalyzeImageJob implements ShouldQueue
                     'error_message' => null,
                 ]);
 
-                $telegramSession = DB::table('dbo.telegram_sessions')
-                    ->where('user_id', $scan->user_id)
-                    ->first();
+                $telegramChatId = $scan->analysis_result['data_penting']['telegram_chat_id'] ?? null;
+
+                $telegramSession = null;
+
+                if ($telegramChatId) {
+                    $telegramSession = DB::table('dbo.telegram_sessions')
+                        ->where('chat_id', $telegramChatId)
+                        ->first();
+                }
+
+                if (!$telegramSession) {
+                    $telegramSession = DB::table('dbo.telegram_sessions')
+                        ->where('user_id', $scan->user_id)
+                        ->latest('updated_at')
+                        ->first();
+                }
 
                 if ($telegramSession) {
                     DB::table('dbo.telegram_sessions')
-                        ->where('id', $telegramSession->id)
+                        ->where('chat_id', $telegramSession->chat_id)
                         ->update([
                             'step' => 'ASK_ELECTRICITY_CORRECTION',
                             'last_image_scan_id' => $scan->id,
@@ -176,9 +189,16 @@ class AnalyzeImageJob implements ShouldQueue
                         "Nomor Meter: " . ($nomorMeterClean ?: '-') . "\n" .
                         "kWh: " . ($kwh ?: '-') . "\n\n" .
                         "Silakan kirim data yang benar dengan format:\n" .
-                        "nomor meter, kwh\n\n" .
+                        "nomor meter, kWh\n\n" .
                         "Contoh:\n12345678901, 25.60"
                     );
+
+                    if ($nomorMeterClean) {
+                        SendTelegram::sendMessage(
+                            $telegramSession->chat_id,
+                            $nomorMeterClean
+                        );
+                    }
 
                     return;
                 }
@@ -222,13 +242,26 @@ class AnalyzeImageJob implements ShouldQueue
                     default => 'Mesin',
                 };
 
-                $telegramSession = DB::table('dbo.telegram_sessions')
-                    ->where('user_id', $scan->user_id)
-                    ->first();
+                $telegramChatId = $scan->analysis_result['data_penting']['telegram_chat_id'] ?? null;
+
+                $telegramSession = null;
+
+                if ($telegramChatId) {
+                    $telegramSession = DB::table('dbo.telegram_sessions')
+                        ->where('chat_id', $telegramChatId)
+                        ->first();
+                }
+
+                if (!$telegramSession) {
+                    $telegramSession = DB::table('dbo.telegram_sessions')
+                        ->where('user_id', $scan->user_id)
+                        ->latest('updated_at')
+                        ->first();
+                }
 
                 if ($telegramSession) {
                     DB::table('dbo.telegram_sessions')
-                        ->where('id', $telegramSession->id)
+                        ->where('chat_id', $telegramSession->chat_id)
                         ->update([
                             'step' => 'ASK_MACHINE_SERIAL_CORRECTION',
                             'last_image_scan_id' => $scan->id,
@@ -243,6 +276,10 @@ class AnalyzeImageJob implements ShouldQueue
                         "Silakan kirim serial number yang benar.\n\n" .
                         "Contoh:\nABC123456"
                     );
+
+                    if ($serialNumberClean) {
+                        SendTelegram::sendMessage($telegramSession->chat_id, $serialNumberClean);
+                    }
                 }
 
                 return;

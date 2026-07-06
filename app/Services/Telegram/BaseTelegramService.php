@@ -18,26 +18,34 @@ class BaseTelegramService
             'RESET',
             'CANCEL',
             '/START',
+            'START',
         ], true)) {
             return false;
         }
 
-        DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
-            'menu' => null,
-            'step' => 'ASK_MENU',
-            'employee_id' => null,
-            'employee_name' => null,
-            'gender' => null,
-            'scan_type' => null,
-            'master_mesin_id' => null,
-            'master_mesin_part_id' => null,
-            'last_image_scan_id' => null,
-            'updated_at' => now(),
-        ]);
-
         $session = DB::table('dbo.telegram_sessions')
             ->where('chat_id', $chatId)
             ->first();
+
+        DB::table('dbo.telegram_sessions')->updateOrInsert(
+            ['chat_id' => $chatId],
+            [
+                'telegram_user_id' => $session?->telegram_user_id,
+                'user_id' => $session?->user_id,
+                'cabang_id' => $session?->cabang_id,
+                'menu' => null,
+                'step' => 'ASK_MENU',
+                'employee_id' => null,
+                'employee_name' => null,
+                'gender' => null,
+                'scan_type' => null,
+                'master_mesin_id' => null,
+                'master_mesin_part_id' => null,
+                'last_image_scan_id' => null,
+                'updated_at' => now(),
+                'created_at' => $session?->created_at ?? now(),
+            ]
+        );
 
         $user = null;
 
@@ -60,14 +68,14 @@ class BaseTelegramService
     protected function menuText(?int $roleId = null): string
     {
         $menus = [
-            'BMI' => '1. BMI',
-            'BIAYA_UMUM' => '2. Biaya Umum',
-            'BIAYA_TOKEN_LISTRIK' => '3. Biaya Token Listrik',
-            'BIAYA_KLIK_METER' => '4. Mesin Samafitro',
-            'MESIN_CEA' => '5. Mesin CEA',
-            'ASABA' => '6. Asaba',
-            'BIAYA_PART' => '7. Biaya Part',
-            'MAINTENANCE_MESIN' => '8. Maintenance Mesin',
+            'BMI' => '<b>1</b> BMI',
+            'BIAYA_UMUM' => '<b>2</b> Biaya Umum',
+            'BIAYA_TOKEN_LISTRIK' => '<b>3</b> Biaya Token Listrik',
+            'BIAYA_KLIK_METER' => '<b>4</b> Mesin Samafitro',
+            'MESIN_CEA' => '<b>5</b> Mesin CEA',
+            'ASABA' => '<b>6</b> Mesin Asaba',
+            'BIAYA_PART' => '<b>7</b> Biaya Part',
+            'MAINTENANCE_MESIN' => '<b>8</b> Maintenance Mesin',
         ];
 
         if ($roleId) {

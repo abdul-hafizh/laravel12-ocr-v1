@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Storage;
 
 class ImageTelegramService
 {
-    public function start(string $chatId, string $menu, string $scanType): void
+    public function start(string|int $chatId, string $menu, string $scanType): void
     {
         DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
             'menu' => $menu,
@@ -26,12 +26,12 @@ class ImageTelegramService
 
         SendTelegram::sendMessage(
             $chatId,
-            "Menu " . $menu . " dipilih ✅\n\n" .
+            "Menu <b>{$menu}</b> dipilih ✅\n\n" .
             "Silakan kirim gambar/foto untuk dianalisis."
         );
     }
 
-    public function handle(string $chatId, string $message, object $session, array $payload): void
+    public function handle(string|int $chatId, string $message, object $session, array $payload): void
     {
         if (($session->step ?? '') === 'ASK_ELECTRICITY_CORRECTION') {
             $this->handleElectricityCorrection($chatId, $message, $session);
@@ -63,77 +63,33 @@ class ImageTelegramService
             return;
         }
 
-        $messagePayload = $payload['message'] ?? [];
+        $telegramMessage = $payload['message'] ?? [];
 
-        $photo = $messagePayload['photo'] ?? null;
-        $document = $messagePayload['document'] ?? null;
-
-        $fileId = null;
-
-        if ($photo && is_array($photo)) {
-            $largestPhoto = end($photo);
-            $fileId = $largestPhoto['file_id'] ?? null;
-        }
-
-        if (!$fileId && $document) {
-            $mimeType = $document['mime_type'] ?? '';
-
-            if (str_starts_with($mimeType, 'image/')) {
-                $fileId = $document['file_id'] ?? null;
-            }
-        }
-
-        if (!$fileId) {
+        if (empty($telegramMessage['photo']) && empty($telegramMessage['document'])) {
             SendTelegram::sendMessage(
                 $chatId,
                 "Silakan kirim gambar/foto, bukan teks.\n\n" .
-                "Ketik MENU untuk kembali ke menu."
+                "Ketik <b>MENU</b> untuk kembali ke menu."
             );
-            return;
-        }
-
-        $token = config('services.telegram.bot_token');
-
-        $fileResponse = Http::get("https://api.telegram.org/bot{$token}/getFile", [
-            'file_id' => $fileId,
-        ]);
-
-        if ($fileResponse->failed() || !($fileResponse->json('ok'))) {
-            SendTelegram::sendMessage($chatId, "Gagal mengambil info file dari Telegram.");
-            return;
-        }
-
-        $filePath = $fileResponse->json('result.file_path');
-
-        $response = Http::timeout(60)
-            ->get("https://api.telegram.org/file/bot{$token}/{$filePath}");
-
-        if ($response->failed()) {
-            SendTelegram::sendMessage($chatId, "Gagal download gambar dari Telegram.");
             return;
         }
 
         $scanType = $session->scan_type ?? 'printer';
 
         try {
+            $file = $this->downloadTelegramImage($telegramMessage);
 
-            $contentType = $response->header('Content-Type') ?: 'image/jpeg';
-
-            if ($contentType === 'application/octet-stream') {
-                $contentType = match (strtolower(pathinfo($filePath, PATHINFO_EXTENSION))) {
-                    'png' => 'image/png',
-                    'webp' => 'image/webp',
-                    'jpg', 'jpeg' => 'image/jpeg',
-                    default => 'image/jpeg',
-                };
+            if (!$file) {
+                SendTelegram::sendMessage($chatId, "Gagal mengambil gambar dari Telegram.");
+                return;
             }
 
-            /**
-             * VALIDASI GAMBAR SEBELUM DISIMPAN
-             */
+            $imageBody = $file['body'];
+            $contentType = $file['mime_type'];
+
             $validation = $this->validateImageByScanType(
                 scanType: $scanType,
-                imageBody: $response->body(),
+                imageBody: $imageBody,
                 mimeType: $contentType
             );
 
@@ -143,7 +99,7 @@ class ImageTelegramService
                     "❌ Gambar tidak sesuai dengan menu yang dipilih.\n\n" .
                     "Alasan: " . ($validation['message'] ?? 'Data wajib tidak ditemukan.') . "\n\n" .
                     "Silakan kirim gambar yang sesuai.\n" .
-                    "Ketik *ulang* untuk kembali ke menu."
+                    "Ketik <b>MENU</b> untuk kembali ke menu."
                 );
 
                 return;
@@ -172,7 +128,8 @@ class ImageTelegramService
                 if (!$serialNumber) {
                     SendTelegram::sendMessage(
                         $chatId,
-                        "❌ Serial number tidak ditemukan pada gambar.\n\nSilakan kirim gambar counter mesin yang menampilkan serial number."
+                        "❌ Serial number tidak ditemukan pada gambar.\n\n" .
+                        "Silakan kirim gambar counter mesin yang menampilkan serial number."
                     );
                     return;
                 }
@@ -184,7 +141,8 @@ class ImageTelegramService
                 if (!$mesin) {
                     SendTelegram::sendMessage(
                         $chatId,
-                        "❌ Serial number *{$serialNumber}* tidak ditemukan di Master Mesin.\n\nSilakan daftarkan mesin terlebih dahulu."
+                        "❌ Serial number <b>{$serialNumber}</b> tidak ditemukan di Master Mesin.\n\n" .
+                        "Silakan daftarkan mesin terlebih dahulu."
                     );
                     return;
                 }
@@ -225,11 +183,10 @@ class ImageTelegramService
             }
 
             $extension = $this->extensionFromMime($contentType);
-
-            $filename = 'tg_' . $chatId . '_' . time() . '.' . $extension;
+            $filename = 'telegram_' . $chatId . '_' . time() . '.' . $extension;
             $path = 'image-scans/' . $filename;
 
-            Storage::disk('public')->put($path, $response->body());
+            Storage::disk('public')->put($path, $imageBody);
 
             $nominalChat = null;
 
@@ -250,6 +207,7 @@ class ImageTelegramService
                 'analysis_result' => [
                     'data_penting' => [
                         'nominal_chat' => $nominalChat,
+                        'telegram_chat_id' => $chatId,
                     ],
                 ],
             ]);
@@ -267,8 +225,8 @@ class ImageTelegramService
                     $chatId,
                     "✅ Foto CEA berhasil diterima.\n" .
                     "Sedang dianalisis oleh sistem.\n\n" .
-                    "ID Scan: *{$scan->id}*\n\n" .
-                    "Silakan masukkan nominal *biaya tinta*.\n" .
+                    "ID Scan: <b>{$scan->id}</b>\n\n" .
+                    "Silakan masukkan nominal <b>biaya tinta</b>.\n" .
                     "Contoh: 185000"
                 );
 
@@ -286,7 +244,7 @@ class ImageTelegramService
                     $chatId,
                     "✅ Foto bukti berhasil diterima.\n" .
                     "Foto disimpan sebagai arsip/bukti.\n\n" .
-                    "ID Scan: *{$scan->id}*\n\n" .
+                    "ID Scan: <b>{$scan->id}</b>\n\n" .
                     "Silakan masukkan biaya part atau maintenance.\n" .
                     "Contoh: 25000"
                 );
@@ -315,23 +273,134 @@ class ImageTelegramService
                 $chatId,
                 "✅ Gambar berhasil diterima.\n" .
                 "Sedang dianalisis oleh sistem.\n\n" .
-                "ID Scan: *{$scan->id}*\n" .
-                "Cabang: *" . ($namaCabang ?: 'Belum terdeteksi') . "*\n\n" .
+                "ID Scan: <b>{$scan->id}</b>\n" .
+                "Cabang: <b>" . ($namaCabang ?: 'Belum terdeteksi') . "</b>\n\n" .
                 "Silakan cek hasilnya di website.\n\n" .
-                "Ketik *ulang* untuk kembali ke menu."
+                "Ketik <b>MENU</b> untuk kembali ke menu."
             );
         } catch (\Throwable $e) {
-            Log::error('WA_IMAGE_UPLOAD_ERR', [
+            Log::error('TELEGRAM_IMAGE_UPLOAD_ERR', [
                 'chat_id' => $chatId,
                 'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
 
             SendTelegram::sendMessage(
                 $chatId,
                 "Terjadi error saat memproses gambar.\n\n" .
-                "Error: " . $e->getMessage()
+                "Error: " . e($e->getMessage())
             );
         }
+    }
+
+    public function startWithMachineSelection(string|int $chatId, string $menu, string $scanType): void
+    {
+        $session = DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->first();
+
+        if (!$session || !$session->cabang_id) {
+            SendTelegram::sendMessage(
+                $chatId,
+                "❌ Cabang Anda belum terdeteksi.\nSilakan hubungi admin."
+            );
+            return;
+        }
+
+        $mesins = MasterMesin::where('master_cabang_id', $session->cabang_id)
+            ->where('is_active', true)
+            ->orderBy('nama_mesin')
+            ->get();
+
+        if ($mesins->isEmpty()) {
+            SendTelegram::sendMessage(
+                $chatId,
+                "❌ Belum ada mesin aktif untuk cabang Anda."
+            );
+            return;
+        }
+
+        DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
+            'menu' => $menu,
+            'scan_type' => $scanType,
+            'step' => 'ASK_MACHINE',
+            'master_mesin_id' => null,
+            'master_mesin_part_id' => null,
+            'updated_at' => now(),
+        ]);
+
+        $text = "Menu <b>{$menu}</b> dipilih ✅\n\n";
+        $text .= "Silakan pilih mesin:\n\n";
+
+        foreach ($mesins as $index => $mesin) {
+            $no = $index + 1;
+            $text .= "<b>{$no}</b> {$mesin->nama_mesin}\n";
+            $text .= "SN: {$mesin->serial_number}\n\n";
+        }
+
+        $text .= "Pilih nomor.";
+
+        SendTelegram::sendMessage($chatId, $text);
+    }
+
+    private function downloadTelegramImage(array $message): ?array
+    {
+        $token = config('services.telegram.bot_token');
+
+        $fileId = null;
+        $mimeType = 'image/jpeg';
+
+        if (!empty($message['photo'])) {
+            $photos = $message['photo'];
+            $largestPhoto = end($photos);
+            $fileId = $largestPhoto['file_id'] ?? null;
+            $mimeType = 'image/jpeg';
+        }
+
+        if (!$fileId && !empty($message['document'])) {
+            $document = $message['document'];
+
+            $docMime = $document['mime_type'] ?? '';
+
+            if (!str_starts_with($docMime, 'image/')) {
+                return null;
+            }
+
+            $fileId = $document['file_id'] ?? null;
+            $mimeType = $docMime ?: 'image/jpeg';
+        }
+
+        if (!$fileId) {
+            return null;
+        }
+
+        $fileResponse = Http::timeout(60)
+            ->get("https://api.telegram.org/bot{$token}/getFile", [
+                'file_id' => $fileId,
+            ]);
+
+        if ($fileResponse->failed()) {
+            return null;
+        }
+
+        $filePath = $fileResponse->json('result.file_path');
+
+        if (!$filePath) {
+            return null;
+        }
+
+        $downloadResponse = Http::timeout(60)
+            ->get("https://api.telegram.org/file/bot{$token}/{$filePath}");
+
+        if ($downloadResponse->failed()) {
+            return null;
+        }
+
+        $headerMime = $downloadResponse->header('Content-Type');
+
+        return [
+            'body' => $downloadResponse->body(),
+            'mime_type' => $headerMime ?: $mimeType,
+        ];
     }
 
     private function validateImageByScanType(string $scanType, string $imageBody, string $mimeType): array
@@ -368,10 +437,6 @@ class ImageTelegramService
 
         $parsed = json_decode($text, true);
 
-        // if (is_array($parsed)) {
-        //     $parsed = ImageAnalysisPromptService::normalize($parsed, $scanType);
-        // }
-
         if (
             isset($parsed['data']['nominal']) &&
             !is_numeric($parsed['data']['nominal'])
@@ -397,7 +462,7 @@ class ImageTelegramService
         ];
     }
 
-    private function handleMachineSelection(string $chatId, string $message, object $session): void
+    private function handleMachineSelection(string|int $chatId, string $message, object $session): void
     {
         $choice = (int) trim($message);
 
@@ -431,7 +496,7 @@ class ImageTelegramService
             if ($parts->isEmpty()) {
                 SendTelegram::sendMessage(
                     $chatId,
-                    "❌ Mesin *{$mesin->nama_mesin}* belum memiliki data part."
+                    "❌ Mesin <b>{$mesin->nama_mesin}</b> belum memiliki data part."
                 );
                 return;
             }
@@ -442,13 +507,13 @@ class ImageTelegramService
             ]);
 
             $text = "Mesin dipilih ✅\n";
-            $text .= "*{$mesin->nama_mesin}*\n";
+            $text .= "<b>{$mesin->nama_mesin}</b>\n";
             $text .= "SN: {$mesin->serial_number}\n\n";
             $text .= "Silakan pilih part:\n\n";
 
             foreach ($parts as $index => $part) {
                 $no = $index + 1;
-                $text .= "*{$no}* {$part->nama_part}\n";
+                $text .= "<b>{$no}</b> {$part->nama_part}\n";
             }
 
             $text .= "\nKetik nomor part.";
@@ -466,15 +531,13 @@ class ImageTelegramService
         SendTelegram::sendMessage(
             $chatId,
             "Mesin dipilih ✅\n\n" .
-            "*{$mesin->nama_mesin}*\n" .
+            "<b>{$mesin->nama_mesin}</b>\n" .
             "SN: {$mesin->serial_number}\n\n" .
             "Silakan kirim gambar/foto bukti maintenance mesin."
         );
-
-        return;
     }
 
-    private function handlePartSelection(string $chatId, string $message, object $session): void
+    private function handlePartSelection(string|int $chatId, string $message, object $session): void
     {
         $choice = (int) trim($message);
 
@@ -490,7 +553,7 @@ class ImageTelegramService
             ->first();
 
         if (!$mesin) {
-            SendTelegram::sendMessage($chatId, "❌ Mesin tidak valid. Ketik *ulang* untuk kembali ke menu.");
+            SendTelegram::sendMessage($chatId, "❌ Mesin tidak valid. Ketik <b>MENU</b> untuk kembali ke menu.");
             return;
         }
 
@@ -511,19 +574,17 @@ class ImageTelegramService
             'updated_at' => now(),
         ]);
 
-        $harga = number_format((float) $part->harga_part, 0, ',', '.');
-
         SendTelegram::sendMessage(
             $chatId,
             "Part dipilih ✅\n\n" .
-            "Mesin: *{$mesin->nama_mesin}*\n" .
+            "Mesin: <b>{$mesin->nama_mesin}</b>\n" .
             "SN: {$mesin->serial_number}\n" .
-            "Part: *{$part->nama_part}*\n" .
+            "Part: <b>{$part->nama_part}</b>\n\n" .
             "Silakan kirim gambar/foto bukti biaya part."
         );
     }
 
-    private function handleCeaTinta(string $chatId, string $message, object $session): void
+    private function handleCeaTinta(string|int $chatId, string $message, object $session): void
     {
         $biayaTinta = $this->extractNominalFromMessage($message);
 
@@ -575,26 +636,18 @@ class ImageTelegramService
             ]
         );
 
-        DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
-            'menu' => null,
-            'scan_type' => null,
-            'step' => 'ASK_MENU',
-            'last_image_scan_id' => null,
-            'master_mesin_id' => null,
-            'master_mesin_part_id' => null,
-            'updated_at' => now(),
-        ]);
+        $this->resetToMenu($chatId);
 
         SendTelegram::sendMessage(
             $chatId,
             "✅ Biaya tinta CEA berhasil disimpan.\n\n" .
             "Tinta: Rp " . number_format($biayaTinta, 0, ',', '.') . "\n" .
             "Periode: " . $periodeStart->format('d/m/Y') . " - " . $periodeEnd->format('d/m/Y') . "\n\n" .
-            "Ketik *ulang* untuk kembali ke menu."
+            "Ketik <b>MENU</b> untuk kembali ke menu."
         );
     }
 
-    private function handlePartMaintenanceNominal(string $chatId, string $message, object $session): void
+    private function handlePartMaintenanceNominal(string|int $chatId, string $message, object $session): void
     {
         $nominal = $this->extractNominalFromMessage($message);
 
@@ -619,17 +672,21 @@ class ImageTelegramService
         $mesin = MasterMesin::find($scan->master_mesin_id);
 
         if (!$mesin) {
-            SendTelegram::sendMessage(
-                $chatId,
-                "Data mesin tidak ditemukan."
-            );
+            SendTelegram::sendMessage($chatId, "Data mesin tidak ditemukan.");
             return;
         }
 
         [$periodeStart, $periodeEnd] = $this->getBillingPeriod($scan->created_at);
 
         $isPart = $session->menu === 'BIAYA_PART';
+
         $namaPart = null;
+
+        if ($isPart && $scan->master_mesin_part_id) {
+            $namaPart = DB::table('dbo.master_mesin_parts')
+                ->where('id', $scan->master_mesin_part_id)
+                ->value('nama_part');
+        }
 
         DB::table('dbo.machine_maintenance_costs')->insert([
             'periode_start' => $periodeStart->toDateString(),
@@ -648,75 +705,19 @@ class ImageTelegramService
             'updated_at' => now(),
         ]);
 
-        DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
-            'menu' => null,
-            'scan_type' => null,
-            'step' => 'ASK_MENU',
-            'last_image_scan_id' => null,
-            'master_mesin_id' => null,
-            'master_mesin_part_id' => null,
-            'updated_at' => now(),
-        ]);
+        $this->resetToMenu($chatId);
 
         SendTelegram::sendMessage(
             $chatId,
             "✅ Biaya berhasil disimpan.\n\n" .
-            "Jenis: *" . ($isPart ? "Biaya Part" : "Biaya Maintenance") . "*\n" .
+            "Jenis: <b>" . ($isPart ? "Biaya Part" : "Biaya Maintenance") . "</b>\n" .
             "Nominal: Rp " . number_format($nominal, 0, ',', '.') . "\n" .
             "Periode: " . $periodeStart->format('d/m/Y') . " - " . $periodeEnd->format('d/m/Y') . "\n\n" .
-            "Ketik *ulang* untuk kembali ke menu."
+            "Ketik <b>MENU</b> untuk kembali ke menu."
         );
     }
 
-    public function startWithMachineSelection(string $chatId, string $menu, string $scanType): void
-    {
-        $session = DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->first();
-
-        if (!$session || !$session->cabang_id) {
-            SendTelegram::sendMessage(
-                $chatId,
-                "❌ Cabang Anda belum terdeteksi.\nSilakan hubungi admin."
-            );
-            return;
-        }
-
-        $mesins = MasterMesin::where('master_cabang_id', $session->cabang_id)
-            ->where('is_active', true)
-            ->orderBy('nama_mesin')
-            ->get();
-
-        if ($mesins->isEmpty()) {
-            SendTelegram::sendMessage(
-                $chatId,
-                "❌ Belum ada mesin aktif untuk cabang Anda."
-            );
-            return;
-        }
-
-        DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
-            'menu' => $menu,
-            'scan_type' => $scanType,
-            'step' => 'ASK_MACHINE',
-            'master_mesin_id' => null,
-            'master_mesin_part_id' => null,
-            'updated_at' => now(),
-        ]);
-
-        $text = "Menu {$menu} dipilih ✅\n\n";
-        $text .= "Silakan pilih mesin:\n\n";
-
-        foreach ($mesins as $index => $mesin) {
-            $no = $index + 1;
-            $text .= "*{$no}* {$mesin->nama_mesin}\n";
-            $text .= "SN: {$mesin->serial_number}\n\n";
-        }
-
-        $text .= "Pilih nomor.";
-
-        SendTelegram::sendMessage($chatId, $text);
-    }
-
-    private function handleElectricityCorrection(string $chatId, string $message, object $session): void
+    private function handleElectricityCorrection(string|int $chatId, string $message, object $session): void
     {
         $parts = array_map('trim', explode(',', $message));
 
@@ -752,11 +753,7 @@ class ImageTelegramService
                 "Contoh:\n12345678901, 25.60"
             );
 
-            SendTelegram::sendMessage(
-                $chatId,
-                $nomorMeter
-            );
-
+            SendTelegram::sendMessage($chatId, $nomorMeter);
             return;
         }
 
@@ -778,10 +775,8 @@ class ImageTelegramService
 
         $dataPenting['nomor_meter_lama_ocr'] = $dataPenting['nomor_meter'] ?? null;
         $dataPenting['kwh_lama_ocr'] = $dataPenting['kwh'] ?? null;
-
         $dataPenting['nomor_meter'] = $nomorMeter;
         $dataPenting['kwh'] = $this->normalizeKwh($kwh);
-
         $dataPenting['is_manual_correction'] = true;
         $dataPenting['corrected_at'] = now()->toDateTimeString();
 
@@ -793,26 +788,18 @@ class ImageTelegramService
             'error_message' => null,
         ]);
 
-        DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
-            'menu' => null,
-            'scan_type' => null,
-            'step' => 'ASK_MENU',
-            'last_image_scan_id' => null,
-            'master_mesin_id' => null,
-            'master_mesin_part_id' => null,
-            'updated_at' => now(),
-        ]);
+        $this->resetToMenu($chatId);
 
         SendTelegram::sendMessage(
             $chatId,
             "✅ Data token listrik berhasil diperbaiki dan disimpan.\n\n" .
-            "Nomor Meter: *{$nomorMeter}*\n" .
-            "kWh: *" . $this->normalizeKwh($kwh) . "*\n\n" .
-            "Ketik *ulang* untuk kembali ke menu."
+            "Nomor Meter: <b>{$nomorMeter}</b>\n" .
+            "kWh: <b>" . $this->normalizeKwh($kwh) . "</b>\n\n" .
+            "Ketik <b>MENU</b> untuk kembali ke menu."
         );
     }
 
-    private function handleMachineSerialCorrection(string $chatId, string $message, object $session): void
+    private function handleMachineSerialCorrection(string|int $chatId, string $message, object $session): void
     {
         $serialNumber = strtoupper(trim($message));
 
@@ -835,11 +822,7 @@ class ImageTelegramService
                 "Silakan copy serial number pada pesan berikut, perbaiki jika ada yang salah, kemudian kirim ulang serial number yang benar."
             );
 
-            SendTelegram::sendMessage(
-                $chatId,
-                $serialNumber
-            );
-
+            SendTelegram::sendMessage($chatId, $serialNumber);
             return;
         }
 
@@ -861,13 +844,11 @@ class ImageTelegramService
 
         $dataPenting['serial_number_lama_ocr'] = $dataPenting['serial_number'] ?? null;
         $dataPenting['serial_number'] = $serialNumber;
-
         $dataPenting['master_mesin'] = [
             'id' => $mesin->id,
             'nama_mesin' => $mesin->nama_mesin,
             'serial_number' => $mesin->serial_number,
         ];
-
         $dataPenting['is_manual_correction'] = true;
         $dataPenting['corrected_at'] = now()->toDateTimeString();
 
@@ -880,6 +861,19 @@ class ImageTelegramService
             'error_message' => null,
         ]);
 
+        $this->resetToMenu($chatId);
+
+        SendTelegram::sendMessage(
+            $chatId,
+            "✅ Data mesin berhasil diperbaiki dan disimpan.\n\n" .
+            "Mesin: <b>{$mesin->nama_mesin}</b>\n" .
+            "Serial Number: <b>{$mesin->serial_number}</b>\n\n" .
+            "Ketik <b>MENU</b> untuk kembali ke menu."
+        );
+    }
+
+    private function resetToMenu(string|int $chatId): void
+    {
         DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
             'menu' => null,
             'scan_type' => null,
@@ -889,14 +883,6 @@ class ImageTelegramService
             'master_mesin_part_id' => null,
             'updated_at' => now(),
         ]);
-
-        SendTelegram::sendMessage(
-            $chatId,
-            "✅ Data mesin berhasil diperbaiki dan disimpan.\n\n" .
-            "Mesin: *{$mesin->nama_mesin}*\n" .
-            "Serial Number: *{$mesin->serial_number}*\n\n" .
-            "Ketik *ulang* untuk kembali ke menu."
-        );
     }
 
     private function isValidKwh($kwh): bool
