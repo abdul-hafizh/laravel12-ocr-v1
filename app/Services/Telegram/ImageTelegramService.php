@@ -361,12 +361,14 @@ class ImageTelegramService
 
             $docMime = $document['mime_type'] ?? '';
 
-            if (!str_starts_with($docMime, 'image/')) {
+            if ($docMime && !str_starts_with($docMime, 'image/')) {
                 return null;
             }
 
             $fileId = $document['file_id'] ?? null;
-            $mimeType = $docMime ?: 'image/jpeg';
+            $mimeType = $docMime && str_starts_with($docMime, 'image/')
+                ? $docMime
+                : 'image/jpeg';
         }
 
         if (!$fileId) {
@@ -396,10 +398,19 @@ class ImageTelegramService
         }
 
         $headerMime = $downloadResponse->header('Content-Type');
+        $finalMime = $headerMime ?: $mimeType;
+
+        if ($finalMime === 'application/octet-stream') {
+            $finalMime = $mimeType;
+        }
+
+        if (!str_starts_with($finalMime, 'image/')) {
+            $finalMime = 'image/jpeg';
+        }
 
         return [
             'body' => $downloadResponse->body(),
-            'mime_type' => $headerMime ?: $mimeType,
+            'mime_type' => $finalMime,
         ];
     }
 

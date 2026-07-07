@@ -90,6 +90,7 @@ class RoleController extends Controller
             ['url' => '/master-cabang', 'label' => 'Master Cabang'],
             ['url' => '/master-vendor', 'label' => 'Master Vendor'],
             ['url' => '/master-mesin', 'label' => 'Master Mesin'],
+            ['url' => '/master-daya-listrik', 'label' => 'Master Daya Listrik'],
             ['url' => '/master-token-listrik', 'label' => 'Master Token Listrik'],
             ['url' => '/master-kendaraan', 'label' => 'Master Kendaraan'],
             ['url' => '/master-skpd', 'label' => 'Master SKPD'],
@@ -99,6 +100,7 @@ class RoleController extends Controller
 
             ['url' => '/roles', 'label' => 'Master Role'],
             ['url' => '/users-management', 'label' => 'Manajemen User'],
+            ['url' => '/telegram-users', 'label' => 'User Telegram'],
 
             ['url' => '/profile', 'label' => 'Settings'],
         ];

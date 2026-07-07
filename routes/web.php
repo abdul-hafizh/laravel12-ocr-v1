@@ -10,6 +10,7 @@ use App\Http\Controllers\MasterKendaraanController;
 use App\Http\Controllers\MasterSkpdController;
 use App\Http\Controllers\MasterHargaBiayaController;
 use App\Http\Controllers\MasterDayaListrikController;
+use App\Http\Controllers\TelegramUserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserManagementController;
@@ -89,6 +90,9 @@ Route::middleware(['auth', 'verified', 'role.url'])->group(function () {
 
     Route::delete('/users-management/{user}', [UserManagementController::class, 'destroy'])
         ->name('users-management.destroy');
+
+    Route::resource('telegram-users', TelegramUserController::class)
+        ->except(['create', 'show', 'edit']);
 
     Route::resource('master-cabang', MasterCabangController::class);
 

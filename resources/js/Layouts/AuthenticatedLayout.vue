@@ -267,6 +267,11 @@ const userAccessMenus = [
         href: route("users-management.index"),
         current: route().current("users-management.*"),
     },
+    {
+        name: "User Telegram",
+        href: route("telegram-users.index"),
+        current: route().current("telegram-users.*"),
+    },
 ];
 
 const filteredNavigation = computed(() => filterMenus(navigation));
@@ -283,6 +288,7 @@ const isMasterDataOpen = ref(
     route().current("master-cabang.*") ||
         route().current("master-vendor.*") ||
         route().current("master-mesin.*") ||
+        route().current("master-daya-listrik.*") ||
         route().current("master-token-listrik.*") ||
         route().current("master-kendaraan.*") ||
         route().current("master-skpd.*") ||
@@ -292,7 +298,9 @@ const isMasterDataOpen = ref(
 const isHasilUploadOpen = ref(route().current("hasil-upload.*"));
 
 const isUserAccessOpen = ref(
-    route().current("roles.*") || route().current("users-management.*"),
+    route().current("roles.*") ||
+        route().current("users-management.*") ||
+        route().current("telegram-users.*"),
 );
 
 watch(
@@ -309,6 +317,7 @@ watch(
             route().current("master-cabang.*") ||
             route().current("master-vendor.*") ||
             route().current("master-mesin.*") ||
+            route().current("master-daya-listrik.*") ||
             route().current("master-token-listrik.*") ||
             route().current("master-kendaraan.*") ||
             route().current("master-skpd.*") ||
@@ -321,9 +330,10 @@ watch(
             isHasilUploadOpen.value = true;
         }
 
-        if (
+        iif (
             route().current("roles.*") ||
-            route().current("users-management.*")
+            route().current("users-management.*") ||
+            route().current("telegram-users.*")
         ) {
             isUserAccessOpen.value = true;
         }

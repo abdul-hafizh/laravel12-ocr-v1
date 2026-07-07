@@ -41,6 +41,7 @@ const defaultUrlMenus = [
     { url: '/master-vendor', label: 'Master Vendor' },
     { url: '/master-mesin', label: 'Master Mesin' },
     { url: '/master-token-listrik', label: 'Master Token Listrik' },
+    { url: '/master-daya-listrik', label: 'Master Daya Listrik' },
     { url: '/master-kendaraan', label: 'Master Kendaraan' },
     { url: '/master-skpd', label: 'Master SKPD' },
     { url: '/master-harga-biaya', label: 'Master Biaya' },
@@ -48,6 +49,7 @@ const defaultUrlMenus = [
     { url: '/employee-measurements', label: 'BMI Karyawan' },
     { url: '/roles', label: 'Master Role' },
     { url: '/users-management', label: 'Manajemen User' },
+    { url: '/telegram-users', label: 'User Telegram' },
     { url: '/profile', label: 'Settings' },
 ];
 
