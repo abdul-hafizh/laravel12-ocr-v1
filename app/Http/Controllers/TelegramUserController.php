@@ -61,7 +61,7 @@ class TelegramUserController extends Controller
     {
         $validated = $request->validate([
             'user_id' => [
-                'required',
+                'nullable',
                 'exists:users,id',
                 'unique:telegram_users,user_id',
             ],
@@ -111,7 +111,7 @@ class TelegramUserController extends Controller
     {
         $validated = $request->validate([
             'user_id' => [
-                'required',
+                'nullable',
                 'exists:users,id',
                 Rule::unique('telegram_users', 'user_id')->ignore($telegramUser->id),
             ],

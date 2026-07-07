@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Libraries\SendTelegram;
+use App\Models\TelegramUser;
 
 class TelegramRouterService
 {
@@ -35,6 +36,19 @@ class TelegramRouterService
         if ($text === '' && !$hasPhoto && !$hasDocument) {
             return;
         }
+
+        TelegramUser::updateOrCreate(
+            [
+                'telegram_chat_id' => $chatId,
+            ],
+            [
+                'telegram_user_id' => $telegramUserId,
+                'telegram_username' => $username,
+                'telegram_first_name' => $firstName,
+                'telegram_last_name' => $lastName,
+                'is_active' => false,
+            ]
+        );
 
         $mapping = DB::table('dbo.telegram_users')
             ->where('telegram_chat_id', $chatId)

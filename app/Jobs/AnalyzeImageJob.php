@@ -184,19 +184,20 @@ class AnalyzeImageJob implements ShouldQueue
 
                     SendTelegram::sendMessage(
                         $telegramSession->chat_id,
-                        "⚠️ Nomor meter token listrik tidak ditemukan di database.\n\n" .
-                        "Apakah benar data ini?\n\n" .
+                        "Nomor meter yang terdeteksi tidak ditemukan di database.\n\n" .
+                        "Silakan periksa kembali data berikut:\n\n" .
                         "Nomor Meter: " . ($nomorMeterClean ?: '-') . "\n" .
                         "kWh: " . ($kwh ?: '-') . "\n\n" .
-                        "Silakan kirim data yang benar dengan format:\n" .
-                        "nomor meter, kWh\n\n" .
-                        "Contoh:\n12345678901, 25.60"
+                        "Apabila terdapat data yang kurang tepat, balas dengan format:\n" .
+                        "<nomor meter>, <kWh>\n\n" .
+                        "Contoh:\n12345678901, 25.60\n\n" .
+                        "👇 Pesan berikut dapat langsung Anda salin (copy)."
                     );
 
                     if ($nomorMeterClean) {
                         SendTelegram::sendMessage(
                             $telegramSession->chat_id,
-                            $nomorMeterClean
+                            "{$nomorMeterClean}, {$kwh}"
                         );
                     }
 
@@ -270,15 +271,18 @@ class AnalyzeImageJob implements ShouldQueue
 
                     SendTelegram::sendMessage(
                         $telegramSession->chat_id,
-                        "⚠️ Serial number {$namaMenu} tidak ditemukan di database.\n\n" .
-                        "Apakah benar serial number ini?\n\n" .
+                        "Serial Number {$namaMenu} yang terdeteksi tidak ditemukan di database.\n\n" .
+                        "Silakan periksa kembali data berikut:\n\n" .
                         "Serial Number: " . ($serialNumberClean ?: '-') . "\n\n" .
-                        "Silakan kirim serial number yang benar.\n\n" .
-                        "Contoh:\nABC123456"
+                        "Apabila Serial Number kurang tepat, perbaiki dengan Serial Number yang benar.\n\n" .
+                        "Pesan berikut dapat langsung Anda salin (copy)."
                     );
 
                     if ($serialNumberClean) {
-                        SendTelegram::sendMessage($telegramSession->chat_id, $serialNumberClean);
+                        SendTelegram::sendMessage(
+                            $telegramSession->chat_id,
+                            $serialNumberClean
+                        );
                     }
                 }
 

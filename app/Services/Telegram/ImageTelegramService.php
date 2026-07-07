@@ -758,13 +758,20 @@ class ImageTelegramService
         if (!$masterToken) {
             SendTelegram::sendMessage(
                 $chatId,
-                "❌ Nomor meter tetap tidak ditemukan di database.\n\n" .
-                "Silakan copy nomor meter pada pesan berikut, perbaiki jika ada yang salah, kemudian kirim ulang dengan format:\n\n" .
-                "nomor meter, kWh\n\n" .
-                "Contoh:\n12345678901, 25.60"
+                "❌ Nomor meter masih tidak ditemukan di database.\n\n" .
+                "Silakan periksa kembali nomor meter yang Anda masukkan.\n\n" .
+                "Balas dengan format:\n" .
+                "<nomor meter>, <kWh>\n\n" .
+                "Contoh:\n" .
+                "12345678901, 25.60\n\n" .
+                "👇 Pesan berikut dapat langsung Anda salin (copy)."
             );
 
-            SendTelegram::sendMessage($chatId, $nomorMeter);
+            SendTelegram::sendMessage(
+                $chatId,
+                "{$nomorMeter}, {$this->normalizeKwh($kwh)}"
+            );
+
             return;
         }
 
