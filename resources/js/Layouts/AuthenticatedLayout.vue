@@ -330,7 +330,7 @@ watch(
             isHasilUploadOpen.value = true;
         }
 
-        iif (
+        if (
             route().current("roles.*") ||
             route().current("users-management.*") ||
             route().current("telegram-users.*")

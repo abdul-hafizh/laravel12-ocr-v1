@@ -37,12 +37,12 @@ class TelegramRouterService
             return;
         }
 
-        TelegramUser::updateOrCreate(
+        TelegramUser::firstOrCreate(
             [
                 'telegram_chat_id' => $chatId,
+                'telegram_user_id' => $telegramUserId,
             ],
             [
-                'telegram_user_id' => $telegramUserId,
                 'telegram_username' => $username,
                 'telegram_first_name' => $firstName,
                 'telegram_last_name' => $lastName,
