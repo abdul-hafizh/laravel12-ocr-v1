@@ -101,85 +101,7 @@ class ImageTelegramService
                     "Silakan kirim gambar yang sesuai.\n" .
                     "Ketik <b>MENU</b> untuk kembali ke menu."
                 );
-
                 return;
-            }
-
-            if ($scanType === 'electricity') {
-                $kwh = $validation['data']['kwh'] ?? null;
-
-                if (!$kwh || !$this->isValidKwh($kwh)) {
-                    SendTelegram::sendMessage(
-                        $chatId,
-                        "❌ Nilai kWh pada layar LCD tidak terbaca jelas.\n\n" .
-                        "Foto tidak disimpan ke database.\n\n" .
-                        "Silakan foto ulang dengan jarak dekat, dan hindari pantulan cahaya."
-                    );
-
-                    return;
-                }
-
-                $validation['data']['kwh'] = $this->normalizeKwh($kwh);
-            }
-
-            if (in_array($scanType, ['printer', 'cea', 'asaba'], true)) {
-                $serialNumber = $validation['data']['serial_number'] ?? null;
-
-                if (!$serialNumber) {
-                    SendTelegram::sendMessage(
-                        $chatId,
-                        "❌ Serial number tidak ditemukan pada gambar.\n\n" .
-                        "Silakan kirim gambar counter mesin yang menampilkan serial number."
-                    );
-                    return;
-                }
-
-                $mesin = MasterMesin::where('serial_number', $serialNumber)
-                    ->where('is_active', true)
-                    ->first();
-
-                if (!$mesin) {
-                    SendTelegram::sendMessage(
-                        $chatId,
-                        "❌ Serial number <b>{$serialNumber}</b> tidak ditemukan di Master Mesin.\n\n" .
-                        "Silakan daftarkan mesin terlebih dahulu."
-                    );
-                    return;
-                }
-
-                $validation['data']['master_mesin'] = [
-                    'id' => $mesin->id,
-                    'nama_mesin' => $mesin->nama_mesin,
-                    'serial_number' => $mesin->serial_number,
-                ];
-
-                if ($scanType === 'printer') {
-                    $bw = (int) ($validation['data']['total_bw'] ?? 0);
-                    $color = (int) ($validation['data']['total_color'] ?? 0);
-                    $longSheet = (int) ($validation['data']['total_long_sheet'] ?? 0);
-
-                    $validation['data']['perhitungan'] = [
-                        'bw' => [
-                            'qty' => $bw,
-                            'harga' => (int) $mesin->harga_bw,
-                            'subtotal' => $bw * (int) $mesin->harga_bw,
-                        ],
-                        'color' => [
-                            'qty' => $color,
-                            'harga' => (int) $mesin->harga_color,
-                            'subtotal' => $color * (int) $mesin->harga_color,
-                        ],
-                        'long_sheet' => [
-                            'qty' => $longSheet,
-                            'harga' => (int) $mesin->harga_long_sheet,
-                            'subtotal' => $longSheet * (int) $mesin->harga_long_sheet,
-                        ],
-                        'total' =>
-                            ($bw * (int) $mesin->harga_bw) +
-                            ($color * (int) $mesin->harga_color) +
-                            ($longSheet * (int) $mesin->harga_long_sheet),
-                    ];
-                }
             }
 
             $extension = $this->extensionFromMime($contentType);
@@ -205,12 +127,196 @@ class ImageTelegramService
                 'mime_type' => $contentType,
                 'status' => 'pending',
                 'analysis_result' => [
-                    'data_penting' => [
-                        'nominal_chat' => $nominalChat,
-                        'telegram_chat_id' => $chatId,
-                    ],
+                    'valid' => $validation['valid'] ?? true,
+                    'message' => $validation['message'] ?? null,
+                    'data_penting' => array_merge(
+                        $validation['data'] ?? [],
+                        [
+                            'nominal_chat' => $nominalChat,
+                            'telegram_chat_id' => $chatId,
+                        ]
+                    ),
                 ],
             ]);
+
+            if ($scanType === 'electricity') {
+                $nomorMeter = preg_replace('/[^0-9]/', '', (string) ($validation['data']['nomor_meter'] ?? ''));
+                $kwh = $validation['data']['kwh'] ?? null;
+
+                if (!$nomorMeter || !$kwh || !$this->isValidKwh($kwh)) {
+                    DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
+                        'step' => 'ASK_ELECTRICITY_CORRECTION',
+                        'last_image_scan_id' => $scan->id,
+                        'updated_at' => now(),
+                    ]);
+
+                    $scan->update([
+                        'status' => 'failed',
+                        'error_message' => 'Nomor meter atau kWh tidak terbaca jelas.',
+                    ]);
+
+                    SendTelegram::sendMessage(
+                        $chatId,
+                        "❌ Nomor meter atau kWh tidak terbaca jelas.\n\n" .
+                        "Silakan balas dengan format:\n" .
+                        "<nomor meter>, <kWh>\n\n" .
+                        "Contoh:\n" .
+                        "12345678901, 25.60"
+                    );
+
+                    return;
+                }
+
+                $kwh = $this->normalizeKwh($kwh);
+
+                $masterToken = MasterTokenListrik::where('nomor_meter', $nomorMeter)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (!$masterToken) {
+                    DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
+                        'step' => 'ASK_ELECTRICITY_CORRECTION',
+                        'last_image_scan_id' => $scan->id,
+                        'updated_at' => now(),
+                    ]);
+
+                    $scan->update([
+                        'status' => 'failed',
+                        'error_message' => 'Nomor meter tidak ditemukan di database.',
+                    ]);
+
+                    SendTelegram::sendMessage(
+                        $chatId,
+                        "❌ Nomor meter <b>{$nomorMeter}</b> tidak ditemukan di database.\n\n" .
+                        "Silakan periksa kembali data berikut:\n\n" .
+                        "Nomor Meter: <b>{$nomorMeter}</b>\n" .
+                        "kWh: <b>{$kwh}</b>\n\n" .
+                        "Apabila nomor meter atau kWh kurang tepat, balas dengan format:\n" .
+                        "<nomor meter>, <kWh>\n\n" .
+                        "Contoh:\n" .
+                        "12345678901, 25.60\n\n" .
+                        "👇 Pesan berikut dapat langsung Anda salin dan perbaiki."
+                    );
+
+                    SendTelegram::sendMessage($chatId, "{$nomorMeter}, {$kwh}");
+
+                    return;
+                }
+
+                $analysis = is_array($scan->analysis_result) ? $scan->analysis_result : [];
+                $dataPenting = $analysis['data_penting'] ?? [];
+
+                $dataPenting['nomor_meter'] = $nomorMeter;
+                $dataPenting['kwh'] = $kwh;
+                $dataPenting['master_token_listrik'] = [
+                    'id' => $masterToken->id,
+                    'nomor_meter' => $masterToken->nomor_meter,
+                ];
+
+                $analysis['data_penting'] = $dataPenting;
+
+                $scan->update([
+                    'analysis_result' => $analysis,
+                ]);
+            }
+
+            if (in_array($scanType, ['printer', 'cea', 'asaba'], true)) {
+                $serialNumber = strtoupper(trim((string) ($validation['data']['serial_number'] ?? '')));
+
+                if (!$serialNumber) {
+                    DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
+                        'step' => 'ASK_MACHINE_SERIAL_CORRECTION',
+                        'last_image_scan_id' => $scan->id,
+                        'updated_at' => now(),
+                    ]);
+
+                    $scan->update([
+                        'status' => 'failed',
+                        'error_message' => 'Serial number tidak terbaca jelas.',
+                    ]);
+
+                    SendTelegram::sendMessage(
+                        $chatId,
+                        "❌ Serial number tidak terbaca jelas pada gambar.\n\n" .
+                        "Silakan balas dengan serial number mesin yang benar.\n\n" .
+                        "Contoh:\nABC123456"
+                    );
+
+                    return;
+                }
+
+                $mesin = MasterMesin::where('serial_number', $serialNumber)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (!$mesin) {
+                    DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
+                        'step' => 'ASK_MACHINE_SERIAL_CORRECTION',
+                        'last_image_scan_id' => $scan->id,
+                        'updated_at' => now(),
+                    ]);
+
+                    $scan->update([
+                        'status' => 'failed',
+                        'error_message' => 'Serial number tidak ditemukan di Master Mesin.',
+                    ]);
+
+                    SendTelegram::sendMessage(
+                        $chatId,
+                        "❌ Serial number <b>{$serialNumber}</b> tidak ditemukan di Master Mesin.\n\n" .
+                        "Silakan copy serial number pada pesan berikut, perbaiki jika ada yang salah, kemudian kirim ulang serial number yang benar."
+                    );
+
+                    SendTelegram::sendMessage($chatId, $serialNumber);
+
+                    return;
+                }
+
+                $analysis = is_array($scan->analysis_result) ? $scan->analysis_result : [];
+                $dataPenting = $analysis['data_penting'] ?? [];
+
+                $dataPenting['serial_number'] = $serialNumber;
+                $dataPenting['master_mesin'] = [
+                    'id' => $mesin->id,
+                    'nama_mesin' => $mesin->nama_mesin,
+                    'serial_number' => $mesin->serial_number,
+                ];
+
+                if ($scanType === 'printer') {
+                    $bw = (int) ($validation['data']['total_bw'] ?? 0);
+                    $color = (int) ($validation['data']['total_color'] ?? 0);
+                    $longSheet = (int) ($validation['data']['total_long_sheet'] ?? 0);
+
+                    $dataPenting['perhitungan'] = [
+                        'bw' => [
+                            'qty' => $bw,
+                            'harga' => (int) $mesin->harga_bw,
+                            'subtotal' => $bw * (int) $mesin->harga_bw,
+                        ],
+                        'color' => [
+                            'qty' => $color,
+                            'harga' => (int) $mesin->harga_color,
+                            'subtotal' => $color * (int) $mesin->harga_color,
+                        ],
+                        'long_sheet' => [
+                            'qty' => $longSheet,
+                            'harga' => (int) $mesin->harga_long_sheet,
+                            'subtotal' => $longSheet * (int) $mesin->harga_long_sheet,
+                        ],
+                        'total' =>
+                            ($bw * (int) $mesin->harga_bw) +
+                            ($color * (int) $mesin->harga_color) +
+                            ($longSheet * (int) $mesin->harga_long_sheet),
+                    ];
+                }
+
+                $analysis['data_penting'] = $dataPenting;
+
+                $scan->update([
+                    'master_mesin_id' => $mesin->id,
+                    'analysis_result' => $analysis,
+                ]);
+            }
 
             AnalyzeImageJob::dispatch($scan->id);
 
@@ -258,6 +364,7 @@ class ImageTelegramService
                 'step' => 'ASK_MENU',
                 'master_mesin_id' => null,
                 'master_mesin_part_id' => null,
+                'last_image_scan_id' => $scan->id,
                 'updated_at' => now(),
             ]);
 
