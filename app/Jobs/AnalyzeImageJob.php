@@ -133,6 +133,7 @@ class AnalyzeImageJob implements ShouldQueue
         if ($scanType === 'electricity') {
             $nomorMeter = preg_replace('/[^0-9]/', '', (string) ($parsed['data']['nomor_meter'] ?? ''));
             $kwh = $parsed['data']['kwh'] ?? null;
+
             $isManual = $parsed['data_penting']['is_manual_correction'] ?? false;
 
             if ($isManual) {
@@ -147,22 +148,20 @@ class AnalyzeImageJob implements ShouldQueue
                     ->first();
             }
 
-            if (!$isManual && (!$nomorMeter || !$masterToken || !$kwh)) {
-                $telegramSession = DB::table('dbo.telegram_sessions')
-                    ->where('last_image_scan_id', $scan->id)
-                    ->first();
-
-                if ($telegramSession) {
-                    SendTelegram::sendMessage(
-                        $telegramSession->chat_id,
-                        "❌ Gagal memproses data listrik otomatis. Silakan ulangi."
-                    );
-                }
+            if (!$isManual && (!$nomorMeter || !$masterToken || !$kwh || !$this->isValidKwh($kwh))) {
+                $scan->update([
+                    'status' => 'failed',
+                    'error_message' => 'Gagal memproses data listrik otomatis.',
+                ]);
                 return;
             }
 
+            if (!isset($parsed['data_penting'])) {
+                $parsed['data_penting'] = [];
+            }
+
             $parsed['data_penting']['nomor_meter'] = $nomorMeter;
-            $parsed['data_penting']['kwh'] = $kwh;
+            $parsed['data_penting']['kwh'] = $this->normalizeKwh($kwh);
             if ($masterToken) {
                 $parsed['data_penting']['master_token_listrik'] = [
                     'id' => $masterToken->id,

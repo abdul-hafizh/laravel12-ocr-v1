@@ -38,6 +38,11 @@ class ImageTelegramService
             return;
         }
 
+        if (($session->step ?? '') === 'ASK_KWH_CORRECTION') {
+            $this->handleKwhCorrection($chatId, $message, $session);
+            return;
+        }
+
         if (($session->step ?? '') === 'ASK_MACHINE_SERIAL_CORRECTION') {
             $this->handleMachineSerialCorrection($chatId, $message, $session);
             return;
@@ -142,13 +147,8 @@ class ImageTelegramService
             if ($scanType === 'electricity') {
                 $nomorMeter = preg_replace('/[^0-9]/', '', (string) ($validation['data']['nomor_meter'] ?? ''));
                 $kwh = $validation['data']['kwh'] ?? null;
-
                 $kwhValid = $kwh && $this->isValidKwh($kwh);
-                if ($kwhValid) {
-                    $kwh = $this->normalizeKwh($kwh);
-                }
 
-                // Cari token berdasarkan nomor meter hasil OCR
                 $masterToken = null;
                 if ($nomorMeter) {
                     $masterToken = MasterTokenListrik::where('nomor_meter', $nomorMeter)
@@ -156,7 +156,7 @@ class ImageTelegramService
                         ->first();
                 }
 
-                if (!$nomorMeter || !$masterToken || !$kwhValid) {
+                if (!$nomorMeter || !$masterToken) {
                     DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
                         'step' => 'ASK_ELECTRICITY_CORRECTION',
                         'last_image_scan_id' => $scan->id,
@@ -165,7 +165,7 @@ class ImageTelegramService
 
                     $scan->update([
                         'status' => 'failed',
-                        'error_message' => (!$nomorMeter || !$masterToken) ? 'Nomor meter tidak ditemukan di database.' : 'kWh tidak terbaca jelas.',
+                        'error_message' => 'Nomor meter tidak ditemukan di database.',
                     ]);
 
                     $tokens = MasterTokenListrik::where('master_cabang_id', $session->cabang_id)
@@ -174,44 +174,53 @@ class ImageTelegramService
                         ->get();
 
                     if ($tokens->isEmpty()) {
-                        SendTelegram::sendMessage(
-                            $chatId,
-                            "❌ Data token listrik gagal dideteksi otomatis, dan tidak ditemukan data token listrik aktif untuk cabang Anda.\n\nSilakan hubungi admin."
-                        );
+                        SendTelegram::sendMessage($chatId, "❌ Data token listrik gagal dideteksi, dan tidak ada data aktif untuk cabang Anda.\n\nSilakan hubungi admin.");
                         $this->resetToMenu($chatId);
                         return;
                     }
 
-                    $text = "❌ Data token listrik tidak terdeteksi otomatis dengan benar.\n\n";
-                    $text .= "Silakan pilih Nomor Meter yang sesuai untuk cabang Anda:\n\n";
-
+                    $text = "❌ Nomor meter tidak terdeteksi otomatis dengan benar.\n\nSilakan pilih Nomor Meter cabang Anda:\n\n";
                     foreach ($tokens as $index => $token) {
                         $no = $index + 1;
                         $text .= "<b>{$no}</b>. {$token->nomor_meter} ({$token->nama_pelanggan})\n";
                     }
-
-                    $text .= "\n<b>0</b>. Hubungi Admin\n\n";
-                    $text .= "Ketik nomor pilihan Anda.";
-
+                    $text .= "\n<b>0</b>. Hubungi Admin\n\nKetik nomor pilihan Anda.";
                     SendTelegram::sendMessage($chatId, $text);
                     return;
                 }
 
+                if (!$kwhValid) {
+                    DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
+                        'step' => 'ASK_KWH_CORRECTION',
+                        'last_image_scan_id' => $scan->id,
+                        'updated_at' => now(),
+                    ]);
+
+                    $analysis = is_array($scan->analysis_result) ? $scan->analysis_result : [];
+                    $analysis['data_penting']['nomor_meter'] = $nomorMeter;
+                    $analysis['data_penting']['master_token_listrik'] = ['id' => $masterToken->id, 'nomor_meter' => $masterToken->nomor_meter];
+                    
+                    $scan->update([
+                        'status' => 'failed',
+                        'analysis_result' => $analysis,
+                        'error_message' => 'kWh tidak terbaca jelas.',
+                    ]);
+
+                    SendTelegram::sendMessage(
+                        $chatId,
+                        "ℹ️ Nomor Meter terdeteksi: <b>{$nomorMeter}</b>\n" .
+                        "❌ Namun angka kWh tidak terbaca jelas.\n\n" .
+                        "Silakan <b>ketik/input angka kWh</b> yang tertera pada meteran saat ini (Contoh: 125.50):"
+                    );
+                    return;
+                }
+
                 $analysis = is_array($scan->analysis_result) ? $scan->analysis_result : [];
-                $dataPenting = $analysis['data_penting'] ?? [];
+                $analysis['data_penting']['nomor_meter'] = $nomorMeter;
+                $analysis['data_penting']['kwh'] = $this->normalizeKwh($kwh);
+                $analysis['data_penting']['master_token_listrik'] = ['id' => $masterToken->id, 'nomor_meter' => $masterToken->nomor_meter];
 
-                $dataPenting['nomor_meter'] = $nomorMeter;
-                $dataPenting['kwh'] = $kwh;
-                $dataPenting['master_token_listrik'] = [
-                    'id' => $masterToken->id,
-                    'nomor_meter' => $masterToken->nomor_meter,
-                ];
-
-                $analysis['data_penting'] = $dataPenting;
-
-                $scan->update([
-                    'analysis_result' => $analysis,
-                ]);
+                $scan->update(['analysis_result' => $analysis]);
             }
 
             if (in_array($scanType, ['printer', 'cea', 'asaba'], true)) {
@@ -840,56 +849,49 @@ class ImageTelegramService
         $choice = trim($message);
 
         if ($choice === '0') {
-            SendTelegram::sendMessage(
-                $chatId,
-                "Silakan hubungi admin untuk mendaftarkan atau memperbaiki data token listrik Anda.\n\nKetik <b>MENU</b> untuk kembali."
-            );
+            SendTelegram::sendMessage($chatId, "Silakan hubungi admin.\n\nKetik <b>MENU</b> untuk kembali.");
             $this->resetToMenu($chatId);
             return;
         }
 
         $choiceIndex = (int) $choice;
-        if ($choiceIndex <= 0) {
-            SendTelegram::sendMessage($chatId, "⚠️ Pilihan tidak valid. Silakan ketik nomor urut yang sesuai atau 0.");
-            return;
-        }
-
-        $tokens = MasterTokenListrik::where('master_cabang_id', $session->cabang_id)
-            ->where('is_active', true)
-            ->orderBy('nomor_meter')
-            ->get();
-
+        $tokens = MasterTokenListrik::where('master_cabang_id', $session->cabang_id)->where('is_active', true)->orderBy('nomor_meter')->get();
         $selectedToken = $tokens->get($choiceIndex - 1);
 
         if (!$selectedToken) {
-            SendTelegram::sendMessage($chatId, "❌ Nomor pilihan tidak ditemukan. Silakan pilih nomor yang tertera pada daftar.");
+            SendTelegram::sendMessage($chatId, "❌ Pilihan tidak valid.");
             return;
         }
 
         $scan = ImageScan::find($session->last_image_scan_id);
-
-        if (!$scan) {
-            SendTelegram::sendMessage($chatId, "Data scan terakhir tidak ditemukan. Silakan ulangi upload foto.");
-            $this->resetToMenu($chatId);
-            return;
-        }
-
         $analysis = is_array($scan->analysis_result) ? $scan->analysis_result : [];
         $dataPenting = $analysis['data_penting'] ?? [];
 
         $kwh = $dataPenting['kwh'] ?? null;
-        $kwh = $this->isValidKwh($kwh) ? $this->normalizeKwh($kwh) : "0.00";
+        $kwhValid = $kwh && $this->isValidKwh($kwh);
 
-        $dataPenting['nomor_meter_lama_ocr'] = $dataPenting['nomor_meter'] ?? null;
         $dataPenting['nomor_meter'] = $selectedToken->nomor_meter;
-        $dataPenting['kwh'] = $kwh;
-        $dataPenting['master_token_listrik'] = [
-            'id' => $selectedToken->id,
-            'nomor_meter' => $selectedToken->nomor_meter,
-        ];
+        $dataPenting['master_token_listrik'] = ['id' => $selectedToken->id, 'nomor_meter' => $selectedToken->nomor_meter];
         $dataPenting['is_manual_correction'] = true;
-        $dataPenting['corrected_at'] = now()->toDateTimeString();
+        
+        $analysis['data_penting'] = $dataPenting;
+        $scan->update(['analysis_result' => $analysis]);
 
+        if (!$kwhValid) {
+            DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
+                'step' => 'ASK_KWH_CORRECTION',
+                'updated_at' => now(),
+            ]);
+
+            SendTelegram::sendMessage(
+                $chatId,
+                "✅ Nomor Meter dipilih: <b>{$selectedToken->nomor_meter}</b>\n\n" .
+                "📝 Langkah terakhir, angka kWh tidak terbaca jelas. Silakan <b>ketik langsung nilai kWh saat ini</b> (Contoh: 250.75):"
+            );
+            return;
+        }
+
+        $dataPenting['kwh'] = $this->normalizeKwh($kwh);
         $analysis['data_penting'] = $dataPenting;
 
         $scan->update([
@@ -899,16 +901,73 @@ class ImageTelegramService
         ]);
 
         AnalyzeImageJob::dispatch($scan->id);
+        $this->resetToMenu($chatId);
+        SendTelegram::sendMessage($chatId, "✅ Data berhasil disimpan.\nMeter: <b>{$selectedToken->nomor_meter}</b>\nkWh: <b>{$dataPenting['kwh']}</b>");
+    }
+
+    private function handleKwhCorrection(string|int $chatId, string $message, object $session): void
+    {
+        $inputKwh = trim($message);
+        
+        // 1. Bersihkan spasi dan standarisasi koma menjadi titik
+        $inputKwh = str_replace(',', '.', $inputKwh); 
+        // Hilangkan semua karakter kecuali angka dan titik desimal
+        $inputKwh = preg_replace('/[^0-9.]/', '', $inputKwh);
+
+        if ($inputKwh === '' || !is_numeric($inputKwh) || (float)$inputKwh < 0) {
+            SendTelegram::sendMessage($chatId, "⚠️ Nilai kWh tidak valid. Silakan masukkan angka yang benar (Contoh: 239.85):");
+            return;
+        }
+
+        // 2. AUTO-FORMAT DESIMAL (Paling Penting!)
+        // Jika user mengetik angka bulat (tidak ada karakter titik sama sekali)
+        if (strpos($inputKwh, '.') === false) {
+            $length = strlen($inputKwh);
+            
+            if ($length > 2) {
+                // Ambil angka depan, lalu sisipkan titik sebelum 2 angka terakhir
+                // Contoh: "23985" menjadi "239" . "." . "85" => "239.85"
+                $angkaDepan = substr($inputKwh, 0, $length - 2);
+                $angkaDesimal = substr($inputKwh, -2);
+                $inputKwh = $angkaDepan . '.' . $angkaDesimal;
+            } else {
+                // Jika user cuma ketik 1 atau 2 digit (misal: "85"), kita anggap "0.85"
+                $inputKwh = '0.' . str_pad($inputKwh, 2, '0', STR_PAD_LEFT);
+            }
+        }
+
+        $scan = ImageScan::find($session->last_image_scan_id);
+        $analysis = is_array($scan->analysis_result) ? $scan->analysis_result : [];
+        $dataPenting = $analysis['data_penting'] ?? [];
+
+        // Format akhir menjadi 2 digit desimal (misal: 239.85)
+        $formattedKwh = number_format((float)$inputKwh, 2, '.', '');
+
+        // Suntik kwh hasil perbaikan ke data penting
+        $dataPenting['kwh'] = $formattedKwh;
+        $dataPenting['is_manual_correction'] = true;
+        $dataPenting['kwh_corrected_at'] = now()->toDateTimeString();
+
+        $analysis['data_penting'] = $dataPenting;
+
+        // Set status sukses karena data sudah lengkap dan valid
+        $scan->update([
+            'analysis_result' => $analysis,
+            'status' => 'success',
+            'error_message' => null,
+        ]);
+
+        // Lempar kembali ke Background Job untuk diproses ke database transaksi utama
+        AnalyzeImageJob::dispatch($scan->id);
 
         $this->resetToMenu($chatId);
 
         SendTelegram::sendMessage(
             $chatId,
-            "✅ Data token listrik berhasil diperbaiki dan disimpan.\n\n" .
-            "Nomor Meter: <b>{$selectedToken->nomor_meter}</b>\n" .
-            "Nama Pelanggan: <b>{$selectedToken->nama_pelanggan}</b>\n" .
-            "kWh: <b>{$kwh}</b>\n\n" .
-            "Ketik <b>MENU</b> untuk kembali ke menu."
+            "✅ Data kWh berhasil dimasukkan dan diformat otomatis.\n\n" .
+            "Nomor Meter: <b>" . ($dataPenting['nomor_meter'] ?? '-') . "</b>\n" .
+            "Nilai kWh Terformat: <b>{$formattedKwh}</b>\n\n" .
+            "Ketik <b>MENU</b> untuk kembali."
         );
     }
 
