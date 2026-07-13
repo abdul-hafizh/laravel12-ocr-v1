@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Libraries\SendTelegram;
 use App\Models\TelegramUser;
+use App\Models\User;
 
 class TelegramRouterService
 {
@@ -28,65 +29,88 @@ class TelegramRouterService
 
         $hasPhoto = isset($message['photo']);
         $hasDocument = isset($message['document']);
+        $contact = $message['contact'] ?? null;
 
         if (!$chatId || !$telegramUserId) {
             return;
         }
 
-        if ($text === '' && !$hasPhoto && !$hasDocument) {
+        if ($text === '' && !$hasPhoto && !$hasDocument && !$contact) {
             return;
         }
 
-        TelegramUser::firstOrCreate(
-            [
-                'telegram_chat_id' => $chatId,
-                'telegram_user_id' => $telegramUserId,
-            ],
-            [
-                'telegram_username' => $username,
-                'telegram_first_name' => $firstName,
-                'telegram_last_name' => $lastName,
-                'is_active' => false,
-            ]
-        );
-
-        $mapping = DB::table('dbo.telegram_users')
-            ->where('telegram_chat_id', $chatId)
+        $mapping = TelegramUser::where('telegram_chat_id', $chatId)
             ->where('telegram_user_id', $telegramUserId)
             ->where('is_active', 1)
             ->first();
 
-        if (!$mapping) {
-            Log::info('TELEGRAM IGNORED USER', [
-                'chat_id' => $chatId,
-                'telegram_user_id' => $telegramUserId,
-                'username' => $username,
-                'first_name' => $firstName,
-                'last_name' => $lastName,
-                'text' => $text,
-            ]);
+        if ($mapping) {
 
-            SendTelegram::sendMessage(
-                $chatId,
-                "Maaf, akun Telegram Anda belum terdaftar di sistem.\n\n" .
-                "Telegram User ID: <b>{$telegramUserId}</b>\n" .
-                "Chat ID: <b>{$chatId}</b>\n" .
-                "Username: <b>" . ($username ? '@' . $username : '-') . "</b>\n\n" .
-                "Silakan hubungi admin."
+            $user = User::where('id', $mapping->user_id)
+                ->where('is_active', 1)
+                ->where('is_delete', 0)
+                ->first();
+
+            if (!$user) {
+                SendTelegram::sendMessage(
+                    $chatId,
+                    "User Anda sudah tidak aktif pada sistem."
+                );
+                return;
+            }
+
+        } else {
+
+            if (!$contact) {
+                SendTelegram::sendContactRequest($chatId);
+                return;
+            }
+
+            if (($contact['user_id'] ?? null) != $telegramUserId) {
+                SendTelegram::sendMessage(
+                    $chatId,
+                    "Silakan bagikan nomor telepon Anda sendiri menggunakan tombol yang tersedia."
+                );
+
+                return;
+            }
+
+            $phone = preg_replace('/\D/', '', $contact['phone_number']);
+
+            $user = User::where('phone', $phone)
+                ->where('is_active', 1)
+                ->where('is_delete', 0)
+                ->first();
+
+            if (!$user) {
+
+                SendTelegram::sendMessage(
+                    $chatId,
+                    "Nomor telepon Anda belum terdaftar pada sistem.\n\n" .
+                    "Silakan hubungi Administrator untuk mendapatkan akses."
+                );
+
+                return;
+            }
+
+            $mapping = TelegramUser::updateOrCreate(
+                [
+                    'telegram_chat_id' => $chatId,
+                    'telegram_user_id' => $telegramUserId,
+                ],
+                [
+                    'user_id' => $user->id,
+                    'telegram_username' => $username,
+                    'telegram_first_name' => $firstName,
+                    'telegram_last_name' => $lastName,
+                    'is_active' => true,
+                ]
             );
 
-            return;
-        }
-
-        $user = DB::table('dbo.users')
-            ->where('id', $mapping->user_id)
-            ->where('is_active', 1)
-            ->where('is_delete', 0)
-            ->first();
-
-        if (!$user) {
-            SendTelegram::sendMessage($chatId, 'User tidak aktif di sistem.');
-            return;
+            SendTelegram::removeKeyboard(
+                $chatId,
+                "✅ Nomor telepon berhasil diverifikasi.\n\nHalo {$user->name}"
+            );
         }
 
         $cabang = DB::table('dbo.master_cabangs as c')
@@ -230,10 +254,6 @@ class TelegramRouterService
             }
         }
 
-        /**
-         * ROUTING LANJUTAN
-         * Ini bagian penting yang sebelumnya kurang di versi Telegram.
-         */
         match ($session->menu) {
             'BMI' => app(BmiTelegramService::class)->handle(
                 $chatId,
@@ -346,5 +366,16 @@ class TelegramRouterService
             '8', 'MAINTENANCE', 'MAINTENANCE MESIN' => 'MAINTENANCE_MESIN',
             default => null,
         };
+    }
+
+    private function normalizePhone($phone)
+    {
+        $phone = preg_replace('/\D/', '', $phone);
+
+        if (str_starts_with($phone, '62')) {
+            $phone = '0' . substr($phone, 2);
+        }
+
+        return $phone;
     }
 }
