@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Libraries\SendSms;
 use App\Libraries\SendTelegram;
 use App\Services\ImageAnalysisPromptService;
 use App\Models\ImageScan;
@@ -131,8 +132,8 @@ class AnalyzeImageJob implements ShouldQueue
         ]);
 
         if ($scanType === 'electricity') {
-            $nomorMeter = preg_replace('/[^0-9]/', '', (string) ($parsed['data']['nomor_meter'] ?? ''));
-            $kwh = $parsed['data']['kwh'] ?? null;
+            $nomorMeter = preg_replace('/[^0-9]/', '', (string) ($parsed['data_penting']['nomor_meter'] ?? ''));
+            $kwh = $parsed['data_penting']['kwh'] ?? null;
 
             $isManual = $parsed['data_penting']['is_manual_correction'] ?? false;
 
@@ -171,7 +172,7 @@ class AnalyzeImageJob implements ShouldQueue
         }
 
         if (in_array($scanType, ['printer', 'cea', 'asaba'], true)) {
-            $serialNumber = trim((string) ($parsed['data']['serial_number'] ?? ''));
+            $serialNumber = trim((string) ($parsed['data_penting']['serial_number'] ?? ''));
             $isManual = $parsed['data_penting']['is_manual_correction'] ?? false;
 
             if ($isManual) {
@@ -193,16 +194,7 @@ class AnalyzeImageJob implements ShouldQueue
                     'error_message' => 'Serial number tidak ditemukan di database saat pemrosesan antrean.',
                 ]);
 
-                $telegramSession = DB::table('dbo.telegram_sessions')
-                    ->where('last_image_scan_id', $scan->id)
-                    ->first();
-
-                if ($telegramSession) {
-                    SendTelegram::sendMessage(
-                        $telegramSession->chat_id,
-                        "❌ Gagal memproses data mesin secara otomatis."
-                    );
-                }
+                $this->notifyScanChannel($scan, "❌ Gagal memproses data mesin secara otomatis.");
                 return;
             }
 
@@ -221,11 +213,46 @@ class AnalyzeImageJob implements ShouldQueue
             'status' => 'success',
             'analysis_result' => $parsed,
             'extracted_text' => $parsed['teks_terbaca']
-                ?? $parsed['data']['teks_terbaca']
                 ?? $parsed['data_penting']['teks_terbaca']
                 ?? $text,
             'error_message' => null,
         ]);
+    }
+
+    private function notifyScanChannel(ImageScan $scan, string $message): void
+    {
+        $telegramSession = DB::table('dbo.telegram_sessions')
+            ->where('last_image_scan_id', $scan->id)
+            ->first();
+
+        if ($telegramSession) {
+            SendTelegram::sendMessage($telegramSession->chat_id, $message);
+            return;
+        }
+
+        $waSession = DB::table('dbo.wa_sessions')
+            ->where('last_image_scan_id', $scan->id)
+            ->first();
+
+        if ($waSession) {
+            SendSms::sendMessageWA($waSession->phone, $message);
+        }
+    }
+
+    private function isValidKwh($kwh): bool
+    {
+        $kwh = trim((string) $kwh);
+        $kwh = str_replace(',', '.', $kwh);
+
+        return preg_match('/^\d+\.\d{2}$/', $kwh) === 1;
+    }
+
+    private function normalizeKwh($kwh): string
+    {
+        $kwh = trim((string) $kwh);
+        $kwh = str_replace(',', '.', $kwh);
+
+        return number_format((float) $kwh, 2, '.', '');
     }
 
     private function cleanNominal($value): ?int

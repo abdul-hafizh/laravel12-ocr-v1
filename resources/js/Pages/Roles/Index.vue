@@ -22,6 +22,7 @@ const props = defineProps({
 
 const defaultUrlMenus = [
     { url: '/dashboard', label: 'Dashboard' },
+    { url: '/manual', label: 'Manual Upload' },
 
     { url: '/summary/electricity', label: 'Laporan - Token Listrik' },
     { url: '/summary/printer-billing', label: 'Laporan - Meter Mesin' },

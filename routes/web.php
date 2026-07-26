@@ -15,6 +15,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\DashboardScanController;
+use App\Http\Controllers\ManualUploadController;
 use App\Http\Controllers\SummaryController;
 use App\Http\Controllers\EmployeeMeasurementController;
 use App\Models\MasterCabang;
@@ -167,6 +168,18 @@ Route::middleware(['auth', 'verified', 'role.url'])->group(function () {
 
     Route::delete('/employee-measurements/{employeeMeasurement}', [EmployeeMeasurementController::class, 'destroy'])
         ->name('employee-measurements.destroy');
+
+    Route::get('/manual', [ManualUploadController::class, 'index'])
+        ->name('manual.index');
+
+    Route::post('/manual', [ManualUploadController::class, 'store'])
+        ->name('manual.store');
+
+    Route::post('/manual/{imageScan}/correct', [ManualUploadController::class, 'correct'])
+        ->name('manual.correct');
+
+    Route::put('/manual/{imageScan}', [ManualUploadController::class, 'update'])
+        ->name('manual.update');
 });
 
 require __DIR__.'/auth.php';
