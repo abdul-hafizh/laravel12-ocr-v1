@@ -76,13 +76,13 @@ class RoleController extends Controller
             ['url' => '/manual', 'label' => 'Manual Upload'],
 
             ['url' => '/summary/electricity', 'label' => 'Laporan - Token Listrik'],
-            ['url' => '/summary/printer-billing', 'label' => 'Laporan - Meter Mesin'],
+            ['url' => '/summary/printer-billing', 'label' => 'Laporan - Samafitro'],
             ['url' => '/summary/asaba', 'label' => 'Laporan - Asaba'],
             ['url' => '/summary/cea-milik', 'label' => 'Laporan - CEA Milik'],
             ['url' => '/summary/cea-sewa', 'label' => 'Laporan - CEA Sewa'],
 
             ['url' => '/hasil-upload/token-listrik', 'label' => 'Hasil Upload - Token Listrik'],
-            ['url' => '/hasil-upload/mesin-cetak', 'label' => 'Hasil Upload - Meter Mesin'],
+            ['url' => '/hasil-upload/mesin-cetak', 'label' => 'Hasil Upload - Samafitro'],
             ['url' => '/hasil-upload/struk-online', 'label' => 'Hasil Upload - Bukti Bayar'],
             ['url' => '/hasil-upload/part-maintenance', 'label' => 'Hasil Upload - Part & Maintenance'],
             ['url' => '/hasil-upload/cea', 'label' => 'Hasil Upload - Counter CEA'],

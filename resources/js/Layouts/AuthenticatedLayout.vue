@@ -138,7 +138,7 @@ const summaryMenus = [
         current: route().current("summary.electricity"),
     },
     {
-        name: "Meter Mesin",
+        name: "Samafitro",
         href: route("summary.printer-billing"),
         current: route().current("summary.printer-billing"),
     },
@@ -236,7 +236,7 @@ const hasilUploadMenus = [
         current: route().current("hasil-upload.token-listrik"),
     },
     {
-        name: "Meter Mesin",
+        name: "Samafitro",
         href: route("hasil-upload.mesin-cetak"),
         current: route().current("hasil-upload.mesin-cetak"),
     },
