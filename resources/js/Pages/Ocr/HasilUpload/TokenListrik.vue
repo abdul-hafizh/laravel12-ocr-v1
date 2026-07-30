@@ -268,7 +268,7 @@ const getStatusClass = (status) => {
                     </div>
 
                     <div v-else class="grid gap-5">
-                        <div v-for="item in dataList" :key="item.id"
+                        <div v-for="(item, index) in dataList" :key="item.id"
                             class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                             <div class="flex flex-col gap-5 lg:flex-row">
                                 <div class="w-full lg:w-40 flex-shrink-0 cursor-pointer"
@@ -280,6 +280,11 @@ const getStatusClass = (status) => {
                                 <div class="flex-1 space-y-5">
                                     <div class="flex flex-wrap items-center justify-between gap-2">
                                         <div class="flex flex-wrap items-center gap-2">
+                                            <span
+                                                class="rounded-full bg-[#1E293B] px-3 py-1 text-[10px] font-black uppercase text-white">
+                                                No. {{ (meta.from ?? 1) + index }}
+                                            </span>
+
                                             <span
                                                 class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
                                                 ID Scan: #{{ item.id }}

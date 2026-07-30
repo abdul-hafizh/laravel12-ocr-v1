@@ -418,6 +418,9 @@ const sendWa = () => {
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-100">
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    No
+                                </th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     Foto
                                 </th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -444,10 +447,13 @@ const sendWa = () => {
                         <tbody class="divide-y divide-slate-50">
                             <template v-if="billings.data.length > 0">
                                 <tr
-                                    v-for="item in billings.data"
+                                    v-for="(item, index) in billings.data"
                                     :key="item.id"
                                     class="hover:bg-slate-50/60 transition"
                                 >
+                                    <td class="px-6 py-4 text-sm font-bold text-slate-500">
+                                        {{ (billings.from ?? 1) + index }}
+                                    </td>
                                     <td class="px-6 py-4">
                                         <div class="space-y-3">
 

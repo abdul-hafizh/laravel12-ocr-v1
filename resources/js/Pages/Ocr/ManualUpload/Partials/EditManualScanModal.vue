@@ -6,6 +6,7 @@ const props = defineProps({
     scan: Object,
     mesins: Array,
     tokens: Array,
+    scanTypes: Array,
 });
 
 const emit = defineEmits(['close', 'updated']);
@@ -70,11 +71,24 @@ const dataPenting = computed(() => {
     return parsed.data_penting || {};
 });
 
-const fields = ref(FIELD_CONFIG[props.scan.scan_type] || []);
+const selectedScanType = ref(props.scan.scan_type);
+
+const fields = computed(() => FIELD_CONFIG[selectedScanType.value] || []);
 
 const values = ref(
     Object.fromEntries(fields.value.map((f) => [f.key, dataPenting.value[f.key] ?? '']))
 );
+
+const onScanTypeChange = () => {
+    values.value = Object.fromEntries(
+        fields.value.map((f) => [
+            f.key,
+            selectedScanType.value === props.scan.scan_type ? (dataPenting.value[f.key] ?? '') : '',
+        ]),
+    );
+    relinkMesinId.value = selectedScanType.value === props.scan.scan_type ? (props.scan.master_mesin_id || '') : '';
+    relinkTokenId.value = selectedScanType.value === props.scan.scan_type ? (dataPenting.value.master_token_listrik?.id || '') : '';
+};
 
 const cabangMesins = computed(() => {
     return props.mesins.filter((m) => Number(m.master_cabang_id) === Number(props.scan.cabang_id));
@@ -106,11 +120,15 @@ const submit = async () => {
     try {
         const payload = { fields: values.value };
 
-        if (props.scan.scan_type === 'electricity' && relinkTokenId.value) {
+        if (selectedScanType.value !== props.scan.scan_type) {
+            payload.scan_type = selectedScanType.value;
+        }
+
+        if (selectedScanType.value === 'electricity' && relinkTokenId.value) {
             payload.master_token_listrik_id = relinkTokenId.value;
         }
 
-        if (MACHINE_TYPES.includes(props.scan.scan_type) && relinkMesinId.value) {
+        if (MACHINE_TYPES.includes(selectedScanType.value) && relinkMesinId.value) {
             payload.master_mesin_id = relinkMesinId.value;
         }
 
@@ -150,7 +168,17 @@ const submit = async () => {
                     <input v-model="createdAt" type="datetime-local" class="w-full rounded-xl border-slate-300 text-sm" />
                 </div>
 
-                <div v-if="scan.scan_type === 'electricity'">
+                <div>
+                    <label class="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">Tipe Scan</label>
+                    <select v-model="selectedScanType" @change="onScanTypeChange" class="w-full rounded-xl border-slate-300 text-sm">
+                        <option v-for="type in scanTypes" :key="type.key" :value="type.key">{{ type.label }}</option>
+                    </select>
+                    <p v-if="selectedScanType !== scan.scan_type" class="mt-1 text-[10px] font-bold text-amber-600">
+                        Tipe scan diubah dari "{{ scanTypes.find((t) => t.key === scan.scan_type)?.label || scan.scan_type }}". Isian di bawah akan dikosongkan dan menimpa data lama.
+                    </p>
+                </div>
+
+                <div v-if="selectedScanType === 'electricity'">
                     <label class="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">Relink Token Listrik (opsional)</label>
                     <select v-model="relinkTokenId" class="w-full rounded-xl border-slate-300 text-sm">
                         <option value="">-- tidak diubah --</option>
@@ -158,8 +186,8 @@ const submit = async () => {
                     </select>
                 </div>
 
-                <div v-if="MACHINE_TYPES.includes(scan.scan_type)">
-                    <label class="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">Relink Mesin (opsional)</label>
+                <div v-if="MACHINE_TYPES.includes(selectedScanType)">
+                    <label class="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">Relink Mesin{{ selectedScanType !== scan.scan_type ? ' (wajib)' : ' (opsional)' }}</label>
                     <select v-model="relinkMesinId" class="w-full rounded-xl border-slate-300 text-sm">
                         <option value="">-- tidak diubah --</option>
                         <option v-for="m in cabangMesins" :key="m.id" :value="m.id">{{ m.nama_mesin }} (SN: {{ m.serial_number }})</option>

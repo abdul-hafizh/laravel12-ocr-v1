@@ -382,17 +382,33 @@ class ManualUploadController extends Controller
 
     public function update(Request $request, ImageScan $imageScan)
     {
-        $editableKeys = self::EDITABLE_FIELDS[$imageScan->scan_type] ?? [];
-
         $validated = $request->validate([
+            'scan_type' => ['nullable', Rule::in(array_keys(self::SCAN_TYPES))],
             'fields' => ['nullable', 'array'],
             'master_mesin_id' => ['nullable', 'exists:master_mesins,id'],
             'master_token_listrik_id' => ['nullable', 'exists:master_token_listriks,id'],
             'created_at' => ['nullable', 'date'],
         ]);
 
+        $originalScanType = $imageScan->scan_type;
+        $newScanType = $validated['scan_type'] ?? $originalScanType;
+        $scanTypeChanged = $newScanType !== $originalScanType;
+
+        if ($scanTypeChanged && in_array($newScanType, self::MACHINE_SCAN_TYPES, true) && empty($validated['master_mesin_id']) && !$imageScan->master_mesin_id) {
+            return response()->json([
+                'status' => 'invalid',
+                'message' => 'Tipe scan mesin baru wajib memilih mesin yang di-relink.',
+            ], 422);
+        }
+
+        $editableKeys = self::EDITABLE_FIELDS[$newScanType] ?? [];
+
         $analysis = is_array($imageScan->analysis_result) ? $imageScan->analysis_result : [];
         $dataPenting = $analysis['data_penting'] ?? [];
+
+        if ($scanTypeChanged) {
+            $dataPenting = array_intersect_key($dataPenting, array_flip(['manual_upload_by']));
+        }
 
         foreach ($validated['fields'] ?? [] as $key => $value) {
             if (in_array($key, $editableKeys, true)) {
@@ -404,7 +420,7 @@ class ManualUploadController extends Controller
             $dataPenting['kwh'] = $this->manualUploadService->normalizeKwh($dataPenting['kwh']);
         }
 
-        if (!empty($validated['master_token_listrik_id']) && $imageScan->scan_type === 'electricity') {
+        if (!empty($validated['master_token_listrik_id']) && $newScanType === 'electricity') {
             $token = MasterTokenListrik::findOrFail($validated['master_token_listrik_id']);
             $dataPenting['nomor_meter'] = $token->nomor_meter;
             $dataPenting['master_token_listrik'] = ['id' => $token->id, 'nomor_meter' => $token->nomor_meter];
@@ -412,7 +428,7 @@ class ManualUploadController extends Controller
 
         $relinkedMesin = null;
 
-        if (!empty($validated['master_mesin_id']) && in_array($imageScan->scan_type, self::MACHINE_SCAN_TYPES, true)) {
+        if (!empty($validated['master_mesin_id']) && in_array($newScanType, self::MACHINE_SCAN_TYPES, true)) {
             $relinkedMesin = MasterMesin::findOrFail($validated['master_mesin_id']);
 
             $dataPenting['serial_number'] = $relinkedMesin->serial_number;
@@ -423,9 +439,11 @@ class ManualUploadController extends Controller
             ];
 
             $imageScan->master_mesin_id = $relinkedMesin->id;
+        } elseif ($scanTypeChanged && !in_array($newScanType, self::MACHINE_SCAN_TYPES, true)) {
+            $imageScan->master_mesin_id = null;
         }
 
-        if ($imageScan->scan_type === 'printer') {
+        if ($newScanType === 'printer') {
             $dataPenting['total_bw'] = (int) ($dataPenting['bw_a3'] ?? 0) + (int) ($dataPenting['bw_a4'] ?? 0);
             $dataPenting['total_color'] = (int) ($dataPenting['color_a3'] ?? 0) + (int) ($dataPenting['color_a4'] ?? 0);
             $dataPenting['total'] = $dataPenting['total_bw'] + $dataPenting['total_color'];
@@ -442,6 +460,7 @@ class ManualUploadController extends Controller
 
         $analysis['data_penting'] = $dataPenting;
 
+        $imageScan->scan_type = $newScanType;
         $imageScan->analysis_result = $analysis;
         $imageScan->status = 'success';
         $imageScan->error_message = null;

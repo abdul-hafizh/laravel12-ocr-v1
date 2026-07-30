@@ -414,6 +414,11 @@ const badgeClass = (status) => {
                                 <th
                                     class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest"
                                 >
+                                    No
+                                </th>
+                                <th
+                                    class="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest"
+                                >
                                     Foto
                                 </th>
                                 <th
@@ -451,10 +456,13 @@ const badgeClass = (status) => {
 
                         <tbody class="divide-y divide-slate-100">
                             <tr
-                                v-for="item in summary.data ?? []"
+                                v-for="(item, index) in summary.data ?? []"
                                 :key="item.cabang_id"
                                 class="hover:bg-slate-50/70 transition-all"
                             >
+                                <td class="px-6 py-5 text-sm font-bold text-slate-500">
+                                    {{ (summary.from ?? 1) + index }}
+                                </td>
                                 <td class="px-6 py-5">
                                     <div class="flex gap-3">
                                         <div v-if="item.foto_awal">

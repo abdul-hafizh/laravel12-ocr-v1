@@ -370,6 +370,6 @@ const onUpdated = () => {
             @close="showCreateModal = false" @created="onCreated" />
 
         <EditManualScanModal v-if="showEditModal && editingScan" :scan="editingScan" :mesins="mesins" :tokens="tokens"
-            @close="showEditModal = false" @updated="onUpdated" />
+            :scan-types="scanTypes" @close="showEditModal = false" @updated="onUpdated" />
     </AuthenticatedLayout>
 </template>
