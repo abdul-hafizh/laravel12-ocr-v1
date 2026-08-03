@@ -66,6 +66,28 @@ const formatDate = (value) => {
     });
 };
 
+const getTotalKeseluruhan = (item) => {
+    const contractService = Number(
+        item.contract_service ?? item.billing_detail?.contract_service ?? 0,
+    );
+    const biayaPart = Number(item.billing_detail?.biaya_part ?? 0);
+    const biayaMaintenance = Number(
+        item.billing_detail?.biaya_maintenance ?? 0,
+    );
+    const biayaTinta = Number(item.billing_detail?.biaya_tinta ?? 0);
+    const printBilling = Number(item.print_billing ?? 0);
+    const copyBilling = Number(item.copy_billing ?? 0);
+
+    return (
+        contractService +
+        biayaPart +
+        biayaMaintenance +
+        biayaTinta +
+        printBilling +
+        copyBilling
+    );
+};
+
 const generateLaporanRows = () => {
     return props.billings.data
         .map((item) => {
@@ -80,13 +102,19 @@ const generateLaporanRows = () => {
             const biayaMaintenance = Number(
                 item.laporan_detail?.biaya_maintenance ?? 0,
             );
+            const biayaService = Number(
+                item.laporan_detail?.contract_service ??
+                    item.contract_service ??
+                    0,
+            );
 
             const totalDebit =
                 biayaFotocopy +
                 biayaPrintBw +
                 biayaTinta +
                 biayaPart +
-                biayaMaintenance;
+                biayaMaintenance +
+                biayaService;
             const totalKredit = totalDebit;
 
             return `
@@ -146,6 +174,12 @@ const generateLaporanRows = () => {
                         <tr>
                             <td>biaya maintenance [ms FC]</td>
                             <td style="text-align:right;">${formatNumber(biayaMaintenance)}</td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td>biaya service [ms FC]</td>
+                            <td style="text-align:right;">${formatNumber(biayaService)}</td>
                             <td></td>
                         </tr>
 
@@ -358,7 +392,7 @@ const generateBillingRows = () => {
                 Print: ${formatCurrency(item.billing_detail?.print_billing ?? 0)}<br>
                 Copy: ${formatCurrency(item.billing_detail?.copy_billing ?? 0)}<br>
                 <hr>
-                <b>Total: ${formatCurrency(item.billing_detail?.total_tagihan ?? 0)}</b>
+                <b>Total: ${formatCurrency(getTotalKeseluruhan(item))}</b>
             </td>
             <td>
                 <b>${item.master_mesin_id ? "OK" : "BELUM MAPPING"}</b><br><br>
@@ -909,7 +943,7 @@ const printBilling = () => {
                                         >
                                             {{
                                                 formatCurrency(
-                                                    item.total_tagihan,
+                                                    getTotalKeseluruhan(item),
                                                 )
                                             }}
                                         </div>
