@@ -75,17 +75,8 @@ const getTotalKeseluruhan = (item) => {
         item.billing_detail?.biaya_maintenance ?? 0,
     );
     const biayaTinta = Number(item.billing_detail?.biaya_tinta ?? 0);
-    const printBilling = Number(item.print_billing ?? 0);
-    const copyBilling = Number(item.copy_billing ?? 0);
 
-    return (
-        contractService +
-        biayaPart +
-        biayaMaintenance +
-        biayaTinta +
-        printBilling +
-        copyBilling
-    );
+    return contractService + biayaPart + biayaMaintenance + biayaTinta;
 };
 
 const generateLaporanRows = () => {
@@ -97,24 +88,16 @@ const generateLaporanRows = () => {
             const biayaPrintBw = Number(
                 item.laporan_detail?.biaya_print_bw ?? item.print_billing ?? 0,
             );
-            const biayaTinta = Number(item.laporan_detail?.biaya_tinta ?? 0);
             const biayaPart = Number(item.laporan_detail?.biaya_part ?? 0);
             const biayaMaintenance = Number(
                 item.laporan_detail?.biaya_maintenance ?? 0,
-            );
-            const biayaService = Number(
-                item.laporan_detail?.contract_service ??
-                    item.contract_service ??
-                    0,
             );
 
             const totalDebit =
                 biayaFotocopy +
                 biayaPrintBw +
-                biayaTinta +
                 biayaPart +
-                biayaMaintenance +
-                biayaService;
+                biayaMaintenance;
             const totalKredit = totalDebit;
 
             return `
@@ -126,6 +109,7 @@ const generateLaporanRows = () => {
                 <div style="margin-top:8px;font-size:16px;">
                     Mesin :
                     <b>${item.master_nama_mesin || item.nama_mesin || "-"}</b>
+                    (CEA)
                 </div>
 
                 <div style="margin-top:4px;font-size:14px;">
@@ -148,38 +132,26 @@ const generateLaporanRows = () => {
 
                     <tbody>
                         <tr>
-                            <td>biaya fotocopy [ms FC]</td>
+                            <td>biaya fotocopy</td>
                             <td style="text-align:right;">${formatNumber(biayaFotocopy)}</td>
                             <td></td>
                         </tr>
 
                         <tr>
-                            <td>biaya print bw [ms FC]</td>
+                            <td>biaya print bw</td>
                             <td style="text-align:right;">${formatNumber(biayaPrintBw)}</td>
                             <td></td>
                         </tr>
 
                         <tr>
-                            <td>biaya tinta [ms FC]</td>
-                            <td style="text-align:right;">${formatNumber(biayaTinta)}</td>
-                            <td></td>
-                        </tr>
-
-                        <tr>
-                            <td>biaya part [ms FC]</td>
+                            <td>biaya part</td>
                             <td style="text-align:right;">${formatNumber(biayaPart)}</td>
                             <td></td>
                         </tr>
 
                         <tr>
-                            <td>biaya maintenance [ms FC]</td>
+                            <td>biaya maintenance</td>
                             <td style="text-align:right;">${formatNumber(biayaMaintenance)}</td>
-                            <td></td>
-                        </tr>
-
-                        <tr>
-                            <td>biaya service [ms FC]</td>
-                            <td style="text-align:right;">${formatNumber(biayaService)}</td>
                             <td></td>
                         </tr>
 

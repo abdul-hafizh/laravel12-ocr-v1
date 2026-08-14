@@ -87,7 +87,7 @@ const formatCurrency = (value) => {
 };
 
 const formatNumber = (value) => {
-    return Number(value || 0).toLocaleString('id-ID');
+    return Math.round(Number(value || 0)).toLocaleString('id-ID');
 };
 
 const formatDate = (value) => {
@@ -259,6 +259,11 @@ const generateBillingRows = () => {
                 Billing Mesin: ${formatCurrency(item.total_tagihan)}<br>
                 Biaya Part: ${formatCurrency(item.billing_detail?.biaya_part ?? item.biaya_part ?? 0)}<br>
                 Biaya Maintenance: ${formatCurrency(item.billing_detail?.biaya_maintenance ?? item.biaya_maintenance ?? 0)}<br>
+                ${
+                    (item.billing_detail?.ppn_persentase ?? item.ppn_persentase ?? 0) > 0
+                        ? `${item.billing_detail?.ppn_nama_pajak ?? item.ppn_nama_pajak} (${item.billing_detail?.ppn_persentase ?? item.ppn_persentase}%): -${formatCurrency(item.billing_detail?.ppn_nominal ?? item.ppn_nominal ?? 0)}<br>`
+                        : ''
+                }
                 <hr>
                 <b>Total: ${formatCurrency(item.billing_detail?.grand_total ?? item.grand_total ?? (
                     Number(item.total_tagihan || 0) +
@@ -281,6 +286,190 @@ const generateBillingRows = () => {
             </td>
         </tr>
     `).join('');
+};
+
+const generateLaporanRows = () => {
+    return props.billings.data.map(item => {
+        const biayaBwMentah =
+            Number(item.billing_detail?.biaya_bw_a3 ?? 0) +
+            Number(item.billing_detail?.biaya_bw_a4 ?? 0) +
+            Number(item.billing_detail?.biaya_bw_long_sheet ?? 0);
+
+        const biayaColorMentah =
+            Number(item.billing_detail?.biaya_color_a3 ?? 0) +
+            Number(item.billing_detail?.biaya_color_a4 ?? 0) +
+            Number(item.billing_detail?.biaya_color_long_sheet ?? 0);
+
+        const biayaPart = Number(item.billing_detail?.biaya_part ?? item.biaya_part ?? 0);
+        const biayaMaintenance = Number(item.billing_detail?.biaya_maintenance ?? item.biaya_maintenance ?? 0);
+
+        const ppnNominal = Number(item.billing_detail?.ppn_nominal ?? item.ppn_nominal ?? 0);
+        const totalMentah = biayaBwMentah + biayaColorMentah;
+
+        const ppnBw = totalMentah > 0 ? ppnNominal * (biayaBwMentah / totalMentah) : 0;
+        const ppnColor = ppnNominal - ppnBw;
+
+        const biayaBw = biayaBwMentah - ppnBw;
+        const biayaColor = biayaColorMentah - ppnColor;
+
+        const totalDebit = biayaBw + biayaColor + biayaPart + biayaMaintenance;
+        const totalKredit = totalDebit;
+
+        return `
+            <div class="report-box">
+                <div class="report-title">
+                    Estimasi Biaya Print ${item.nama_cabang || '-'}
+                </div>
+
+                <div style="margin-top:8px;font-size:16px;">
+                    Mesin :
+                    <b>${item.master_nama_mesin || item.nama_mesin || '-'}</b>
+                    (Samafitro)
+                </div>
+
+                <div style="margin-top:4px;font-size:14px;">
+                    Serial :
+                    <b>${item.serial_number || '-'}</b>
+                </div>
+
+                <div class="report-period">
+                    ${endDate.value.substring(0, 7)}
+                </div>
+
+                <table class="journal-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;">Journal</th>
+                            <th style="text-align:right;width:180px;">Debit</th>
+                            <th style="text-align:right;width:180px;">Kredit</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <tr>
+                            <td>biaya BW</td>
+                            <td style="text-align:right;">${formatNumber(biayaBw)}</td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td>biaya Color</td>
+                            <td style="text-align:right;">${formatNumber(biayaColor)}</td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td>biaya part</td>
+                            <td style="text-align:right;">${formatNumber(biayaPart)}</td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td>biaya maintenance</td>
+                            <td style="text-align:right;">${formatNumber(biayaMaintenance)}</td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td style="padding-left:80px;">cadangan mesin</td>
+                            <td></td>
+                            <td style="text-align:right;">${formatNumber(totalKredit)}</td>
+                        </tr>
+
+                        <tr class="total-row">
+                            <td></td>
+                            <td style="text-align:right;">${formatNumber(totalDebit)}</td>
+                            <td style="text-align:right;">${formatNumber(totalKredit)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }).join('');
+};
+
+const printLaporan = () => {
+    const printWindow = window.open('', '_blank');
+
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Laporan Estimasi Biaya Print Printer</title>
+
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    padding: 24px;
+                    color: #111827;
+                }
+
+                .report-box {
+                    border: 1px solid #333;
+                    padding: 32px 48px;
+                    margin-bottom: 32px;
+                    page-break-inside: avoid;
+                }
+
+                .report-title {
+                    font-size: 18px;
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                }
+
+                .report-period {
+                    font-size: 18px;
+                    font-weight: 600;
+                    margin-bottom: 40px;
+                }
+
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+
+                th {
+                    font-size: 16px;
+                    text-align: left;
+                    padding-bottom: 12px;
+                    text-decoration: underline;
+                    font-weight: 400;
+                }
+
+                td {
+                    font-size: 16px;
+                    padding: 5px 0;
+                }
+
+                td:last-child {
+                    text-align: right;
+                    width: 220px;
+                }
+
+                .total-row td {
+                    padding-top: 16px;
+                    border-top: 1px solid #333;
+                    font-weight: 600;
+                }
+
+                @media print {
+                    .report-box {
+                        page-break-inside: avoid;
+                    }
+                }
+            </style>
+        </head>
+
+        <body>
+            ${generateLaporanRows()}
+        </body>
+        </html>
+    `);
+
+    printWindow.document.close();
+
+    setTimeout(() => {
+        printWindow.print();
+    }, 500);
 };
 
 const sendWa = () => {
@@ -403,6 +592,15 @@ const sendWa = () => {
                     </button>
 
                     <button
+                        type="button"
+                        @click="printLaporan"
+                        class="px-5 py-3 bg-[#2DD4BF] text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-[#26bba8] transition-all shadow-sm"
+                    >
+                        Laporan
+                    </button>
+
+                    <button
+                        v-if="false"
                         type="button"
                         @click="sendWa"
                         class="px-5 py-3 bg-[#2DD4BF] text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-[#26bba8] transition-all shadow-sm"
@@ -618,6 +816,15 @@ const sendWa = () => {
 
                                         <div class="text-[9px] font-bold text-slate-400 uppercase">
                                             Subtotal: {{ formatCurrency(item.billing_detail?.subtotal_sebelum_free) }}
+                                        </div>
+
+                                        <div
+                                            v-if="(item.billing_detail?.ppn_persentase ?? item.ppn_persentase ?? 0) > 0"
+                                            class="text-[9px] font-bold text-rose-500 uppercase"
+                                        >
+                                            {{ item.billing_detail?.ppn_nama_pajak ?? item.ppn_nama_pajak }}
+                                            ({{ item.billing_detail?.ppn_persentase ?? item.ppn_persentase }}%):
+                                            -{{ formatCurrency(item.billing_detail?.ppn_nominal ?? item.ppn_nominal ?? 0) }}
                                         </div>
 
                                         <div class="text-[9px] font-bold text-slate-400 uppercase">

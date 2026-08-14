@@ -6,6 +6,7 @@ import { ref, watch, computed } from 'vue';
 const props = defineProps({
     cabangs: Object,
     users: Array,
+    ppns: Array,
     filters: Object,
     flash: Object,
 });
@@ -40,6 +41,7 @@ const form = useForm({
     nama_pt: '',
     alamat: '',
     user_ids: [],
+    ppn_id: null,
     keterangan: '',
     is_active: true,
 });
@@ -70,6 +72,7 @@ const openCreate = () => {
     form.nama_pt = '';
     form.alamat = '';
     form.user_ids = [];
+    form.ppn_id = null;
     form.keterangan = '';
     form.is_active = true;
 
@@ -87,6 +90,7 @@ const openEdit = (item) => {
     form.nama_pt = item.nama_pt || '';
     form.alamat = item.alamat || '';
     form.user_ids = item.users?.map(user => user.id) || [];
+    form.ppn_id = item.ppn_id || null;
     form.keterangan = item.keterangan || '';
     form.is_active = Boolean(item.is_active);
 
@@ -187,6 +191,9 @@ const executeDelete = () => {
                                     Nama PT
                                 </th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    PPN
+                                </th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     Alamat
                                 </th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -222,6 +229,14 @@ const executeDelete = () => {
                                     </td>
                                     <td class="px-6 py-4 text-sm font-bold text-[#1E293B] uppercase tracking-tight">
                                         {{ item.nama_pt }}
+                                    </td>
+
+                                    <td class="px-6 py-4">
+                                        <span v-if="item.ppn"
+                                            class="text-[11px] font-black text-[#2DD4BF] bg-[#2DD4BF]/5 border border-[#2DD4BF]/10 px-2.5 py-1 rounded-lg tracking-widest">
+                                            {{ item.ppn.nama_pajak }}
+                                        </span>
+                                        <span v-else class="text-[11px] font-bold text-slate-300 uppercase">-</span>
                                     </td>
 
                                     <td class="px-6 py-4">
@@ -293,7 +308,7 @@ const executeDelete = () => {
                             </template>
 
                             <tr v-else>
-                                <td colspan="7" class="px-6 py-20 text-center">
+                                <td colspan="8" class="px-6 py-20 text-center">
                                     <div class="flex flex-col items-center justify-center">
                                         <div
                                             class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 border border-slate-100">
@@ -491,6 +506,24 @@ const executeDelete = () => {
 
                             <div v-if="form.errors.nama_pt" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
                                 {{ form.errors.nama_pt }}
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                PPN
+                            </label>
+
+                            <select v-model="form.ppn_id"
+                                class="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#2DD4BF]/20">
+                                <option :value="null">- Tidak ada -</option>
+                                <option v-for="ppn in ppns" :key="ppn.id" :value="ppn.id">
+                                    {{ ppn.nama_pajak }} ({{ ppn.persentase }}%)
+                                </option>
+                            </select>
+
+                            <div v-if="form.errors.ppn_id" class="text-rose-500 text-[10px] font-bold uppercase mt-1">
+                                {{ form.errors.ppn_id }}
                             </div>
                         </div>
 

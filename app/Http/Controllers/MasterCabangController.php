@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\MasterCabang;
+use App\Models\MasterPpn;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -12,7 +13,7 @@ class MasterCabangController extends Controller
 {
     public function index(Request $request)
     {
-        $query = MasterCabang::with('users');
+        $query = MasterCabang::with('users', 'ppn');
 
         if ($request->filled('search')) {
             $search = trim($request->search);
@@ -45,9 +46,15 @@ class MasterCabangController extends Controller
                 'employee_id',
             ]);
 
+        $ppns = MasterPpn::query()
+            ->where('is_active', true)
+            ->orderBy('nama_pajak')
+            ->get(['id', 'nama_pajak', 'persentase']);
+
         return Inertia::render('MasterCabang/Index', [
             'cabangs' => $data,
             'users' => $users,
+            'ppns' => $ppns,
             'filters' => [
                 'search' => $request->search,
             ],
@@ -68,6 +75,7 @@ class MasterCabangController extends Controller
             'alamat' => ['nullable', 'string'],
             'user_ids' => ['nullable', 'array'],
             'user_ids.*' => ['exists:users,id'],
+            'ppn_id' => ['nullable', 'exists:master_ppns,id'],
             'keterangan' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
@@ -98,6 +106,7 @@ class MasterCabangController extends Controller
             'alamat' => ['nullable', 'string'],
             'user_ids' => ['nullable', 'array'],
             'user_ids.*' => ['exists:users,id'],
+            'ppn_id' => ['nullable', 'exists:master_ppns,id'],
             'keterangan' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);

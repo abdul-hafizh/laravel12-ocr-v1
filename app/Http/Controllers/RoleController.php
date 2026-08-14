@@ -96,6 +96,7 @@ class RoleController extends Controller
             ['url' => '/master-kendaraan', 'label' => 'Master Kendaraan'],
             ['url' => '/master-skpd', 'label' => 'Master SKPD'],
             ['url' => '/master-harga-biaya', 'label' => 'Master Biaya'],
+            ['url' => '/master-ppn', 'label' => 'Master PPN'],
 
             ['url' => '/employee-measurements', 'label' => 'BMI Karyawan'],
 

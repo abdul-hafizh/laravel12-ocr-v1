@@ -159,7 +159,13 @@ class SummaryController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
+        $cabangPpnMap = DB::table('dbo.master_cabangs as c')
+            ->leftJoin('dbo.master_ppns as pp', 'pp.id', '=', 'c.ppn_id')
+            ->select('c.id as cabang_id', 'pp.nama_pajak', 'pp.persentase')
+            ->get()
+            ->keyBy('cabang_id');
+
+        $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd, $cabangPpnMap) {
             $baseScanQuery = DB::table('dbo.v_image_scan_printers')
                 ->where('serial_number', $item->serial_number)
                 ->where('cabang_id', $item->cabang_id)
@@ -321,9 +327,21 @@ class SummaryController extends Controller
                 ->where('cost_type', 'maintenance')
                 ->sum('nominal');
 
+            $grandTotalBeforePpn = $totalTagihan + $biayaPart + $biayaMaintenance;
+
+            $cabangPpn = $cabangPpnMap->get($item->cabang_id);
+            $ppnNamaPajak = $cabangPpn->nama_pajak ?? null;
+            $ppnPersentase = $ppnNamaPajak ? (float) $cabangPpn->persentase : 0;
+            $ppnNominal = round($grandTotalBeforePpn * ($ppnPersentase / 100));
+            $grandTotalAfterPpn = $grandTotalBeforePpn - $ppnNominal;
+
             $item->biaya_part = $biayaPart;
             $item->biaya_maintenance = $biayaMaintenance;
-            $item->grand_total = $totalTagihan + $biayaPart + $biayaMaintenance;
+            $item->grand_total_before_ppn = $grandTotalBeforePpn;
+            $item->ppn_nama_pajak = $ppnNamaPajak;
+            $item->ppn_persentase = $ppnPersentase;
+            $item->ppn_nominal = $ppnNominal;
+            $item->grand_total = $grandTotalAfterPpn;
 
             $item->periode_start = $periodeStart->toDateString();
             $item->periode_end = $periodeEnd->toDateString();
@@ -413,7 +431,13 @@ class SummaryController extends Controller
 
                 'biaya_part' => $biayaPart,
                 'biaya_maintenance' => $biayaMaintenance,
-                'grand_total' => $totalTagihan + $biayaPart + $biayaMaintenance,
+                'grand_total_before_ppn' => $grandTotalBeforePpn,
+
+                'ppn_nama_pajak' => $ppnNamaPajak,
+                'ppn_persentase' => $ppnPersentase,
+                'ppn_nominal' => $ppnNominal,
+
+                'grand_total' => $grandTotalAfterPpn,
             ];
 
             $item->usage_bw_a3 = $bwA3;
@@ -1447,12 +1471,14 @@ class SummaryController extends Controller
                 $biayaMaintenance +
                 $biayaPart;
 
+            $biayaTerbagi = $contractService + $biayaTinta;
+
             $printBilling = $totalMeter > 0
-                ? round($totalDasarBilling * ($printPercent / 100))
+                ? round($biayaTerbagi * ($printPercent / 100))
                 : 0;
 
             $copyBilling = $totalMeter > 0
-                ? round($totalDasarBilling * ($copyPercent / 100))
+                ? round($biayaTerbagi * ($copyPercent / 100))
                 : 0;
             
             $totalTagihan = $hasTwoScans && $totalMeter > 0

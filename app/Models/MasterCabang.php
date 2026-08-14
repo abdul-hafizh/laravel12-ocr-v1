@@ -12,6 +12,7 @@ class MasterCabang extends Model
         'nama_pt',
         'alamat',
         'pic_user_id',
+        'ppn_id',
         'keterangan',
         'is_active',
     ];
@@ -24,5 +25,10 @@ class MasterCabang extends Model
     {
         return $this->belongsToMany(User::class, 'master_cabang_user')
             ->withTimestamps();
+    }
+
+    public function ppn()
+    {
+        return $this->belongsTo(MasterPpn::class, 'ppn_id');
     }
 }

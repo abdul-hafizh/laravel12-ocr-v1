@@ -46,6 +46,7 @@ const defaultUrlMenus = [
     { url: '/master-kendaraan', label: 'Master Kendaraan' },
     { url: '/master-skpd', label: 'Master SKPD' },
     { url: '/master-harga-biaya', label: 'Master Biaya' },
+    { url: '/master-ppn', label: 'Master PPN' },
 
     { url: '/employee-measurements', label: 'BMI Karyawan' },
     { url: '/roles', label: 'Master Role' },

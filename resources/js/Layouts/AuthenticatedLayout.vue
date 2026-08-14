@@ -200,6 +200,11 @@ const masterDataMenus = [
         href: route("master-harga-biaya.index"),
         current: route().current("master-harga-biaya.*"),
     },
+    {
+        name: "Master PPN",
+        href: route("master-ppn.index"),
+        current: route().current("master-ppn.*"),
+    },
 ];
 
 const navigation = [
@@ -298,7 +303,8 @@ const isMasterDataOpen = ref(
         route().current("master-token-listrik.*") ||
         route().current("master-kendaraan.*") ||
         route().current("master-skpd.*") ||
-        route().current("master-harga-biaya.*"),
+        route().current("master-harga-biaya.*") ||
+        route().current("master-ppn.*"),
 );
 
 const isHasilUploadOpen = ref(route().current("hasil-upload.*"));
@@ -327,7 +333,8 @@ watch(
             route().current("master-token-listrik.*") ||
             route().current("master-kendaraan.*") ||
             route().current("master-skpd.*") ||
-            route().current("master-harga-biaya.*")
+            route().current("master-harga-biaya.*") ||
+            route().current("master-ppn.*")
         ) {
             isMasterDataOpen.value = true;
         }
