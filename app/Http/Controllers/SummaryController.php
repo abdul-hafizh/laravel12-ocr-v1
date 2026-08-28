@@ -218,20 +218,30 @@ class SummaryController extends Controller
                 $colorLongSheet = max(0, $currentColorLongSheet - $previousColorLongSheet);
             }
 
-            $hargaColorA3 = (float) ($item->harga_color_a3 ?? 0);
-            $hargaColorA4 = (float) ($item->harga_color_a4 ?? 0);
-            $hargaBwA3 = (float) ($item->harga_bw_a3 ?? 0);
-            $hargaBwA4 = (float) ($item->harga_bw_a4 ?? 0);
+            $rate = $this->getOrCreateRateSnapshot(
+                'printer',
+                $item->master_mesin_id,
+                $item->cabang_id,
+                $item->serial_number,
+                $periodeStart,
+                $periodeEnd,
+                $item
+            ) ?? $item;
 
-            $minimumSize = strtoupper((string) ($item->minimum_charge_size ?? ''));
-            $minimumClick = (int) ($item->minimum_charge_click ?? 0);
-            $minimumNominal = (float) ($item->minimum_charge_nominal ?? 0);
-            $freePercent = (float) ($item->free_klik_percent ?? 0);
+            $hargaColorA3 = (float) ($rate->harga_color_a3 ?? 0);
+            $hargaColorA4 = (float) ($rate->harga_color_a4 ?? 0);
+            $hargaBwA3 = (float) ($rate->harga_bw_a3 ?? 0);
+            $hargaBwA4 = (float) ($rate->harga_bw_a4 ?? 0);
 
-            $overColorA3 = (float) ($item->over_click_color_a3 ?? 0);
-            $overColorA4 = (float) ($item->over_click_color_a4 ?? 0);
-            $overBwA3 = (float) ($item->over_click_bw_a3 ?? 0);
-            $overBwA4 = (float) ($item->over_click_bw_a4 ?? 0);
+            $minimumSize = strtoupper((string) ($rate->minimum_charge_size ?? ''));
+            $minimumClick = (int) ($rate->minimum_charge_click ?? 0);
+            $minimumNominal = (float) ($rate->minimum_charge_nominal ?? 0);
+            $freePercent = (float) ($rate->free_klik_percent ?? 0);
+
+            $overColorA3 = (float) ($rate->over_click_color_a3 ?? 0);
+            $overColorA4 = (float) ($rate->over_click_color_a4 ?? 0);
+            $overBwA3 = (float) ($rate->over_click_bw_a3 ?? 0);
+            $overBwA4 = (float) ($rate->over_click_bw_a4 ?? 0);
 
             $rateColorA3 = $overColorA3 > 0 ? $overColorA3 : $hargaColorA3;
             $rateColorA4 = $overColorA4 > 0 ? $overColorA4 : $hargaColorA4;
@@ -318,6 +328,8 @@ class SummaryController extends Controller
                 ->whereDate('periode_start', $periodeStart->toDateString())
                 ->whereDate('periode_end', $periodeEnd->toDateString())
                 ->get();
+
+            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
 
             $biayaPart = (float) $maintenanceCosts
                 ->where('cost_type', 'part')
@@ -1098,11 +1110,21 @@ class SummaryController extends Controller
                 $usageBlack = max(0, $currentBlack - $previousBlack);
             }
 
-            $hargaColorA4 = (float) ($item->harga_color_a4 ?? 0);
-            $hargaBwA4 = (float) ($item->harga_bw_a4 ?? 0);
+            $rate = $this->getOrCreateRateSnapshot(
+                'asaba',
+                $item->master_mesin_id,
+                $item->cabang_id,
+                $item->serial_number,
+                $periodeStart,
+                $periodeEnd,
+                $item
+            ) ?? $item;
 
-            $overColorA4 = (float) ($item->over_click_color_a4 ?? 0);
-            $overBwA4 = (float) ($item->over_click_bw_a4 ?? 0);
+            $hargaColorA4 = (float) ($rate->harga_color_a4 ?? 0);
+            $hargaBwA4 = (float) ($rate->harga_bw_a4 ?? 0);
+
+            $overColorA4 = (float) ($rate->over_click_color_a4 ?? 0);
+            $overBwA4 = (float) ($rate->over_click_bw_a4 ?? 0);
 
             $rateColorA4 = $overColorA4 > 0 ? $overColorA4 : $hargaColorA4;
             $rateBwA4 = $overBwA4 > 0 ? $overBwA4 : $hargaBwA4;
@@ -1140,10 +1162,10 @@ class SummaryController extends Controller
             $subtotalBilling = $biayaBw + $biayaColor;
             $subtotalSebelumFree = $subtotalBilling;
 
-            $minimumClick = (int) ($item->minimum_charge_click ?? 0);
-            $minimumNominal = (float) ($item->minimum_charge_nominal ?? 0);
-            $minimumSize = strtoupper((string) ($item->minimum_charge_size ?? 'A4'));
-            $freePercent = (float) ($item->free_klik_percent ?? 0);
+            $minimumClick = (int) ($rate->minimum_charge_click ?? 0);
+            $minimumNominal = (float) ($rate->minimum_charge_nominal ?? 0);
+            $minimumSize = strtoupper((string) ($rate->minimum_charge_size ?? 'A4'));
+            $freePercent = (float) ($rate->free_klik_percent ?? 0);
 
             $hasMinimumRule =
                 $minimumClick > 0
@@ -1197,7 +1219,9 @@ class SummaryController extends Controller
                 ->whereDate('periode_start', $periodeStart->toDateString())
                 ->whereDate('periode_end', $periodeEnd->toDateString())
                 ->get();
-            
+
+            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
+
             $biayaPart = (float) $maintenanceCosts
                 ->where('cost_type', 'part')
                 ->sum('nominal');
@@ -1494,6 +1518,9 @@ class SummaryController extends Controller
                 ->whereDate('periode_start', $periodeStart->toDateString())
                 ->whereDate('periode_end', $periodeEnd->toDateString())
                 ->get();
+
+            $this->lockCostRowIfElapsed('cea_billing_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
+            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
 
             $contractService = (float) ($cost->contract_service ?? 0);
             $biayaTinta      = (float) ($cost->biaya_tinta ?? 0);
@@ -1803,14 +1830,24 @@ class SummaryController extends Controller
                 ? round(($usageCopy / $totalMeter) * 100, 2)
                 : 0;
 
-            $minimumChargeSize = strtoupper((string) ($item->minimum_charge_size ?? 'A4'));
+            $rate = $this->getOrCreateRateSnapshot(
+                'cea_sewa',
+                $item->master_mesin_id,
+                $item->cabang_id,
+                $item->serial_number,
+                $periodeStart,
+                $periodeEnd,
+                $item
+            ) ?? $item;
+
+            $minimumChargeSize = strtoupper((string) ($rate->minimum_charge_size ?? 'A4'));
 
             $hargaBw = $minimumChargeSize === 'A3'
-                ? (float) ($item->harga_bw_a3 ?? 0)
-                : (float) ($item->harga_bw_a4 ?? 0);
+                ? (float) ($rate->harga_bw_a3 ?? 0)
+                : (float) ($rate->harga_bw_a4 ?? 0);
 
-            $minimumClick = (int) ($item->minimum_charge_click ?? 30000);
-            $minimumNominal = (float) ($item->minimum_charge_nominal ?? 2040000);
+            $minimumClick = (int) ($rate->minimum_charge_click ?? 30000);
+            $minimumNominal = (float) ($rate->minimum_charge_nominal ?? 2040000);
 
             if ($minimumClick <= 0) {
                 $minimumClick = 30000;
@@ -1884,6 +1921,9 @@ class SummaryController extends Controller
                 ->whereDate('periode_start', $periodeStart->toDateString())
                 ->whereDate('periode_end', $periodeEnd->toDateString())
                 ->get();
+
+            $this->lockCostRowIfElapsed('cea_billing_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
+            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
 
             $biayaTinta = (float) ($ceaCost->biaya_tinta ?? 0);
 
@@ -1980,6 +2020,90 @@ class SummaryController extends Controller
                 'end_date' => $endDate,
             ],
         ]);
+    }
+
+    private function getOrCreateRateSnapshot(
+        string $reportType,
+        $masterMesinId,
+        $cabangId,
+        ?string $serialNumber,
+        Carbon $periodeStart,
+        Carbon $periodeEnd,
+        object $liveRow
+    ): ?object {
+        if (empty($masterMesinId) || $periodeEnd->isFuture()) {
+            return null;
+        }
+
+        $cabangKey = $cabangId ?: 0;
+
+        $existing = DB::table('machine_rate_snapshots')
+            ->where('report_type', $reportType)
+            ->where('master_mesin_id', $masterMesinId)
+            ->where('cabang_id', $cabangKey)
+            ->whereDate('periode_start', $periodeStart->toDateString())
+            ->whereDate('periode_end', $periodeEnd->toDateString())
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        try {
+            DB::table('machine_rate_snapshots')->insert([
+                'report_type' => $reportType,
+                'master_mesin_id' => $masterMesinId,
+                'cabang_id' => $cabangKey,
+                'serial_number' => $serialNumber,
+                'periode_start' => $periodeStart->toDateString(),
+                'periode_end' => $periodeEnd->toDateString(),
+                'harga_color_a3' => $liveRow->harga_color_a3 ?? null,
+                'harga_color_a4' => $liveRow->harga_color_a4 ?? null,
+                'harga_bw_a3' => $liveRow->harga_bw_a3 ?? null,
+                'harga_bw_a4' => $liveRow->harga_bw_a4 ?? null,
+                'minimum_charge_click' => $liveRow->minimum_charge_click ?? null,
+                'minimum_charge_size' => $liveRow->minimum_charge_size ?? null,
+                'minimum_charge_nominal' => $liveRow->minimum_charge_nominal ?? null,
+                'over_click_color_a3' => $liveRow->over_click_color_a3 ?? null,
+                'over_click_color_a4' => $liveRow->over_click_color_a4 ?? null,
+                'over_click_bw_a3' => $liveRow->over_click_bw_a3 ?? null,
+                'over_click_bw_a4' => $liveRow->over_click_bw_a4 ?? null,
+                'free_klik_percent' => $liveRow->free_klik_percent ?? null,
+                'locked_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Unique-constraint race: another concurrent request already inserted it.
+        }
+
+        return DB::table('machine_rate_snapshots')
+            ->where('report_type', $reportType)
+            ->where('master_mesin_id', $masterMesinId)
+            ->where('cabang_id', $cabangKey)
+            ->whereDate('periode_start', $periodeStart->toDateString())
+            ->whereDate('periode_end', $periodeEnd->toDateString())
+            ->first();
+    }
+
+    private function lockCostRowIfElapsed(
+        string $table,
+        $masterMesinId,
+        $cabangId,
+        Carbon $periodeStart,
+        Carbon $periodeEnd
+    ): void {
+        if (empty($masterMesinId) || $periodeEnd->isFuture()) {
+            return;
+        }
+
+        DB::table($table)
+            ->where('master_mesin_id', $masterMesinId)
+            ->where('cabang_id', $cabangId)
+            ->whereDate('periode_start', $periodeStart->toDateString())
+            ->whereDate('periode_end', $periodeEnd->toDateString())
+            ->whereNull('locked_at')
+            ->update(['locked_at' => now()]);
     }
 
     private function getStatusSummary(

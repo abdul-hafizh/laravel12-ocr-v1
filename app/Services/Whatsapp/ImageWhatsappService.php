@@ -701,6 +701,26 @@ class ImageWhatsappService
 
         [$periodeStart, $periodeEnd] = $this->getBillingPeriod($scan->created_at);
 
+        $isLocked = DB::table('dbo.cea_billing_costs')
+            ->where('periode_start', $periodeStart->toDateString())
+            ->where('periode_end', $periodeEnd->toDateString())
+            ->where('cabang_id', $scan->cabang_id)
+            ->where('serial_number', $serialNumber)
+            ->whereNotNull('locked_at')
+            ->exists();
+
+        if ($isLocked) {
+            $this->resetToMenu($phone);
+
+            SendSms::sendMessageWA(
+                $phone,
+                "Periode " . $periodeStart->format('d/m/Y') . " - " . $periodeEnd->format('d/m/Y') .
+                " sudah dilaporkan dan terkunci. Hubungi admin jika perlu koreksi."
+            );
+
+            return;
+        }
+
         DB::table('dbo.cea_billing_costs')->updateOrInsert(
             [
                 'periode_start' => $periodeStart->toDateString(),
@@ -768,6 +788,25 @@ class ImageWhatsappService
             $namaPart = DB::table('dbo.master_mesin_parts')
                 ->where('id', $scan->master_mesin_part_id)
                 ->value('nama_part');
+        }
+
+        $isLocked = DB::table('dbo.machine_maintenance_costs')
+            ->where('periode_start', $periodeStart->toDateString())
+            ->where('periode_end', $periodeEnd->toDateString())
+            ->where('cabang_id', $scan->cabang_id)
+            ->where('master_mesin_id', $scan->master_mesin_id)
+            ->whereNotNull('locked_at')
+            ->exists();
+
+        if ($isLocked) {
+            $this->resetToMenu($phone);
+
+            SendSms::sendMessageWA(
+                $phone,
+                "Periode ini sudah dilaporkan dan terkunci untuk mesin ini. Hubungi admin jika perlu koreksi."
+            );
+
+            return;
         }
 
         DB::table('dbo.machine_maintenance_costs')->insert([
