@@ -607,15 +607,51 @@ class SummaryController extends Controller
         $summary = [];
 
         foreach ($rows as $groupKey => $items) {
-            $awal = $items->first();
-            $akhir = $items->last();
+            // Pastikan urut waktu; jangan andalkan first()/last() dari orderBy query saja
+            $sorted = $items->sortBy('created_at')->values();
+
+            $awal = $sorted->first();
+            $akhir = $sorted->last();
 
             $hasTwoScans = $awal && $akhir && (int) $awal->id !== (int) $akhir->id;
 
             $kwhAwal = $this->toFloat($awal->kwh ?? 0);
             $kwhAkhir = $this->toFloat($akhir->kwh ?? 0);
 
-            $pemakaianKwh = max($kwhAwal - $kwhAkhir, 0);
+            // ---------------------------------------------------------------
+            // INTI PERBAIKAN: telusuri antar-foto secara berurutan.
+            //   - sisa TURUN  -> pemakaian (konsumsi)
+            //   - sisa NAIK   -> isi ulang (top-up)
+            // Hasil konsumsi setara dengan: kwhAwal + totalTopup - kwhAkhir,
+            // dan otomatis benar untuk berapa pun jumlah isi ulang.
+            // Tidak perlu max(...,0) lagi karena tiap segmen tak pernah negatif.
+            // ---------------------------------------------------------------
+            $konsumsi = 0.0;
+            $totalTopup = 0.0;
+            $adaKemungkinanTopup = false;
+
+            for ($i = 1; $i < $sorted->count(); $i++) {
+                $prev = $this->toFloat($sorted[$i - 1]->kwh ?? 0);
+                $curr = $this->toFloat($sorted[$i]->kwh ?? 0);
+                $delta = $curr - $prev;
+
+                if ($delta < 0) {
+                    $konsumsi += abs($delta);
+                } elseif ($delta > 0) {
+                    $totalTopup += $delta;
+                    $adaKemungkinanTopup = true;
+                }
+
+                // Sinyal tambahan: nomor_token berubah antar-foto berarti
+                // hampir pasti terjadi pembelian token, walau kwh terlihat turun
+                // (isi ulang yang keburu terpakai sebelum difoto -> tak tertangkap
+                // dari delta kwh saja). Ini penanda untuk audit, bukan angka pasti.
+                if (($sorted[$i - 1]->nomor_token ?? null) !== ($sorted[$i]->nomor_token ?? null)) {
+                    $adaKemungkinanTopup = true;
+                }
+            }
+
+            $pemakaianKwh = $konsumsi;
 
             $hargaPerKwh = $this->toFloat($awal->harga_per_kwh ?? 0);
             $ppnPersen = $this->toFloat($awal->ppn_persen ?? 0);
@@ -654,6 +690,10 @@ class SummaryController extends Controller
 
                 'kwh_awal' => round($kwhAwal, 2),
                 'kwh_akhir' => round($kwhAkhir, 2),
+
+                'total_topup_kwh' => round($totalTopup, 2),
+                'ada_kemungkinan_topup' => $adaKemungkinanTopup,
+
                 'pemakaian_kwh' => round($pemakaianKwh, 2),
 
                 'harga_per_kwh' => round($hargaPerKwh, 2),
@@ -673,7 +713,7 @@ class SummaryController extends Controller
 
                 'rekomendasi_topup_bulan_depan' => round($rekomendasiTopupBulanDepan, 2),
 
-                'jumlah_foto' => $items->count(),
+                'jumlah_foto' => $sorted->count(),
 
                 'image_scan_id_awal' => $awal->id,
                 'image_scan_id_akhir' => $hasTwoScans ? $akhir->id : null,
@@ -713,7 +753,7 @@ class SummaryController extends Controller
                 'new_note' => '',
 
                 'status_summary' => $this->getStatusSummary(
-                    $items,
+                    $sorted,
                     $kwhAwal,
                     $kwhAkhir,
                     $hargaPerKwh,
@@ -1953,6 +1993,9 @@ class SummaryController extends Controller
         $masterDayaListrikId = null,
         $dayaIsActive = null
     ): string {
+        // ---------------------------------------------------------------
+        // 1) Validasi konfigurasi master (tetap seperti semula)
+        // ---------------------------------------------------------------
         if (empty($masterTokenId)) {
             return 'Master tidak ditemukan';
         }
@@ -1981,8 +2024,64 @@ class SummaryController extends Controller
             return 'PPN tidak valid';
         }
 
-        if ($kwhAkhir > $kwhAwal) {
-            return 'Perlu dicek';
+        // ---------------------------------------------------------------
+        // 2) Analisis per-segmen untuk deteksi anomali
+        // ---------------------------------------------------------------
+        $sorted = $items->sortBy('created_at')->values();
+
+        // Daya terpasang -> batas fisik pemakaian.
+        // Catatan: pastikan $item->daya berupa nilai VA numerik (mis. 1300, 2200).
+        // Jika tersimpan dengan pemisah ribuan / satuan ("1.300 VA"), sesuaikan
+        // parsing-nya di toFloat() agar tidak salah baca.
+        $dayaVa = $this->toFloat($sorted->first()->daya ?? 0);
+        $dayaKw = $dayaVa / 1000.0; // kW maksimum (asumsi pf ~ 1)
+
+        $adaTopup = false;
+
+        for ($i = 1; $i < $sorted->count(); $i++) {
+            $prev = $this->toFloat($sorted[$i - 1]->kwh ?? 0);
+            $curr = $this->toFloat($sorted[$i]->kwh ?? 0);
+            $delta = $curr - $prev;
+
+            $jamSelisih = Carbon::parse($sorted[$i - 1]->created_at)
+                ->diffInMinutes(Carbon::parse($sorted[$i]->created_at)) / 60.0;
+
+            if ($delta < 0) {
+                // --- Segmen pemakaian: tak boleh melebihi kapasitas daya x waktu ---
+                $pemakaianSegmen = abs($delta);
+
+                if ($dayaKw > 0 && $jamSelisih > 0) {
+                    // Kelonggaran 20% untuk toleransi jeda foto vs waktu baca riil.
+                    // Angka 1.2 ini boleh Anda sesuaikan.
+                    $maksFisik = $dayaKw * $jamSelisih * 1.2;
+
+                    if ($pemakaianSegmen > $maksFisik) {
+                        return 'Perlu dicek: pemakaian melebihi kapasitas daya';
+                    }
+                }
+            } elseif ($delta > 0) {
+                // --- Segmen isi ulang ---
+                $adaTopup = true;
+
+                // Lonjakan sangat besar -> kemungkinan salah OCR (digit ekstra,
+                // mis. 150 terbaca 1500). Ambang: melebihi kapasitas teoretis
+                // ~1 bulan penuh pada daya terpasang.
+                if ($dayaKw > 0) {
+                    $maksTopupWajar = $dayaKw * 24 * 31;
+
+                    if ($delta > $maksTopupWajar) {
+                        return 'Perlu dicek: lonjakan kWh tidak wajar';
+                    }
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // 3) Sisa akhir > awal hanya wajar BILA memang ada isi ulang terekam.
+        //    Jika tidak ada isi ulang tapi sisa akhir lebih besar -> janggal.
+        // ---------------------------------------------------------------
+        if ($kwhAkhir > $kwhAwal && !$adaTopup) {
+            return 'Perlu dicek: sisa akhir lebih besar tanpa isi ulang';
         }
 
         return 'Lengkap';

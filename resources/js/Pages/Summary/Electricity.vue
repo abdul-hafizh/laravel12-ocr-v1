@@ -168,6 +168,7 @@ const printSummary = () => {
                         <th>Cabang</th>
                         <th>Pelanggan</th>
                         <th>kWh Awal</th>
+                        <th>Isi Ulang</th>
                         <th>kWh Akhir</th>
                         <th>Pemakaian</th>
                         <th>Estimasi Rupiah</th>
@@ -206,6 +207,7 @@ const summaryHtml = () => {
             </td>
 
             <td>${formatNumber(item.kwh_awal)}</td>
+            <td>${item.total_topup_kwh > 0 ? "+" + formatNumber(item.total_topup_kwh) : "-"}</td>
             <td>${formatNumber(item.kwh_akhir)}</td>
             <td>${formatNumber(item.pemakaian_kwh)}</td>
             <td>${formatRupiah(item.estimasi_pemakaian_rupiah)}</td>
@@ -273,12 +275,19 @@ const resetFilter = () => {
 };
 
 const badgeClass = (status) => {
+    if (!status) return "bg-slate-50 text-slate-500 border-slate-100";
+
     if (status === "Lengkap") {
         return "bg-emerald-50 text-emerald-600 border-emerald-100";
     }
 
-    if (status === "Perlu dicek") {
+    // Status kini bisa berupa "Perlu dicek: ..." -> gunakan startsWith
+    if (status.startsWith("Perlu dicek")) {
         return "bg-amber-50 text-amber-600 border-amber-100";
+    }
+
+    if (status === "Belum lengkap") {
+        return "bg-slate-50 text-slate-500 border-slate-100";
     }
 
     return "bg-rose-50 text-rose-600 border-rose-100";
@@ -561,6 +570,20 @@ const badgeClass = (status) => {
                                         </p>
 
                                         <p
+                                            v-if="item.total_topup_kwh > 0"
+                                            class="text-sm font-semibold text-teal-600"
+                                        >
+                                            Isi ulang:
+                                            <span class="font-black">
+                                                +{{
+                                                    formatNumber(
+                                                        item.total_topup_kwh,
+                                                    )
+                                                }}
+                                            </span>
+                                        </p>
+
+                                        <p
                                             class="text-sm font-semibold text-slate-700"
                                         >
                                             Akhir:
@@ -582,6 +605,18 @@ const badgeClass = (status) => {
                                                     )
                                                 }}
                                             </span>
+                                        </p>
+
+                                        <p
+                                            v-if="
+                                                item.ada_kemungkinan_topup &&
+                                                item.total_topup_kwh <= 0
+                                            "
+                                            class="text-[10px] text-amber-600 mt-1 leading-tight"
+                                        >
+                                            ⚠ Nomor token berubah tapi isi ulang
+                                            tidak tertangkap di foto — pemakaian
+                                            bisa lebih rendah dari sebenarnya.
                                         </p>
                                     </div>
                                 </td>
@@ -715,7 +750,7 @@ const badgeClass = (status) => {
                             </tr>
 
                             <tr v-if="(summary.data ?? []).length === 0">
-                                <td colspan="7" class="px-6 py-16 text-center">
+                                <td colspan="8" class="px-6 py-16 text-center">
                                     <p class="text-slate-400 font-semibold">
                                         Belum ada data summary token listrik
                                         pada periode ini.
