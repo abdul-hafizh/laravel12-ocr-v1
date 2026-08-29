@@ -146,6 +146,10 @@ Route::middleware(['auth', 'verified', 'role.url'])->group(function () {
         return Inertia::render('Ocr/HasilUpload/Asaba');
     })->name('hasil-upload.asaba');
 
+    Route::get('/hasil-upload/astra', function () {
+        return Inertia::render('Ocr/HasilUpload/Astra');
+    })->name('hasil-upload.astra');
+
     Route::get('/summary/electricity', [SummaryController::class, 'electricity'])
         ->name('summary.electricity');
 
@@ -160,6 +164,9 @@ Route::middleware(['auth', 'verified', 'role.url'])->group(function () {
 
     Route::get('/summary/asaba', [SummaryController::class, 'asabaBilling'])
         ->name('summary.asaba');
+
+    Route::get('/summary/astra', [SummaryController::class, 'astraBilling'])
+        ->name('summary.astra');
 
     Route::get('/summary/cea-milik', [SummaryController::class, 'ceaBilling'])
         ->name('summary.cea-milik');

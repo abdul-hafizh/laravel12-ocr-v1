@@ -5,7 +5,6 @@ import { ref } from 'vue';
 
 const props = defineProps({
     billings: Object,
-    vendors: Array,
     cabangs: Array,
     filters: Object,
 });
@@ -31,7 +30,6 @@ const getDefaultPeriod = () => {
 const defaultPeriod = getDefaultPeriod();
 
 const search = ref(props.filters.search || '');
-const vendor = ref(props.filters.vendor || '');
 const cabangId = ref(props.filters.cabang_id || '');
 
 const startDate = ref(props.filters.start_date || defaultPeriod.start_date);
@@ -63,10 +61,9 @@ const formatDate = (value) => {
 
 const applyFilter = () => {
     router.get(
-        route('summary.asaba'),
+        route('summary.astra'),
         {
             search: search.value,
-            vendor: vendor.value,
             cabang_id: cabangId.value,
             start_date: startDate.value,
             end_date: endDate.value,
@@ -82,13 +79,12 @@ const applyFilter = () => {
 
 const resetFilter = () => {
     search.value = '';
-    vendor.value = '';
     cabangId.value = '';
     startDate.value = defaultPeriod.start_date;
     endDate.value = defaultPeriod.end_date;
 
     router.get(
-        route('summary.asaba'),
+        route('summary.astra'),
         {
             start_date: startDate.value,
             end_date: endDate.value,
@@ -148,12 +144,10 @@ const generateBillingRows = () => {
                 <td>${item.nama_vendor || '-'}</td>
                 <td>${item.kode_cabang || '-'} - ${item.nama_cabang || '-'}</td>
                 <td>
-                    Total: ${formatNumber(item.total_counter)}<br>
-                    Printer: ${formatNumber(item.printer_counter)}<br>
-                    Copy: ${formatNumber(item.copy_counter)}<br>
-                    Full Color: ${formatNumber(item.full_color_counter)}<br>
-                    Single Color: ${formatNumber(item.single_color_counter)}<br>
-                    Black: ${formatNumber(item.black_counter)}
+                    Total: ${formatNumber(item.total_impressions)}<br>
+                    Color: ${formatNumber(item.color_impressions)}<br>
+                    Color Large: ${formatNumber(item.color_large_impressions)}<br>
+                    Black: ${formatNumber(item.black_impressions)}
                 </td>
                 <td class="text-right">
                     Billing Mesin: ${formatCurrency(billingMesin)}<br>
@@ -182,7 +176,7 @@ const printBilling = () => {
     printWindow.document.write(`
         <html>
         <head>
-            <title>Billing Counter Asaba</title>
+            <title>Billing Astra</title>
             <style>
                 body{font-family:Arial,sans-serif;padding:20px;}
                 h2{text-align:center;margin-bottom:20px;}
@@ -193,7 +187,7 @@ const printBilling = () => {
             </style>
         </head>
         <body>
-            <h2>Billing Counter Asaba</h2>
+            <h2>Billing Astra</h2>
             <p>Periode : ${startDate.value} s/d ${endDate.value}</p>
             <table>
                 <thead>
@@ -203,7 +197,7 @@ const printBilling = () => {
                         <th>Serial Number</th>
                         <th>Vendor</th>
                         <th>Cabang</th>
-                        <th>Counter</th>
+                        <th>Impressions</th>
                         <th>Total Tagihan</th>
                         <th>Status</th>
                     </tr>
@@ -242,7 +236,7 @@ const generateLaporanRows = () => {
                 <div style="margin-top:8px;font-size:16px;">
                     Mesin :
                     <b>${item.master_nama_mesin || item.nama_mesin || '-'}</b>
-                    (Asaba)
+                    (Astra)
                 </div>
 
                 <div style="margin-top:4px;font-size:14px;">
@@ -312,7 +306,7 @@ const printLaporan = () => {
     printWindow.document.write(`
         <html>
         <head>
-            <title>Laporan Estimasi Biaya Asaba</title>
+            <title>Laporan Estimasi Biaya Astra</title>
 
             <style>
                 body {
@@ -392,17 +386,17 @@ const printLaporan = () => {
 </script>
 
 <template>
-    <Head title="Billing Counter Asaba" />
+    <Head title="Billing Mesin Astra" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                 <div>
                     <h2 class="font-bold text-2xl text-[#1E293B] leading-tight">
-                        Billing <span class="text-[#2DD4BF]">Counter Asaba</span>
+                        Billing <span class="text-[#2DD4BF]">Mesin Astra</span>
                     </h2>
                     <p class="hidden sm:block mt-1 text-sm text-slate-400 font-medium">
-                        Periode billing mesin Develop / Asaba
+                        Periode billing mesin Astra (Astragraphia)
                     </p>
                 </div>
             </div>
@@ -434,17 +428,7 @@ const printLaporan = () => {
                     />
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4">
-                    <select
-                        v-model="vendor"
-                        class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
-                    >
-                        <option value="">Semua Vendor</option>
-                        <option v-for="v in vendors" :key="v.id" :value="v.id">
-                            {{ v.kode_vendor }} - {{ v.nama_vendor }}
-                        </option>
-                    </select>
-
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
                     <select
                         v-model="cabangId"
                         class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
@@ -470,13 +454,14 @@ const printLaporan = () => {
                     >
                         Reset
                     </button>
+
                     <button
-                    type="button"
-                    @click="printBilling"
-                    class="px-5 py-3 bg-slate-700 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm"
-                >
-                    Print
-                </button>
+                        type="button"
+                        @click="printBilling"
+                        class="px-5 py-3 bg-slate-700 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm"
+                    >
+                        Print
+                    </button>
 
                     <button
                         type="button"
@@ -503,10 +488,10 @@ const printLaporan = () => {
                                     Mesin
                                 </th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Vendor / Cabang
+                                    Cabang
                                 </th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
-                                    Counter Scan
+                                    Impressions
                                 </th>
                                 <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">
                                     Pemakaian
@@ -615,7 +600,7 @@ const printLaporan = () => {
 
                                     <td class="px-6 py-4">
                                         <div class="text-[11px] font-black text-[#1E293B] uppercase">
-                                            {{ item.nama_vendor || '-' }}
+                                            {{ item.nama_vendor || 'Astragraphia' }}
                                         </div>
 
                                         <div class="text-[10px] font-bold text-slate-400 uppercase">
@@ -629,55 +614,31 @@ const printLaporan = () => {
 
                                     <td class="px-6 py-4 text-right">
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Total: {{ formatNumber(item.total_counter) }}
+                                            Total: {{ formatNumber(item.total_impressions) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Printer: {{ formatNumber(item.printer_counter) }}
+                                            Color: {{ formatNumber(item.color_impressions) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Copy: {{ formatNumber(item.copy_counter) }}
+                                            Color Large: {{ formatNumber(item.color_large_impressions) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Scan: {{ formatNumber(item.scan_counter) }}
-                                        </div>
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Feed: {{ formatNumber(item.feed_paper_counter) }}
-                                        </div>
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Output: {{ formatNumber(item.output_paper_counter) }}
-                                        </div>
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Full Color: {{ formatNumber(item.full_color_counter) }}
-                                        </div>
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Single Color: {{ formatNumber(item.single_color_counter) }}
-                                        </div>
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Black: {{ formatNumber(item.black_counter) }}
+                                            Black: {{ formatNumber(item.black_impressions) }}
                                         </div>
                                     </td>
 
                                     <td class="px-6 py-4 text-right">
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Total: {{ formatNumber(item.usage_total_counter) }}
+                                            Total: {{ formatNumber(item.usage_total_impressions) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Printer: {{ formatNumber(item.usage_printer_counter) }}
+                                            Color: {{ formatNumber(item.usage_color_impressions) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Copy: {{ formatNumber(item.usage_copy_counter) }}
+                                            Color Large: {{ formatNumber(item.usage_color_large_impressions) }}
                                         </div>
                                         <div class="text-[10px] font-black text-slate-600">
-                                            Scan: {{ formatNumber(item.usage_scan_counter) }}
-                                        </div>
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Full Color: {{ formatNumber(item.usage_full_color_counter) }}
-                                        </div>
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Single Color: {{ formatNumber(item.usage_single_color_counter) }}
-                                        </div>
-                                        <div class="text-[10px] font-black text-slate-600">
-                                            Black: {{ formatNumber(item.usage_black_counter) }}
+                                            Black: {{ formatNumber(item.usage_black_impressions) }}
                                         </div>
 
                                         <div class="mt-2 pt-2 border-t border-slate-100">
@@ -799,7 +760,7 @@ const printLaporan = () => {
                             <tr v-else>
                                 <td colspan="7" class="px-6 py-20 text-center">
                                     <h4 class="text-[13px] font-black text-[#1E293B] uppercase italic tracking-tighter">
-                                        Belum ada data billing Asaba
+                                        Belum ada data billing Astra
                                     </h4>
                                 </td>
                             </tr>

@@ -60,12 +60,13 @@ class RoleController extends Controller
         return [
             ['key' => 'BMI', 'label' => '1 - BMI'],
             ['key' => 'BIAYA_UMUM', 'label' => '2 - Biaya Umum'],
-            ['key' => 'BIAYA_TOKEN_LISTRIK', 'label' => '3 - Biaya Token Listrik'],
-            ['key' => 'BIAYA_KLIK_METER', 'label' => '4 - Mesin Samafitro'],
+            ['key' => 'TOKEN_LISTRIK', 'label' => '3 - Token Listrik'],
+            ['key' => 'KLIK_METER', 'label' => '4 - Mesin Samafitro'],
             ['key' => 'MESIN_CEA', 'label' => '5 - Mesin CEA'],
-            ['key' => 'ASABA', 'label' => '6 - Asaba'],
-            ['key' => 'BIAYA_PART', 'label' => '7 - Biaya Part'],
-            ['key' => 'MAINTENANCE_MESIN', 'label' => '8 - Maintenance Mesin'],
+            ['key' => 'MESIN_ASTRA', 'label' => '6 - Mesin ASTRA'],
+            ['key' => 'ASABA', 'label' => '7 - ASABA'],
+            ['key' => 'BIAYA_PART', 'label' => '8 - Biaya Part'],
+            ['key' => 'MAINTENANCE_MESIN', 'label' => '9 - Maintenance Mesin'],
         ];
     }
 
@@ -80,13 +81,15 @@ class RoleController extends Controller
             ['url' => '/summary/asaba', 'label' => 'Laporan - Asaba'],
             ['url' => '/summary/cea-milik', 'label' => 'Laporan - CEA Milik'],
             ['url' => '/summary/cea-sewa', 'label' => 'Laporan - CEA Sewa'],
+            ['url' => '/summary/astra', 'label' => 'Laporan - ASTRA'],
 
             ['url' => '/hasil-upload/token-listrik', 'label' => 'Hasil Upload - Token Listrik'],
             ['url' => '/hasil-upload/mesin-cetak', 'label' => 'Hasil Upload - Samafitro'],
             ['url' => '/hasil-upload/struk-online', 'label' => 'Hasil Upload - Bukti Bayar'],
             ['url' => '/hasil-upload/part-maintenance', 'label' => 'Hasil Upload - Part & Maintenance'],
             ['url' => '/hasil-upload/cea', 'label' => 'Hasil Upload - Counter CEA'],
-            ['url' => '/hasil-upload/asaba', 'label' => 'Hasil Upload - Counter Asaba'],
+            ['url' => '/hasil-upload/asaba', 'label' => 'Hasil Upload - Counter ASABA'],
+            ['url' => '/hasil-upload/astra', 'label' => 'Hasil Upload - Counter ASTRA'],
 
             ['url' => '/master-cabang', 'label' => 'Master Cabang'],
             ['url' => '/master-vendor', 'label' => 'Master Vendor'],

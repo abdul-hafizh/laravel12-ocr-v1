@@ -46,24 +46,6 @@ const flashMessage = computed(() => {
             <p class="text-sm text-gray-400 font-medium tracking-wide">
                 © 2026 DashOCR Pro System
             </p>
-
-            <div class="flex justify-center space-x-4 mt-2">
-                <a
-                    href="#"
-                    class="text-[10px] text-gray-300 hover:text-[#2DD4BF] uppercase tracking-widest font-bold transition"
-                >
-                    Privacy Policy
-                </a>
-
-                <span class="text-gray-200">•</span>
-
-                <a
-                    href="#"
-                    class="text-[10px] text-gray-300 hover:text-[#2DD4BF] uppercase tracking-widest font-bold transition"
-                >
-                    Terms of Service
-                </a>
-            </div>
         </div>
     </div>
 </template>

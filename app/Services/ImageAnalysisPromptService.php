@@ -13,6 +13,7 @@ class ImageAnalysisPromptService
             'part_maintenance' => self::partMaintenancePrompt(),
             'cea'  => self::ceaPrompt(),
             'asaba' => self::asabaPrompt(),
+            'astra' => self::astraPrompt(),
         };
     }
 
@@ -704,6 +705,90 @@ class ImageAnalysisPromptService
         {
             "valid": false,
             "message": "Counter mesin tidak ditemukan.",
+            "data_penting": {}
+        }
+        ';
+    }
+
+    private static function astraPrompt(): string
+    {
+        return '
+        Analisis gambar layar "Billing Information" pada mesin Astra.
+
+        Fokus:
+        - Serial Number mesin.
+        - Nama / tipe mesin jika terlihat.
+        - Current Meter Reading, yang terdiri dari:
+          * Color Impressions
+          * Black Impressions
+          * Color Large Impressions
+          * Total Impressions
+
+        - Lokasi jika ada watermark.
+        - Tanggal jika ada.
+
+        Aturan:
+        - Semua counter harus integer.
+        - Hilangkan nol di depan.
+        - Jika counter tidak ditemukan isi 0.
+        - Jangan mengarang data.
+        - Ambil Serial Number persis seperti yang tertampil di layar.
+
+        Mapping:
+
+        Serial Number = serial_number
+        Color Impressions = color_impressions
+        Black Impressions = black_impressions
+        Color Large Impressions = color_large_impressions
+        Total Impressions = total_impressions
+
+        Valid jika:
+        - Serial Number ditemukan.
+        - Minimal satu nilai pada Current Meter Reading (Color Impressions, Black Impressions, Color Large Impressions, atau Total Impressions) ditemukan.
+
+        Kembalikan HANYA JSON:
+
+        {
+            "valid": true,
+            "message": "",
+            "data_penting": {
+                "serial_number": null,
+                "color_impressions": 0,
+                "black_impressions": 0,
+                "color_large_impressions": 0,
+                "total_impressions": 0
+            }
+        }
+
+        Contoh:
+
+        Jika terlihat pada layar Billing Information:
+
+        Serial Number = 157039
+        Color Impressions = 89981
+        Black Impressions = 1438
+        Color Large Impressions = 36298
+        Total Impressions = 91419
+
+        Maka hasil:
+
+        {
+            "valid": true,
+            "message": "",
+            "data_penting": {
+                "serial_number": "157039",
+                "color_impressions": 89981,
+                "black_impressions": 1438,
+                "color_large_impressions": 36298,
+                "total_impressions": 91419
+            }
+        }
+
+        Jika Serial Number tidak ditemukan atau tidak ada satupun nilai Current Meter Reading yang terbaca:
+
+        {
+            "valid": false,
+            "message": "Serial number atau data billing information tidak ditemukan.",
             "data_penting": {}
         }
         ';

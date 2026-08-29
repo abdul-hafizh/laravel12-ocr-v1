@@ -29,14 +29,15 @@ const defaultUrlMenus = [
     { url: '/summary/asaba', label: 'Laporan - Asaba' },
     { url: '/summary/cea-milik', label: 'Laporan - CEA Milik' },
     { url: '/summary/cea-sewa', label: 'Laporan - CEA Sewa' },
+    { url: '/summary/astra', label: 'Laporan - Astra' },
 
     { url: '/hasil-upload/token-listrik', label: 'Hasil Upload - Token Listrik' },
     { url: '/hasil-upload/mesin-cetak', label: 'Hasil Upload - Samafitro' },
     { url: '/hasil-upload/struk-online', label: 'Hasil Upload - Bukti Bayar' },
-
     { url: '/hasil-upload/part-maintenance', label: 'Hasil Upload - Part & Maintenance' },
     { url: '/hasil-upload/cea', label: 'Hasil Upload - Counter CEA' },
     { url: '/hasil-upload/asaba', label: 'Hasil Upload - Counter Asaba' },
+    { url: '/hasil-upload/astra', label: 'Hasil Upload - Counter Astra' },
 
     { url: '/master-cabang', label: 'Master Cabang' },
     { url: '/master-vendor', label: 'Master Vendor' },

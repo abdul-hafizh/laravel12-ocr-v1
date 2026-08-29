@@ -238,6 +238,189 @@ const printBilling = () => {
         printWindow.print();
     }, 500);
 };
+
+const generateLaporanRows = () => {
+    return props.billings.data
+        .map((item) => {
+            const biayaPrint = Number(item.print_billing ?? 0);
+            const biayaFotocopy = Number(item.copy_billing ?? 0);
+            const biayaTinta = Number(item.billing_detail?.biaya_tinta ?? 0);
+            const biayaPart = Number(item.billing_detail?.biaya_part ?? 0);
+            const biayaMaintenance = Number(
+                item.billing_detail?.biaya_maintenance ?? 0,
+            );
+
+            const totalDebit =
+                biayaPrint +
+                biayaFotocopy +
+                biayaTinta +
+                biayaPart +
+                biayaMaintenance;
+            const totalKredit = totalDebit;
+
+            return `
+            <div class="report-box">
+                <div class="report-title">
+                    Estimasi Biaya print ${item.nama_cabang || "-"}
+                </div>
+
+                <div style="margin-top:8px;font-size:16px;">
+                    Mesin :
+                    <b>${item.master_nama_mesin || item.nama_mesin || "-"}</b>
+                    (CEA Sewa)
+                </div>
+
+                <div style="margin-top:4px;font-size:14px;">
+                    Serial :
+                    <b>${item.serial_number || "-"}</b>
+                </div>
+
+                <div class="report-period">
+                    ${endDate.value.substring(0, 7)}
+                </div>
+
+                <table class="journal-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;">Journal</th>
+                            <th style="text-align:right;width:180px;">Debit</th>
+                            <th style="text-align:right;width:180px;">Kredit</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <tr>
+                            <td>biaya print</td>
+                            <td style="text-align:right;">${formatNumber(biayaPrint)}</td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td>biaya fotocopy</td>
+                            <td style="text-align:right;">${formatNumber(biayaFotocopy)}</td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td>biaya tinta</td>
+                            <td style="text-align:right;">${formatNumber(biayaTinta)}</td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td>biaya part</td>
+                            <td style="text-align:right;">${formatNumber(biayaPart)}</td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td>biaya maintenance</td>
+                            <td style="text-align:right;">${formatNumber(biayaMaintenance)}</td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td style="padding-left:80px;">cadangan mesin</td>
+                            <td></td>
+                            <td style="text-align:right;">${formatNumber(totalKredit)}</td>
+                        </tr>
+
+                        <tr class="total-row">
+                            <td></td>
+                            <td style="text-align:right;">${formatNumber(totalDebit)}</td>
+                            <td style="text-align:right;">${formatNumber(totalKredit)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        `;
+        })
+        .join("");
+};
+
+const printLaporan = () => {
+    const printWindow = window.open("", "_blank");
+
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Laporan Estimasi Biaya Print CEA Sewa</title>
+
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    padding: 24px;
+                    color: #111827;
+                }
+
+                .report-box {
+                    border: 1px solid #333;
+                    padding: 32px 48px;
+                    margin-bottom: 32px;
+                    page-break-inside: avoid;
+                }
+
+                .report-title {
+                    font-size: 18px;
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                }
+
+                .report-period {
+                    font-size: 18px;
+                    font-weight: 600;
+                    margin-bottom: 40px;
+                }
+
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+
+                th {
+                    font-size: 16px;
+                    text-align: left;
+                    padding-bottom: 12px;
+                    text-decoration: underline;
+                    font-weight: 400;
+                }
+
+                td {
+                    font-size: 16px;
+                    padding: 5px 0;
+                }
+
+                td:last-child {
+                    text-align: right;
+                    width: 220px;
+                }
+
+                .total-row td {
+                    padding-top: 16px;
+                    border-top: 1px solid #333;
+                    font-weight: 600;
+                }
+
+                @media print {
+                    .report-box {
+                        page-break-inside: avoid;
+                    }
+                }
+            </style>
+        </head>
+
+        <body>
+            ${generateLaporanRows()}
+        </body>
+        </html>
+    `);
+
+    printWindow.document.close();
+
+    setTimeout(() => {
+        printWindow.print();
+    }, 500);
+};
 </script>
 
 <template>
@@ -285,7 +468,7 @@ const printBilling = () => {
                     />
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4">
                     <select
                         v-model="vendor"
                         class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
@@ -327,6 +510,14 @@ const printBilling = () => {
                         class="px-5 py-3 bg-slate-700 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm"
                     >
                         Print
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="printLaporan"
+                        class="px-5 py-3 bg-[#2DD4BF] text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-[#26bba8] transition-all shadow-sm"
+                    >
+                        Laporan
                     </button>
                 </div>
             </div>

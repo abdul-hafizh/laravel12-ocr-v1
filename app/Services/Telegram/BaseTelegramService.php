@@ -70,12 +70,13 @@ class BaseTelegramService
         $menus = [
             'BMI' => '<b>1</b> BMI',
             'BIAYA_UMUM' => '<b>2</b> Biaya Umum',
-            'BIAYA_TOKEN_LISTRIK' => '<b>3</b> Biaya Token Listrik',
-            'BIAYA_KLIK_METER' => '<b>4</b> Mesin Samafitro',
-            'MESIN_CEA' => '<b>5</b> Mesin CEA',
-            'ASABA' => '<b>6</b> Mesin Asaba',
-            'BIAYA_PART' => '<b>7</b> Biaya Part',
-            'MAINTENANCE_MESIN' => '<b>8</b> Maintenance Mesin',
+            'TOKEN_LISTRIK' => '<b>3</b> Token Listrik',
+            'SAMAFITRO' => '<b>4</b> Mesin Samafitro',
+            'MESIN_ASTRA' => '<b>5</b> Mesin ASTRA',
+            'MESIN_CEA' => '<b>6</b> Mesin CEA',
+            'ASABA' => '<b>7</b> Mesin ASABA',
+            'BIAYA_PART' => '<b>8</b> Biaya Part',
+            'MAINTENANCE_MESIN' => '<b>9</b> Maintenance Mesin',
         ];
 
         if ($roleId) {

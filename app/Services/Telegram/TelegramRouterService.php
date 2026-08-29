@@ -225,6 +225,11 @@ class TelegramRouterService
                 return;
             }
 
+            if ($menu === 'MESIN_ASTRA') {
+                app(ImageTelegramService::class)->start($chatId, $menu, 'astra');
+                return;
+            }
+
             if ($menu === 'MESIN_CEA') {
                 app(ImageTelegramService::class)->start($chatId, $menu, 'cea');
                 return;
@@ -264,6 +269,7 @@ class TelegramRouterService
 
             'BIAYA_TOKEN_LISTRIK',
             'BIAYA_KLIK_METER',
+            'MESIN_ASTRA',
             'MESIN_CEA',
             'ASABA',
             'MAINTENANCE_MESIN',
@@ -323,10 +329,11 @@ class TelegramRouterService
             'BIAYA_UMUM' => '<b>2</b> Biaya Umum',
             'BIAYA_TOKEN_LISTRIK' => '<b>3</b> Biaya Token Listrik',
             'BIAYA_KLIK_METER' => '<b>4</b> Mesin Samafitro',
-            'MESIN_CEA' => '<b>5</b> Mesin CEA',
-            'ASABA' => '<b>6</b> Mesin Asaba',
-            'BIAYA_PART' => '<b>7</b> Biaya Part',
-            'MAINTENANCE_MESIN' => '<b>8</b> Maintenance Mesin',
+            'MESIN_ASTRA' => '<b>5</b> Mesin ASTRA',
+            'MESIN_CEA' => '<b>6</b> Mesin CEA',
+            'ASABA' => '<b>7</b> Mesin ASABA',
+            'BIAYA_PART' => '<b>8</b> Biaya Part',
+            'MAINTENANCE_MESIN' => '<b>9</b> Maintenance Mesin',
         ];
 
         if ($roleId) {
@@ -360,10 +367,11 @@ class TelegramRouterService
             '2', 'BIAYA UMUM' => 'BIAYA_UMUM',
             '3', 'TOKEN LISTRIK', 'BIAYA TOKEN LISTRIK' => 'BIAYA_TOKEN_LISTRIK',
             '4', 'KLIK METER', 'BIAYA KLIK METER', 'MESIN SAMAFITRO', 'SAMAFITRO' => 'BIAYA_KLIK_METER',
-            '5', 'MESIN CEA', 'CEA' => 'MESIN_CEA',
-            '6', 'ASABA', 'MESIN ASABA' => 'ASABA',
-            '7', 'PART', 'BIAYA PART' => 'BIAYA_PART',
-            '8', 'MAINTENANCE', 'MAINTENANCE MESIN' => 'MAINTENANCE_MESIN',
+            '5', 'MESIN ASTRA', 'ASTRA' => 'MESIN_ASTRA',
+            '6', 'MESIN CEA', 'CEA' => 'MESIN_CEA',
+            '7', 'ASABA', 'MESIN ASABA' => 'ASABA',
+            '8', 'PART', 'BIAYA PART' => 'BIAYA_PART',
+            '9', 'MAINTENANCE', 'MAINTENANCE MESIN' => 'MAINTENANCE_MESIN',
             default => null,
         };
     }

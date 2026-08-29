@@ -143,6 +143,11 @@ const summaryMenus = [
         current: route().current("summary.printer-billing"),
     },
     {
+        name: "ASTRA",
+        href: route("summary.astra"),
+        current: route().current("summary.astra"),
+    },
+    {
         name: "CEA Milik",
         href: route("summary.cea-milik"),
         current: route().current("summary.cea-milik"),
@@ -244,6 +249,11 @@ const hasilUploadMenus = [
         name: "Samafitro",
         href: route("hasil-upload.mesin-cetak"),
         current: route().current("hasil-upload.mesin-cetak"),
+    },
+    {
+        name: "ASTRA Mesin",
+        href: route("hasil-upload.astra"),
+        current: route().current("hasil-upload.astra"),
     },
     {
         name: "CEA Mesin",

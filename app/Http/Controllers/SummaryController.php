@@ -18,6 +18,8 @@ use Carbon\Carbon;
 
 class SummaryController extends Controller
 {
+    private const ASTRA_VENDOR_ID = 6;
+
     public function electricity(Request $request)
     {
         $month = $request->input('month', now()->format('Y-m'));
@@ -1379,6 +1381,371 @@ class SummaryController extends Controller
                 'search' => $request->input('search'),
                 'vendor' => $request->input('vendor'),
                 'billing_status' => $request->input('billing_status'),
+                'cabang_id' => $request->input('cabang_id'),
+                'month' => $month,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ],
+        ]);
+    }
+
+    public function astraBilling(Request $request)
+    {
+        $month = $request->input('month', now()->format('Y-m'));
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        if (!$startDate || !$endDate) {
+            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+
+            $startDateCarbon = Carbon::parse($month . '-28')
+                ->subMonthNoOverflow()
+                ->startOfDay();
+
+            $startDate = $startDateCarbon->toDateString();
+            $endDate = $endDateCarbon->toDateString();
+        }
+
+        $periodeStart = Carbon::parse($startDate)->startOfDay();
+        $periodeEnd = Carbon::parse($endDate)->endOfDay();
+
+        $query = DB::table('dbo.v_image_scan_astra as p')
+            ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
+            ->select([
+                'p.*',
+
+                'mm.harga_color_a3',
+                'mm.harga_color_a4',
+                'mm.harga_bw_a3',
+                'mm.harga_bw_a4',
+
+                'mm.minimum_charge_click',
+                'mm.minimum_charge_size',
+                'mm.minimum_charge_nominal',
+
+                'mm.over_click_color_a3',
+                'mm.over_click_color_a4',
+                'mm.over_click_bw_a3',
+                'mm.over_click_bw_a4',
+
+                'mm.free_klik_percent',
+                'mm.keterangan as master_keterangan',
+            ])
+            ->where('mm.master_vendor_id', self::ASTRA_VENDOR_ID)
+            ->whereBetween('p.created_at', [$periodeStart, $periodeEnd])
+            ->whereRaw("
+                p.created_at = (
+                    SELECT MAX(p2.created_at)
+                    FROM dbo.v_image_scan_astra p2
+                    WHERE p2.serial_number = p.serial_number
+                    AND p2.created_at BETWEEN ? AND ?
+                )
+            ", [$periodeStart, $periodeEnd]);
+
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+
+            $query->where(function ($q) use ($search) {
+                $q->where('p.serial_number', 'like', "%{$search}%")
+                    ->orWhere('p.nama_mesin', 'like', "%{$search}%")
+                    ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
+                    ->orWhere('p.nama_vendor', 'like', "%{$search}%")
+                    ->orWhere('p.kode_vendor', 'like', "%{$search}%")
+                    ->orWhere('p.nama_cabang', 'like', "%{$search}%")
+                    ->orWhere('p.kode_cabang', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('cabang_id')) {
+            $query->where('p.cabang_id', $request->cabang_id);
+        }
+
+        $billings = $query
+            ->orderByDesc('p.created_at')
+            ->paginate(10)
+            ->withQueryString();
+
+        $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
+            $baseScanQuery = DB::table('dbo.v_image_scan_astra')
+                ->where('serial_number', $item->serial_number)
+                ->whereBetween('created_at', [$periodeStart, $periodeEnd]);
+
+            if (!empty($item->cabang_id)) {
+                $baseScanQuery->where('cabang_id', $item->cabang_id);
+            }
+
+            $firstScan = (clone $baseScanQuery)
+                ->orderBy('created_at', 'asc')
+                ->orderBy('id', 'asc')
+                ->first();
+
+            $currentScanData = (clone $baseScanQuery)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->first();
+
+            $hasTwoScans =
+                $firstScan
+                && $currentScanData
+                && (int) $firstScan->id !== (int) $currentScanData->id;
+
+            $getCounter = function ($value) {
+                return (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
+            };
+
+            $currentTotal = $getCounter($currentScanData->total_impressions ?? 0);
+            $currentColor = $getCounter($currentScanData->color_impressions ?? 0);
+            $currentColorLarge = $getCounter($currentScanData->color_large_impressions ?? 0);
+            $currentBlack = $getCounter($currentScanData->black_impressions ?? 0);
+
+            $previousTotal = $getCounter($firstScan->total_impressions ?? 0);
+            $previousColor = $getCounter($firstScan->color_impressions ?? 0);
+            $previousColorLarge = $getCounter($firstScan->color_large_impressions ?? 0);
+            $previousBlack = $getCounter($firstScan->black_impressions ?? 0);
+
+            if (!$hasTwoScans) {
+                $usageTotal = 0;
+                $usageColor = 0;
+                $usageColorLarge = 0;
+                $usageBlack = 0;
+            } else {
+                $usageTotal = max(0, $currentTotal - $previousTotal);
+                $usageColor = max(0, $currentColor - $previousColor);
+                $usageColorLarge = max(0, $currentColorLarge - $previousColorLarge);
+                $usageBlack = max(0, $currentBlack - $previousBlack);
+            }
+
+            $rate = $this->getOrCreateRateSnapshot(
+                'astra',
+                $item->master_mesin_id,
+                $item->cabang_id,
+                $item->serial_number,
+                $periodeStart,
+                $periodeEnd,
+                $item
+            ) ?? $item;
+
+            $hargaColorA4 = (float) ($rate->harga_color_a4 ?? 0);
+            $hargaBwA4 = (float) ($rate->harga_bw_a4 ?? 0);
+
+            $overColorA4 = (float) ($rate->over_click_color_a4 ?? 0);
+            $overBwA4 = (float) ($rate->over_click_bw_a4 ?? 0);
+
+            $rateColorA4 = $overColorA4 > 0 ? $overColorA4 : $hargaColorA4;
+            $rateBwA4 = $overBwA4 > 0 ? $overBwA4 : $hargaBwA4;
+
+            /*
+            * Aturan Astra:
+            * - Color Impressions dipakai sebagai dasar biaya color.
+            * - Black Impressions dipakai sebagai dasar biaya BW jika tersedia.
+            * - Jika Black Impressions kosong, fallback ke selisih Total - Color.
+            * - Color Large Impressions hanya informasi (subset dari Color Impressions), tidak dihitung terpisah.
+            */
+            $usageColorBilling = $usageColor;
+
+            if ($usageBlack > 0) {
+                $usageBwBilling = $usageBlack;
+                $counterSource = 'black_counter';
+            } else {
+                $usageBwBilling = max(0, $usageTotal - $usageColorBilling);
+                $counterSource = 'total_counter';
+            }
+
+            if ($hargaColorA4 <= 0 && $usageColorBilling <= 0) {
+                $usageBwBilling = $usageTotal;
+                $counterSource = 'bw_machine';
+            }
+
+            $totalPemakaianClick = $usageBwBilling + $usageColorBilling;
+
+            $biayaBw = $usageBwBilling * $rateBwA4;
+            $biayaColor = $usageColorBilling * $rateColorA4;
+
+            $subtotalBilling = $biayaBw + $biayaColor;
+            $subtotalSebelumFree = $subtotalBilling;
+
+            $minimumClick = (int) ($rate->minimum_charge_click ?? 0);
+            $minimumNominal = (float) ($rate->minimum_charge_nominal ?? 0);
+            $minimumSize = strtoupper((string) ($rate->minimum_charge_size ?? 'A4'));
+            $freePercent = (float) ($rate->free_klik_percent ?? 0);
+
+            $hasMinimumRule =
+                $minimumClick > 0
+                && $minimumNominal > 0;
+
+            $freeKlik = 0;
+            $nilaiFreeKlik = 0;
+
+            if ($freePercent > 0 && $totalPemakaianClick > 0 && !$hasMinimumRule) {
+                $freeKlik = floor($totalPemakaianClick * ($freePercent / 100));
+
+                if ($subtotalBilling > 0) {
+                    $nilaiPerKlikRataRata = $subtotalBilling / $totalPemakaianClick;
+                    $nilaiFreeKlik = $freeKlik * $nilaiPerKlikRataRata;
+                }
+            }
+
+            $subtotalSetelahFree = max(0, $subtotalBilling - $nilaiFreeKlik);
+
+            if (!$hasTwoScans) {
+                $totalTagihan = 0;
+                $billingRule = 'need_two_scans_in_period';
+            } elseif ($totalPemakaianClick <= 0) {
+                $totalTagihan = 0;
+                $billingRule = 'no_usage';
+            } elseif ($hasMinimumRule && $totalPemakaianClick < $minimumClick) {
+                $totalTagihan = $minimumNominal;
+                $billingRule = 'minimum_charge_' . strtolower($minimumSize ?: 'a4');
+            } else {
+                $totalTagihan = $subtotalSetelahFree;
+
+                if ($hasMinimumRule && $totalPemakaianClick >= $minimumClick) {
+                    $billingRule = 'over_minimum_' . strtolower($minimumSize ?: 'a4');
+                } else {
+                    $billingRule = 'standard';
+                }
+            }
+
+            $item->periode_start = $periodeStart->toDateString();
+            $item->periode_end = $periodeEnd->toDateString();
+
+            $item->foto_awal = $firstScan?->image_path;
+            $item->foto_akhir = $hasTwoScans ? $currentScanData?->image_path : null;
+
+            $item->foto_awal_created_at = $firstScan?->created_at;
+            $item->foto_akhir_created_at = $hasTwoScans ? $currentScanData?->created_at : null;
+
+            $maintenanceCosts = DB::table('dbo.machine_maintenance_costs')
+                ->where('master_mesin_id', $item->master_mesin_id)
+                ->where('cabang_id', $item->cabang_id)
+                ->whereDate('periode_start', $periodeStart->toDateString())
+                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->get();
+
+            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
+
+            $biayaPart = (float) $maintenanceCosts
+                ->where('cost_type', 'part')
+                ->sum('nominal');
+
+            $biayaMaintenance = (float) $maintenanceCosts
+                ->where('cost_type', 'maintenance')
+                ->sum('nominal');
+
+            $item->biaya_part = $biayaPart;
+            $item->biaya_maintenance = $biayaMaintenance;
+
+            $item->counter_detail = [
+                'has_first_scan' => $firstScan ? true : false,
+                'has_current_scan' => $currentScanData ? true : false,
+                'has_two_scans' => $hasTwoScans,
+
+                'previous_created_at' => $firstScan->created_at ?? null,
+                'current_created_at' => $currentScanData->created_at ?? null,
+
+                'current_total_impressions' => $currentTotal,
+                'previous_total_impressions' => $previousTotal,
+                'usage_total_impressions' => $usageTotal,
+
+                'current_color_impressions' => $currentColor,
+                'previous_color_impressions' => $previousColor,
+                'usage_color_impressions' => $usageColor,
+
+                'current_color_large_impressions' => $currentColorLarge,
+                'previous_color_large_impressions' => $previousColorLarge,
+                'usage_color_large_impressions' => $usageColorLarge,
+
+                'current_black_impressions' => $currentBlack,
+                'previous_black_impressions' => $previousBlack,
+                'usage_black_impressions' => $usageBlack,
+
+                'biaya_part' => $biayaPart,
+                'biaya_maintenance' => $biayaMaintenance,
+            ];
+
+            $item->billing_detail = [
+                'billing_rule' => $billingRule,
+                'counter_source' => $counterSource,
+
+                'usage_bw_billing' => $usageBwBilling,
+                'usage_color_billing' => $usageColorBilling,
+                'total_pemakaian_click' => $totalPemakaianClick,
+
+                'harga_bw_a4' => $hargaBwA4,
+                'harga_color_a4' => $hargaColorA4,
+
+                'over_click_bw_a4' => $overBwA4,
+                'over_click_color_a4' => $overColorA4,
+
+                'rate_bw_a4' => $rateBwA4,
+                'rate_color_a4' => $rateColorA4,
+
+                'biaya_bw' => $biayaBw,
+                'biaya_color' => $biayaColor,
+
+                'subtotal_sebelum_free' => $subtotalSebelumFree,
+                'subtotal_setelah_free' => $subtotalSetelahFree,
+
+                'free_klik_percent' => $freePercent,
+                'free_klik' => $freeKlik,
+                'nilai_free_klik' => $nilaiFreeKlik,
+
+                'minimum_charge_size' => $minimumSize,
+                'minimum_charge_click' => $minimumClick,
+                'minimum_charge_nominal' => $minimumNominal,
+                'has_minimum_rule' => $hasMinimumRule,
+
+                'total_tagihan' => $totalTagihan,
+            ];
+
+            $item->usage_total_impressions = $usageTotal;
+            $item->usage_color_impressions = $usageColor;
+            $item->usage_color_large_impressions = $usageColorLarge;
+            $item->usage_black_impressions = $usageBlack;
+
+            $item->usage_bw_billing = $usageBwBilling;
+            $item->usage_color_billing = $usageColorBilling;
+            $item->total_pemakaian_click = $totalPemakaianClick;
+            $item->billing_rule = $billingRule;
+            $item->counter_source = $counterSource;
+            $item->total_tagihan = $totalTagihan;
+
+            $item->notes = DB::table('scan_notes')
+                ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
+                ->where('scan_notes.image_scan_id', $currentScanData->id ?? $item->id)
+                ->select(
+                    'scan_notes.id',
+                    'scan_notes.note',
+                    'scan_notes.created_at',
+                    'users.name as user_name'
+                )
+                ->orderBy('scan_notes.created_at')
+                ->get();
+
+            $item->new_note = '';
+
+            return $item;
+        });
+
+        if ($request->boolean('debug')) {
+            dd($billings->items());
+        }
+
+        return Inertia::render('Summary/Astra', [
+            'billings' => $billings,
+
+            'cabangs' => DB::table('dbo.master_cabangs')
+                ->where('is_active', true)
+                ->orderBy('nama_cabang')
+                ->get([
+                    'id',
+                    'kode_cabang',
+                    'nama_cabang',
+                ]),
+
+            'filters' => [
+                'search' => $request->input('search'),
                 'cabang_id' => $request->input('cabang_id'),
                 'month' => $month,
                 'start_date' => $startDate,

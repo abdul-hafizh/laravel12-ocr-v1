@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Storage;
 
 class ImageTelegramService
 {
+    private const ASTRA_VENDOR_ID = 6;
+
     public function start(string|int $chatId, string $menu, string $scanType): void
     {
         DB::table('dbo.telegram_sessions')->where('chat_id', $chatId)->update([
@@ -223,14 +225,16 @@ class ImageTelegramService
                 $scan->update(['analysis_result' => $analysis]);
             }
 
-            if (in_array($scanType, ['printer', 'cea', 'asaba'], true)) {
+            if (in_array($scanType, ['printer', 'cea', 'asaba', 'astra'], true)) {
                 $serialNumber = trim((string) ($validation['data']['serial_number'] ?? ''));
+                $vendorId = $scanType === 'astra' ? self::ASTRA_VENDOR_ID : null;
 
                 // Cari mesin berdasarkan serial number hasil OCR
                 $mesin = null;
                 if ($serialNumber !== '') {
                     $mesin = MasterMesin::where('serial_number', $serialNumber)
                         ->where('is_active', true)
+                        ->when($vendorId, fn ($q) => $q->where('master_vendor_id', $vendorId))
                         ->first();
                 }
 
@@ -250,6 +254,7 @@ class ImageTelegramService
                     // Ambil semua mesin yang aktif di cabang user saat ini
                     $machines = MasterMesin::where('master_cabang_id', $session->cabang_id)
                         ->where('is_active', true)
+                        ->when($vendorId, fn ($q) => $q->where('master_vendor_id', $vendorId))
                         ->orderBy('nama_mesin')
                         ->get();
 
@@ -1029,8 +1034,11 @@ class ImageTelegramService
             return;
         }
 
+        $vendorId = ($session->scan_type ?? null) === 'astra' ? self::ASTRA_VENDOR_ID : null;
+
         $machines = MasterMesin::where('master_cabang_id', $session->cabang_id)
             ->where('is_active', true)
+            ->when($vendorId, fn ($q) => $q->where('master_vendor_id', $vendorId))
             ->orderBy('nama_mesin')
             ->get();
 

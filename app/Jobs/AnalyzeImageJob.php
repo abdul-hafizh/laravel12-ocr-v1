@@ -171,7 +171,7 @@ class AnalyzeImageJob implements ShouldQueue
             }
         }
 
-        if (in_array($scanType, ['printer', 'cea', 'asaba'], true)) {
+        if (in_array($scanType, ['printer', 'cea', 'asaba', 'astra'], true)) {
             $serialNumber = trim((string) ($parsed['data_penting']['serial_number'] ?? ''));
             $isManual = $parsed['data_penting']['is_manual_correction'] ?? false;
 
