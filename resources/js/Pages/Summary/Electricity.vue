@@ -25,31 +25,37 @@ const props = defineProps({
     },
 });
 
-const getDefaultPeriod = () => {
+const getDefaultMonth = () => {
     const now = new Date();
-
-    const end = new Date(now.getFullYear(), now.getMonth(), 28);
-    const start = new Date(now.getFullYear(), now.getMonth() - 1, 28);
-
-    const formatDate = (date) => {
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, "0");
-        const d = String(date.getDate()).padStart(2, "0");
-        return `${y}-${m}-${d}`;
-    };
-
-    return {
-        start_date: formatDate(start),
-        end_date: formatDate(end),
-    };
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 };
 
-const defaultPeriod = getDefaultPeriod();
-
 const search = ref(props.filters.search || "");
-const startDate = ref(props.filters.start_date || defaultPeriod.start_date);
-const endDate = ref(props.filters.end_date || defaultPeriod.end_date);
+const month = ref(props.filters.month || getDefaultMonth());
 const cabangId = ref(props.filters.cabang_id || "");
+
+// Periode aktual (1 bulan kalender + toleransi telat upload) yang dihitung
+// server dari `month` -- dipakai untuk label tampilan/print, bukan untuk
+// filter (filter cukup kirim `month`, backend yang menentukan tanggalnya).
+const monthLabelFormatter = new Intl.DateTimeFormat("id-ID", {
+    month: "long",
+    year: "numeric",
+});
+
+const periodeLabel = () => {
+    if (!props.filters.start_date || !props.filters.end_date) return "-";
+
+    return `${props.filters.start_date} s/d ${props.filters.end_date}`;
+};
+
+const monthDisplayLabel = () => {
+    if (!month.value) return "-";
+
+    const [y, m] = month.value.split("-").map(Number);
+    if (!y || !m) return "-";
+
+    return monthLabelFormatter.format(new Date(y, m - 1, 1));
+};
 
 const formatRupiah = (value) => {
     return new Intl.NumberFormat("id-ID", {
@@ -76,32 +82,12 @@ const formatNumber = (value) => {
     }).format(value || 0);
 };
 
-const sendWa = () => {
-    if (!confirm("Kirim file Excel summary ini ke semua user Finance?")) {
-        return;
-    }
-
-    router.post(
-        route("summary.electricity.send-wa"),
-        {
-            search: search.value,
-            start_date: startDate.value,
-            end_date: endDate.value,
-            cabang_id: cabangId.value,
-        },
-        {
-            preserveScroll: true,
-        },
-    );
-};
-
 const applyFilter = () => {
     router.get(
         route("summary.electricity"),
         {
             search: search.value,
-            start_date: startDate.value,
-            end_date: endDate.value,
+            month: month.value,
             cabang_id: cabangId.value,
         },
         {
@@ -156,10 +142,7 @@ const printSummary = () => {
             <h2>Summary Token Listrik</h2>
 
             <p>
-                Periode :
-                ${startDate.value}
-                s/d
-                ${endDate.value}
+                Periode : ${monthDisplayLabel()} (${periodeLabel()})
             </p>
 
             <table>
@@ -265,12 +248,10 @@ const deleteNote = (noteId) => {
 const resetFilter = () => {
     search.value = "";
     cabangId.value = "";
-    startDate.value = defaultPeriod.start_date;
-    endDate.value = defaultPeriod.end_date;
+    month.value = getDefaultMonth();
 
     router.get(route("summary.electricity"), {
-        start_date: startDate.value,
-        end_date: endDate.value,
+        month: month.value,
     });
 };
 
@@ -323,19 +304,11 @@ const badgeClass = (status) => {
                 >
                     Print
                 </button>
-
-                <button
-                    type="button"
-                    @click="sendWa"
-                    class="px-5 py-3 bg-[#2DD4BF] text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-[#26bba8] transition-all shadow-sm"
-                >
-                    Kirim WA Finance
-                </button>
             </div>
         </div>
 
         <div class="space-y-8">
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="relative md:col-span-1">
                     <span
                         class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400"
@@ -364,16 +337,8 @@ const badgeClass = (status) => {
 
                 <div>
                     <input
-                        v-model="startDate"
-                        type="date"
-                        class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
-                    />
-                </div>
-
-                <div>
-                    <input
-                        v-model="endDate"
-                        type="date"
+                        v-model="month"
+                        type="month"
                         class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
                     />
                 </div>

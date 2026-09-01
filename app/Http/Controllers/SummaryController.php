@@ -28,11 +28,14 @@ class SummaryController extends Controller
         $endDate = $request->input('end_date');
 
         if (!$startDate || !$endDate) {
-            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
-            $startDateCarbon = Carbon::parse($month . '-28')->subMonthNoOverflow()->startOfDay();
+            // Periode = 1 bulan kalender penuh (bukan 28-ke-28). Batas bawahnya
+            // sengaja "akhir bulan sebelumnya", bukan "awal bulan ini", supaya
+            // nyambung presisi dengan $endDate bulan sebelumnya di
+            // getElectricitySummaryData() (sama2 endOfDay pada tanggal yang sama).
+            $monthCarbon = Carbon::parse($month . '-01');
 
-            $startDate = $startDateCarbon->toDateString();
-            $endDate = $endDateCarbon->toDateString();
+            $endDate = $monthCarbon->copy()->endOfMonth()->toDateString();
+            $startDate = $monthCarbon->copy()->subMonthNoOverflow()->endOfMonth()->toDateString();
         }
 
         $search = $request->input('search');
@@ -79,87 +82,91 @@ class SummaryController extends Controller
 
     public function printerBilling(Request $request)
     {
+        // Toleransi telat upload foto lintas batas bulan (mis. foto penutup
+        // Agustus keupload awal September), sama seperti summary token
+        // listrik -- lihat catatan di getElectricitySummaryData().
+        $graceDays = 3;
+
         $month = $request->input('month', now()->format('Y-m'));
 
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
 
         if (!$startDate || !$endDate) {
-            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+            // Periode = 1 bulan kalender penuh (bukan 28-ke-28), sama seperti
+            // summary token listrik.
+            $monthCarbon = Carbon::parse($month . '-01');
 
-            $startDateCarbon = Carbon::parse($month . '-28')
-                ->subMonthNoOverflow()
-                ->startOfDay();
-
-            $startDate = $startDateCarbon->toDateString();
-            $endDate = $endDateCarbon->toDateString();
+            $endDate = $monthCarbon->copy()->endOfMonth()->toDateString();
+            $startDate = $monthCarbon->copy()->subMonthNoOverflow()->endOfMonth()->toDateString();
         }
 
-        $periodeStart = Carbon::parse($startDate)->startOfDay();
+        // PENTING: kedua batas pakai instant yang sama (endOfDay) di tanggal
+        // cutoff-nya, supaya "akhir Juli" == "awal Agustus" persis (lihat
+        // catatan yang sama di getElectricitySummaryData()).
+        $periodeStart = Carbon::parse($startDate)->endOfDay();
         $periodeEnd = Carbon::parse($endDate)->endOfDay();
 
-        $query = DB::table('dbo.v_image_scan_printers as p')
-            ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
-            ->select([
-                'p.*',
+        $applyPrinterFilters = function ($query) use ($request) {
+            if ($request->filled('search')) {
+                $search = trim($request->search);
 
-                'mm.harga_color_a3',
-                'mm.harga_color_a4',
-                'mm.harga_bw_a3',
-                'mm.harga_bw_a4',
+                $query->where(function ($q) use ($search) {
+                    $q->where('p.serial_number', 'like', "%{$search}%")
+                        ->orWhere('p.nama_mesin', 'like', "%{$search}%")
+                        ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
+                        ->orWhere('p.nama_vendor', 'like', "%{$search}%")
+                        ->orWhere('p.kode_vendor', 'like', "%{$search}%")
+                        ->orWhere('p.nama_cabang', 'like', "%{$search}%")
+                        ->orWhere('p.kode_cabang', 'like', "%{$search}%");
+                });
+            }
 
-                'mm.minimum_charge_click',
-                'mm.minimum_charge_size',
-                'mm.minimum_charge_nominal',
+            if ($request->filled('vendor')) {
+                $query->where('p.master_vendor_id', $request->vendor);
+            }
 
-                'mm.over_click_color_a3',
-                'mm.over_click_color_a4',
-                'mm.over_click_bw_a3',
-                'mm.over_click_bw_a4',
+            if ($request->filled('cabang_id')) {
+                $query->where('p.cabang_id', $request->cabang_id);
+            }
 
-                'mm.free_klik_percent',
-                'mm.keterangan as master_keterangan',
-            ])
-            ->whereBetween('p.created_at', [$periodeStart, $periodeEnd])
+            return $query;
+        };
 
-            // Ambil hanya FOTO AKHIR per periode + cabang + mesin + serial.
-            ->whereRaw("
-                p.created_at = (
-                    SELECT MAX(p2.created_at)
-                    FROM dbo.v_image_scan_printers p2
-                    WHERE p2.serial_number = p.serial_number
-                    AND ISNULL(p2.cabang_id, 0) = ISNULL(p.cabang_id, 0)
-                    AND ISNULL(p2.master_mesin_id, 0) = ISNULL(p.master_mesin_id, 0)
-                    AND p2.created_at BETWEEN ? AND ?
-                )
-            ", [$periodeStart, $periodeEnd]);
+        // Semua foto mesin (per cabang + mesin + serial) sampai batas akhir
+        // periode + toleransi. Tidak dibatasi bawah -> carry-over "awal"
+        // dicari lintas periode di bawah, per grup mesin.
+        $allScansUptoEnd = $applyPrinterFilters(
+            DB::table('dbo.v_image_scan_printers as p')
+                ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
+                ->select([
+                    'p.*',
 
-        if ($request->filled('search')) {
-            $search = trim($request->search);
+                    'mm.harga_color_a3',
+                    'mm.harga_color_a4',
+                    'mm.harga_bw_a3',
+                    'mm.harga_bw_a4',
 
-            $query->where(function ($q) use ($search) {
-                $q->where('p.serial_number', 'like', "%{$search}%")
-                    ->orWhere('p.nama_mesin', 'like', "%{$search}%")
-                    ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
-                    ->orWhere('p.nama_vendor', 'like', "%{$search}%")
-                    ->orWhere('p.kode_vendor', 'like', "%{$search}%")
-                    ->orWhere('p.nama_cabang', 'like', "%{$search}%")
-                    ->orWhere('p.kode_cabang', 'like', "%{$search}%");
+                    'mm.minimum_charge_click',
+                    'mm.minimum_charge_size',
+                    'mm.minimum_charge_nominal',
+
+                    'mm.over_click_color_a3',
+                    'mm.over_click_color_a4',
+                    'mm.over_click_bw_a3',
+                    'mm.over_click_bw_a4',
+
+                    'mm.free_klik_percent',
+                    'mm.keterangan as master_keterangan',
+                ])
+                ->where('p.created_at', '<=', (clone $periodeEnd)->addDays($graceDays))
+        )
+            ->orderBy('p.serial_number')
+            ->orderBy('p.created_at')
+            ->get()
+            ->groupBy(function ($item) {
+                return ($item->cabang_id ?? 0) . '-' . ($item->master_mesin_id ?? 0) . '-' . $item->serial_number;
             });
-        }
-
-        if ($request->filled('vendor')) {
-            $query->where('p.master_vendor_id', $request->vendor);
-        }
-
-        if ($request->filled('cabang_id')) {
-            $query->where('p.cabang_id', $request->cabang_id);
-        }
-
-        $billings = $query
-            ->orderByDesc('p.created_at')
-            ->paginate(10)
-            ->withQueryString();
 
         $cabangPpnMap = DB::table('dbo.master_cabangs as c')
             ->leftJoin('dbo.master_ppns as pp', 'pp.id', '=', 'c.ppn_id')
@@ -167,24 +174,54 @@ class SummaryController extends Controller
             ->get()
             ->keyBy('cabang_id');
 
-        $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd, $cabangPpnMap) {
-            $baseScanQuery = DB::table('dbo.v_image_scan_printers')
-                ->where('serial_number', $item->serial_number)
-                ->where('cabang_id', $item->cabang_id)
-                ->where('master_mesin_id', $item->master_mesin_id)
-                ->whereBetween('created_at', [$periodeStart, $periodeEnd]);
+        $billingItems = [];
 
-            $firstScan = (clone $baseScanQuery)
-                ->orderBy('created_at', 'asc')
-                ->first();
+        foreach ($allScansUptoEnd as $mesinKey => $groupRows) {
+            $groupSorted = $groupRows->sortBy('created_at')->values();
 
-            $currentScan = (clone $baseScanQuery)
-                ->orderByDesc('created_at')
-                ->first();
+            // Penutup periode SEBELUM ini (calon carry-over "awal"), dicari
+            // dengan toleransi $graceDays -- persis prinsip yang sama dgn
+            // token listrik: akhir Juli == awal Agustus, foto yang sama.
+            $priorClosing = $groupSorted
+                ->filter(fn ($r) => Carbon::parse($r->created_at)->lte((clone $periodeStart)->addDays($graceDays)))
+                ->sortBy('created_at')
+                ->last();
+
+            // Penutup periode ini: dicari HANYA di antara foto2 SESUDAH
+            // $priorClosing (supaya tidak "mundur kebentur" foto yang sudah
+            // jadi baseline "awal"), s/d endDate + toleransi. Tidak ada
+            // konsep topup pada counter printer (selalu naik), jadi tidak
+            // perlu deteksi seperti pada token listrik -- penutup = foto
+            // terakhir yang tersedia, titik.
+            $afterPrior = $priorClosing
+                ? $groupSorted->filter(fn ($r) => Carbon::parse($r->created_at)->gt(Carbon::parse($priorClosing->created_at)))->values()
+                : $groupSorted;
+
+            $currentScan = $afterPrior
+                ->filter(fn ($r) => Carbon::parse($r->created_at)->lte((clone $periodeEnd)->addDays($graceDays)))
+                ->sortBy('created_at')
+                ->last();
+
+            if (!$currentScan) {
+                // Tidak ada aktivitas apa pun sesudah penutup periode
+                // sebelumnya, sampai batas periode ini (+ toleransi).
+                continue;
+            }
+
+            // "awal" periode ini = penutup periode sebelumnya apa adanya
+            // (carry-over). Kalau mesin ini baru pertama kali muncul (belum
+            // pernah difoto sebelum periode ini sama sekali), fallback ke
+            // foto pertamanya sendiri -- tidak ada carry-over utk dibandingkan.
+            $firstScan = $priorClosing ?? $groupSorted->first();
 
             $hasFirstScan = $firstScan ? true : false;
             $hasCurrentScan = $currentScan ? true : false;
-            $hasTwoScans = $firstScan && $currentScan && $firstScan->id !== $currentScan->id;
+            $hasTwoScans = $firstScan && $currentScan && (int) $firstScan->id !== (int) $currentScan->id;
+
+            // $item = data mesin (nama, harga, dll) diambil dari foto penutup
+            // periode ini -- field-nya identik dgn $currentScan krn berasal
+            // dari query yang sama (p.* + mm.* sudah ter-join).
+            $item = clone $currentScan;
 
             $getCounter = function ($value) {
                 return (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
@@ -482,8 +519,27 @@ class SummaryController extends Controller
 
             $item->new_note = '';
 
-            return $item;
-        });
+            $billingItems[] = $item;
+        }
+
+        // Urutkan sama seperti sebelumnya: mesin dgn foto penutup terbaru dulu.
+        usort($billingItems, fn ($a, $b) => strcmp((string) $b->created_at, (string) $a->created_at));
+
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 10;
+
+        $billingCollection = collect($billingItems);
+
+        $billings = new LengthAwarePaginator(
+            $billingCollection->forPage($page, $perPage)->values(),
+            $billingCollection->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
 
         if ($request->boolean('debug')) {
             dd($billings->items());
@@ -530,11 +586,10 @@ class SummaryController extends Controller
         $endDate = $request->input('end_date');
 
         if (!$startDate || !$endDate) {
-            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
-            $startDateCarbon = Carbon::parse($month . '-28')->subMonthNoOverflow()->startOfDay();
+            $monthCarbon = Carbon::parse($month . '-01');
 
-            $startDate = $startDateCarbon->toDateString();
-            $endDate = $endDateCarbon->toDateString();
+            $endDate = $monthCarbon->copy()->endOfMonth()->toDateString();
+            $startDate = $monthCarbon->copy()->subMonthNoOverflow()->endOfMonth()->toDateString();
         }
 
         $search = $request->input('search');
@@ -585,52 +640,172 @@ class SummaryController extends Controller
 
     private function getElectricitySummaryData($startDate, $endDate, $search = null, $cabangId = null): array
     {
-        $startDate = Carbon::parse($startDate)->startOfDay();
+        // Toleransi telat upload foto penutup/pembuka lintas batas bulan (baik
+        // "telat masuk" maupun "telat keluar"), maksimal sekian hari. Di luar
+        // itu, foto dianggap murni milik bulan tempat dia sendiri berada.
+        $graceDays = 3;
+
+        // PENTING: kedua batas periode HARUS pakai instant yang sama (endOfDay)
+        // di tanggal cutoff-nya. Ini membuat "akhir periode Juli" (endOfDay
+        // akhir Juli) persis sama dengan "awal periode Agustus" (endOfDay akhir
+        // Juli juga, karena start_date Agustus = akhir bulan sebelumnya). Kalau
+        // salah satu pakai startOfDay(), tanggalnya jadi tumpang tindih milik
+        // dua periode sekaligus.
+        $startDate = Carbon::parse($startDate)->endOfDay();
         $endDate = Carbon::parse($endDate)->endOfDay();
 
         $periode = $startDate->format('d-m-Y') . ' s/d ' . $endDate->format('d-m-Y');
 
-        $query = DB::table('v_image_scan_electricity')
-            ->where('scan_type', 'electricity')
-            ->where('status', 'success')
-            ->whereBetween('created_at', [$startDate, $endDate]);
+        $applyFilters = function ($query) use ($search, $cabangId) {
+            if (!empty($cabangId)) {
+                $query->where('cabang_id', $cabangId);
+            }
 
-        if (!empty($cabangId)) {
-            $query->where('cabang_id', $cabangId);
-        }
+            if (!empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('nama_cabang', 'like', "%{$search}%")
+                        ->orWhere('kode_cabang', 'like', "%{$search}%")
+                        ->orWhere('nomor_meter', 'like', "%{$search}%")
+                        ->orWhere('barcode', 'like', "%{$search}%")
+                        ->orWhere('nama_pelanggan', 'like', "%{$search}%")
+                        ->orWhere('user_phone', 'like', "%{$search}%");
+                });
+            }
 
-        if (!empty($search)) {
-            $query->where(function ($q) use ($search) {
-                $q->where('nama_cabang', 'like', "%{$search}%")
-                    ->orWhere('kode_cabang', 'like', "%{$search}%")
-                    ->orWhere('nomor_meter', 'like', "%{$search}%")
-                    ->orWhere('barcode', 'like', "%{$search}%")
-                    ->orWhere('nama_pelanggan', 'like', "%{$search}%")
-                    ->orWhere('user_phone', 'like', "%{$search}%");
-            });
-        }
+            return $query;
+        };
 
-        $rows = $query
+        $groupKey = function ($item) {
+            return $item->cabang_id . '-' . ($item->master_token_listrik_id ?? 'no-master');
+        };
+
+        // Semua foto grup (cabang + token) sampai dengan akhir periode ini +
+        // toleransi telat. Tidak dibatasi window periode di query -> pembagian
+        // ke periode masing2 grup ditentukan per-grup di bawah, sadar akan foto
+        // topup yang nyangkut tepat di batas periode (lihat splitElectricityAtCutoff()).
+        $allRowsUptoEnd = $applyFilters(
+            DB::table('v_image_scan_electricity')
+                ->where('scan_type', 'electricity')
+                ->where('status', 'success')
+                ->where('created_at', '<=', (clone $endDate)->addDays($graceDays))
+        )
             ->orderBy('cabang_id')
             ->orderBy('created_at')
             ->get()
-            ->groupBy(function ($item) {
-                return $item->cabang_id . '-' . ($item->master_token_listrik_id ?? 'no-master');
-            });
+            ->groupBy($groupKey);
 
         $summary = [];
 
-        foreach ($rows as $groupKey => $items) {
+        foreach ($allRowsUptoEnd as $key => $groupRows) {
             // Pastikan urut waktu; jangan andalkan first()/last() dari orderBy query saja
-            $sorted = $items->sortBy('created_at')->values();
+            $groupSorted = $groupRows->sortBy('created_at')->values();
 
-            $awal = $sorted->first();
-            $akhir = $sorted->last();
+            // Penutup periode SEBELUM ini (calon carry-over) -- dicari dengan
+            // toleransi $graceDays, supaya konsisten: "akhir Juli" dan "awal
+            // Agustus" akan selalu ketemu foto yang PERSIS SAMA, dihitung
+            // dengan rumus yang sama, hanya beda titik cutoff-nya (endDate
+            // Juli == startDate Agustus). Dicari LEBIH DULU (sebelum $akhir)
+            // karena dipakai sbg batas bawah pencarian $akhir di bawah.
+            $priorClosing = $this->splitElectricityAtCutoff($groupSorted, (clone $startDate)->addDays($graceDays))['closing'];
+
+            // Penutup periode ini: cari s/d $graceDays hari SESUDAH endDate,
+            // supaya foto penutup yang telat diupload ke bulan berikutnya
+            // (mis. akhir Agustus difoto tgl 1 September) tetap kehitung sbg
+            // penutup Agustus -- selama tidak lebih dari $graceDays hari telat.
+            // PENTING: hanya cari di antara foto2 SESUDAH $priorClosing --
+            // supaya pencarian ini tidak "mundur lewat" $priorClosing dan
+            // kebentur foto yang sama (yang sudah jadi baseline "awal" periode
+            // ini), yang bisa bikin periode ini keliatan kosong padahal ada
+            // aktivitas baru (mis. topup) sesudah $priorClosing.
+            $groupSortedSetelahPrior = $priorClosing
+                ? $groupSorted->filter(fn ($r) => Carbon::parse($r->created_at)->gt(Carbon::parse($priorClosing->created_at)))->values()
+                : $groupSorted;
+
+            $splitEnd = $this->splitElectricityAtCutoff($groupSortedSetelahPrior, (clone $endDate)->addDays($graceDays));
+            $akhir = $splitEnd['closing'];
+
+            if (!$akhir) {
+                // Tidak ada aktivitas apa pun sesudah penutup periode
+                // sebelumnya, sampai batas periode ini (+ toleransi).
+                continue;
+            }
+
+            // Foto id yang harus DIKELUARKAN dari periode ini karena ternyata
+            // topup yang baru "dikembalikan" ke periode BERIKUTNYA.
+            $reclassifiedOutIds = $splitEnd['reclassifiedToNext']->pluck('id')->all();
+
+            // Lalu cek foto TEPAT SESUDAH penutup lama itu di seluruh riwayat
+            // (bukan cuma yang tanggalnya <= startDate+toleransi) -- kalau dia
+            // topup, dialah pembuka periode ini yang sebenarnya, apapun
+            // tanggalnya (besok, minggu depan, dst -- tidak dibatasi toleransi,
+            // karena topup adalah sinyal yang jelas, bukan cuma soal telat).
+            $awal = null;
+
+            if ($priorClosing) {
+                $priorIndex = $groupSorted->search(fn ($r) => $r->id === $priorClosing->id);
+                $nextAfterPrior = $priorIndex !== false ? $groupSorted->get($priorIndex + 1) : null;
+
+                if (
+                    $nextAfterPrior
+                    && $this->toFloat($nextAfterPrior->kwh ?? 0) > $this->toFloat($priorClosing->kwh ?? 0)
+                ) {
+                    $awal = $nextAfterPrior;
+                } else {
+                    // Tidak ada topup langsung sesudahnya -> carry-over klasik,
+                    // foto yang sama dipakai ulang sebagai pembuka periode ini.
+                    $awal = $priorClosing;
+                }
+            }
+
+            // Foto yang benar-benar milik periode ini: di antara penutup
+            // periode sebelumnya (tidak termasuk) s/d penutup periode ini
+            // (termasuk) -- pakai batas AKTUAL hasil pencarian di atas, bukan
+            // batas nominal $startDate/$endDate, supaya foto yang "ditarik"
+            // krn toleransi/topup otomatis terhitung sekali saja, tidak dobel
+            // dan tidak hilang. Foto topup yang "dikembalikan" ke periode
+            // berikutnya (near $endDate) tetap dikecualikan.
+            $batasBawah = $priorClosing ? Carbon::parse($priorClosing->created_at) : $startDate;
+            $batasAtas = Carbon::parse($akhir->created_at);
+
+            $dalamSorted = $groupSorted
+                ->filter(function ($r) use ($batasBawah, $batasAtas, $reclassifiedOutIds) {
+                    if (in_array($r->id, $reclassifiedOutIds, true)) {
+                        return false;
+                    }
+
+                    $t = Carbon::parse($r->created_at);
+
+                    return $t->gt($batasBawah) && $t->lte($batasAtas);
+                })
+                ->values();
+
+            if (!$awal) {
+                // Grup ini baru pertama kali muncul (belum pernah difoto sebelum
+                // periode ini sama sekali) -> tidak ada carry-over untuk
+                // dibandingkan, pakai foto pertamanya sendiri di periode ini.
+                $awal = $dalamSorted->first();
+            }
+
+            if (!$awal || $dalamSorted->isEmpty()) {
+                // Tidak ada aktivitas nyata grup ini di periode ini (semua fotonya
+                // sudah jadi milik periode sebelum/sesudahnya) -> jangan ditampilkan.
+                continue;
+            }
 
             $hasTwoScans = $awal && $akhir && (int) $awal->id !== (int) $akhir->id;
 
             $kwhAwal = $this->toFloat($awal->kwh ?? 0);
             $kwhAkhir = $this->toFloat($akhir->kwh ?? 0);
+
+            // Rangkaian dipakai untuk hitung delta kWh: foto pembuka (baseline)
+            // + semua foto yang benar-benar terjadi dalam periode ini. unique('id')
+            // menjaga agar baseline yang kebetulan sama dengan foto pertama
+            // periode ini (kasus tanpa carry-over) tidak terhitung dobel.
+            $sorted = collect([$awal])
+                ->merge($dalamSorted)
+                ->unique('id')
+                ->sortBy('created_at')
+                ->values();
 
             // ---------------------------------------------------------------
             // INTI PERBAIKAN: telusuri antar-foto secara berurutan.
@@ -727,7 +902,9 @@ class SummaryController extends Controller
 
                 'rekomendasi_topup_bulan_depan' => round($rekomendasiTopupBulanDepan, 2),
 
-                'jumlah_foto' => $sorted->count(),
+                // Hanya foto yang benar-benar terjadi periode ini, tidak termasuk
+                // foto carry-over yang dipinjam sebagai baseline "awal".
+                'jumlah_foto' => $dalamSorted->count(),
 
                 'image_scan_id_awal' => $awal->id,
                 'image_scan_id_akhir' => $hasTwoScans ? $akhir->id : null,
@@ -814,16 +991,13 @@ class SummaryController extends Controller
         $endDate = $request->input('end_date');
 
         if (!$startDate || !$endDate) {
-            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
-            $startDateCarbon = Carbon::parse($month . '-28')
-                ->subMonthNoOverflow()
-                ->startOfDay();
+            $monthCarbon = Carbon::parse($month . '-01');
 
-            $startDate = $startDateCarbon->toDateString();
-            $endDate = $endDateCarbon->toDateString();
+            $endDate = $monthCarbon->copy()->endOfMonth()->toDateString();
+            $startDate = $monthCarbon->copy()->subMonthNoOverflow()->endOfMonth()->toDateString();
         }
 
-        $periodeStart = Carbon::parse($startDate)->startOfDay();
+        $periodeStart = Carbon::parse($startDate)->endOfDay();
         $periodeEnd = Carbon::parse($endDate)->endOfDay();
 
         $query = DB::table('dbo.v_image_scan_printers as p')
@@ -964,107 +1138,116 @@ class SummaryController extends Controller
 
     public function asabaBilling(Request $request)
     {
+        $graceDays = 3;
+
         $month = $request->input('month', now()->format('Y-m'));
 
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
 
         if (!$startDate || !$endDate) {
-            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+            $monthCarbon = Carbon::parse($month . '-01');
 
-            $startDateCarbon = Carbon::parse($month . '-28')
-                ->subMonthNoOverflow()
-                ->startOfDay();
-
-            $startDate = $startDateCarbon->toDateString();
-            $endDate = $endDateCarbon->toDateString();
+            $endDate = $monthCarbon->copy()->endOfMonth()->toDateString();
+            $startDate = $monthCarbon->copy()->subMonthNoOverflow()->endOfMonth()->toDateString();
         }
 
-        $periodeStart = Carbon::parse($startDate)->startOfDay();
+        $periodeStart = Carbon::parse($startDate)->endOfDay();
         $periodeEnd = Carbon::parse($endDate)->endOfDay();
 
-        $query = DB::table('dbo.v_image_scan_asaba as p')
-            ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
-            ->select([
-                'p.*',
+        $applyAsabaFilters = function ($query) use ($request) {
+            if ($request->filled('search')) {
+                $search = trim($request->search);
 
-                'mm.harga_color_a3',
-                'mm.harga_color_a4',
-                'mm.harga_bw_a3',
-                'mm.harga_bw_a4',
-
-                'mm.minimum_charge_click',
-                'mm.minimum_charge_size',
-                'mm.minimum_charge_nominal',
-
-                'mm.over_click_color_a3',
-                'mm.over_click_color_a4',
-                'mm.over_click_bw_a3',
-                'mm.over_click_bw_a4',
-
-                'mm.free_klik_percent',
-                'mm.keterangan as master_keterangan',
-            ])
-            ->whereBetween('p.created_at', [$periodeStart, $periodeEnd])
-            ->whereRaw("
-                p.created_at = (
-                    SELECT MAX(p2.created_at)
-                    FROM dbo.v_image_scan_asaba p2
-                    WHERE p2.serial_number = p.serial_number
-                    AND p2.created_at BETWEEN ? AND ?
-                )
-            ", [$periodeStart, $periodeEnd]);
-
-        if ($request->filled('search')) {
-            $search = trim($request->search);
-
-            $query->where(function ($q) use ($search) {
-                $q->where('p.serial_number', 'like', "%{$search}%")
-                    ->orWhere('p.nama_mesin', 'like', "%{$search}%")
-                    ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
-                    ->orWhere('p.nama_vendor', 'like', "%{$search}%")
-                    ->orWhere('p.kode_vendor', 'like', "%{$search}%")
-                    ->orWhere('p.nama_cabang', 'like', "%{$search}%")
-                    ->orWhere('p.kode_cabang', 'like', "%{$search}%");
-            });
-        }
-
-        if ($request->filled('vendor')) {
-            $query->where('p.master_vendor_id', $request->vendor);
-        }
-
-        if ($request->filled('cabang_id')) {
-            $query->where('p.cabang_id', $request->cabang_id);
-        }
-
-        $billings = $query
-            ->orderByDesc('p.created_at')
-            ->paginate(10)
-            ->withQueryString();
-
-        $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
-            $baseScanQuery = DB::table('dbo.v_image_scan_asaba')
-                ->where('serial_number', $item->serial_number)
-                ->whereBetween('created_at', [$periodeStart, $periodeEnd]);
-
-            if (!empty($item->cabang_id)) {
-                $baseScanQuery->where('cabang_id', $item->cabang_id);
+                $query->where(function ($q) use ($search) {
+                    $q->where('p.serial_number', 'like', "%{$search}%")
+                        ->orWhere('p.nama_mesin', 'like', "%{$search}%")
+                        ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
+                        ->orWhere('p.nama_vendor', 'like', "%{$search}%")
+                        ->orWhere('p.kode_vendor', 'like', "%{$search}%")
+                        ->orWhere('p.nama_cabang', 'like', "%{$search}%")
+                        ->orWhere('p.kode_cabang', 'like', "%{$search}%");
+                });
             }
 
-            $firstScan = (clone $baseScanQuery)
-                ->orderBy('created_at', 'asc')
-                ->orderBy('id', 'asc')
-                ->first();
+            if ($request->filled('vendor')) {
+                $query->where('p.master_vendor_id', $request->vendor);
+            }
 
-            $currentScanData = (clone $baseScanQuery)
-                ->orderByDesc('created_at')
-                ->orderByDesc('id')
-                ->first();
+            if ($request->filled('cabang_id')) {
+                $query->where('p.cabang_id', $request->cabang_id);
+            }
 
-            $hasTwoScans =
-                $firstScan
-                && $currentScanData
-                && (int) $firstScan->id !== (int) $currentScanData->id;
+            return $query;
+        };
+
+        // Grouping HANYA per serial_number (bukan + cabang/mesin), persis
+        // perilaku asli -- cabang_id dipakai sbg filter tambahan di dalam
+        // grup kalau ada, bukan bagian kunci grup.
+        $allScansUptoEnd = $applyAsabaFilters(
+            DB::table('dbo.v_image_scan_asaba as p')
+                ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
+                ->select([
+                    'p.*',
+
+                    'mm.harga_color_a3',
+                    'mm.harga_color_a4',
+                    'mm.harga_bw_a3',
+                    'mm.harga_bw_a4',
+
+                    'mm.minimum_charge_click',
+                    'mm.minimum_charge_size',
+                    'mm.minimum_charge_nominal',
+
+                    'mm.over_click_color_a3',
+                    'mm.over_click_color_a4',
+                    'mm.over_click_bw_a3',
+                    'mm.over_click_bw_a4',
+
+                    'mm.free_klik_percent',
+                    'mm.keterangan as master_keterangan',
+                ])
+                ->where('p.created_at', '<=', (clone $periodeEnd)->addDays($graceDays))
+        )
+            ->orderBy('p.serial_number')
+            ->orderBy('p.created_at')
+            ->get()
+            ->groupBy('serial_number');
+
+        $billingItems = [];
+
+        foreach ($allScansUptoEnd as $serialKey => $groupRowsAllCabang) {
+            // Dalam 1 serial_number, mesin bisa "pindah" cabang antar waktu --
+            // pecah lagi per cabang_id spy carry-over-nya tetap benar per unit.
+            foreach ($groupRowsAllCabang->groupBy(fn ($r) => $r->cabang_id ?? 0) as $groupRows) {
+                $groupSorted = $groupRows->sortBy('created_at')->values();
+
+                $priorClosing = $groupSorted
+                    ->filter(fn ($r) => Carbon::parse($r->created_at)->lte((clone $periodeStart)->addDays($graceDays)))
+                    ->sortBy('created_at')
+                    ->last();
+
+                $afterPrior = $priorClosing
+                    ? $groupSorted->filter(fn ($r) => Carbon::parse($r->created_at)->gt(Carbon::parse($priorClosing->created_at)))->values()
+                    : $groupSorted;
+
+                $currentScanData = $afterPrior
+                    ->filter(fn ($r) => Carbon::parse($r->created_at)->lte((clone $periodeEnd)->addDays($graceDays)))
+                    ->sortBy('created_at')
+                    ->last();
+
+                if (!$currentScanData) {
+                    continue;
+                }
+
+                $firstScan = $priorClosing ?? $groupSorted->first();
+
+                $hasTwoScans =
+                    $firstScan
+                    && $currentScanData
+                    && (int) $firstScan->id !== (int) $currentScanData->id;
+
+                $item = clone $currentScanData;
 
             $getCounter = function ($value) {
                 return (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
@@ -1349,8 +1532,27 @@ class SummaryController extends Controller
 
             $item->new_note = '';
 
-            return $item;
-        });
+                $billingItems[] = $item;
+            }
+        }
+
+        usort($billingItems, fn ($a, $b) => strcmp((string) $b->created_at, (string) $a->created_at));
+
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 10;
+
+        $billingCollection = collect($billingItems);
+
+        $billings = new LengthAwarePaginator(
+            $billingCollection->forPage($page, $perPage)->values(),
+            $billingCollection->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
 
         if ($request->boolean('debug')) {
             dd($billings->items());
@@ -1391,104 +1593,109 @@ class SummaryController extends Controller
 
     public function astraBilling(Request $request)
     {
+        $graceDays = 3;
+
         $month = $request->input('month', now()->format('Y-m'));
 
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
 
         if (!$startDate || !$endDate) {
-            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+            $monthCarbon = Carbon::parse($month . '-01');
 
-            $startDateCarbon = Carbon::parse($month . '-28')
-                ->subMonthNoOverflow()
-                ->startOfDay();
-
-            $startDate = $startDateCarbon->toDateString();
-            $endDate = $endDateCarbon->toDateString();
+            $endDate = $monthCarbon->copy()->endOfMonth()->toDateString();
+            $startDate = $monthCarbon->copy()->subMonthNoOverflow()->endOfMonth()->toDateString();
         }
 
-        $periodeStart = Carbon::parse($startDate)->startOfDay();
+        $periodeStart = Carbon::parse($startDate)->endOfDay();
         $periodeEnd = Carbon::parse($endDate)->endOfDay();
 
-        $query = DB::table('dbo.v_image_scan_astra as p')
-            ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
-            ->select([
-                'p.*',
+        $applyAstraFilters = function ($query) use ($request) {
+            if ($request->filled('search')) {
+                $search = trim($request->search);
 
-                'mm.harga_color_a3',
-                'mm.harga_color_a4',
-                'mm.harga_bw_a3',
-                'mm.harga_bw_a4',
-
-                'mm.minimum_charge_click',
-                'mm.minimum_charge_size',
-                'mm.minimum_charge_nominal',
-
-                'mm.over_click_color_a3',
-                'mm.over_click_color_a4',
-                'mm.over_click_bw_a3',
-                'mm.over_click_bw_a4',
-
-                'mm.free_klik_percent',
-                'mm.keterangan as master_keterangan',
-            ])
-            ->where('mm.master_vendor_id', self::ASTRA_VENDOR_ID)
-            ->whereBetween('p.created_at', [$periodeStart, $periodeEnd])
-            ->whereRaw("
-                p.created_at = (
-                    SELECT MAX(p2.created_at)
-                    FROM dbo.v_image_scan_astra p2
-                    WHERE p2.serial_number = p.serial_number
-                    AND p2.created_at BETWEEN ? AND ?
-                )
-            ", [$periodeStart, $periodeEnd]);
-
-        if ($request->filled('search')) {
-            $search = trim($request->search);
-
-            $query->where(function ($q) use ($search) {
-                $q->where('p.serial_number', 'like', "%{$search}%")
-                    ->orWhere('p.nama_mesin', 'like', "%{$search}%")
-                    ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
-                    ->orWhere('p.nama_vendor', 'like', "%{$search}%")
-                    ->orWhere('p.kode_vendor', 'like', "%{$search}%")
-                    ->orWhere('p.nama_cabang', 'like', "%{$search}%")
-                    ->orWhere('p.kode_cabang', 'like', "%{$search}%");
-            });
-        }
-
-        if ($request->filled('cabang_id')) {
-            $query->where('p.cabang_id', $request->cabang_id);
-        }
-
-        $billings = $query
-            ->orderByDesc('p.created_at')
-            ->paginate(10)
-            ->withQueryString();
-
-        $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
-            $baseScanQuery = DB::table('dbo.v_image_scan_astra')
-                ->where('serial_number', $item->serial_number)
-                ->whereBetween('created_at', [$periodeStart, $periodeEnd]);
-
-            if (!empty($item->cabang_id)) {
-                $baseScanQuery->where('cabang_id', $item->cabang_id);
+                $query->where(function ($q) use ($search) {
+                    $q->where('p.serial_number', 'like', "%{$search}%")
+                        ->orWhere('p.nama_mesin', 'like', "%{$search}%")
+                        ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
+                        ->orWhere('p.nama_vendor', 'like', "%{$search}%")
+                        ->orWhere('p.kode_vendor', 'like', "%{$search}%")
+                        ->orWhere('p.nama_cabang', 'like', "%{$search}%")
+                        ->orWhere('p.kode_cabang', 'like', "%{$search}%");
+                });
             }
 
-            $firstScan = (clone $baseScanQuery)
-                ->orderBy('created_at', 'asc')
-                ->orderBy('id', 'asc')
-                ->first();
+            if ($request->filled('cabang_id')) {
+                $query->where('p.cabang_id', $request->cabang_id);
+            }
 
-            $currentScanData = (clone $baseScanQuery)
-                ->orderByDesc('created_at')
-                ->orderByDesc('id')
-                ->first();
+            return $query;
+        };
 
-            $hasTwoScans =
-                $firstScan
-                && $currentScanData
-                && (int) $firstScan->id !== (int) $currentScanData->id;
+        // Grouping HANYA per serial_number, sama seperti perilaku asli.
+        $allScansUptoEnd = $applyAstraFilters(
+            DB::table('dbo.v_image_scan_astra as p')
+                ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
+                ->select([
+                    'p.*',
+
+                    'mm.harga_color_a3',
+                    'mm.harga_color_a4',
+                    'mm.harga_bw_a3',
+                    'mm.harga_bw_a4',
+
+                    'mm.minimum_charge_click',
+                    'mm.minimum_charge_size',
+                    'mm.minimum_charge_nominal',
+
+                    'mm.over_click_color_a3',
+                    'mm.over_click_color_a4',
+                    'mm.over_click_bw_a3',
+                    'mm.over_click_bw_a4',
+
+                    'mm.free_klik_percent',
+                    'mm.keterangan as master_keterangan',
+                ])
+                ->where('mm.master_vendor_id', self::ASTRA_VENDOR_ID)
+                ->where('p.created_at', '<=', (clone $periodeEnd)->addDays($graceDays))
+        )
+            ->orderBy('p.serial_number')
+            ->orderBy('p.created_at')
+            ->get()
+            ->groupBy('serial_number');
+
+        $billingItems = [];
+
+        foreach ($allScansUptoEnd as $serialKey => $groupRowsAllCabang) {
+            foreach ($groupRowsAllCabang->groupBy(fn ($r) => $r->cabang_id ?? 0) as $groupRows) {
+                $groupSorted = $groupRows->sortBy('created_at')->values();
+
+                $priorClosing = $groupSorted
+                    ->filter(fn ($r) => Carbon::parse($r->created_at)->lte((clone $periodeStart)->addDays($graceDays)))
+                    ->sortBy('created_at')
+                    ->last();
+
+                $afterPrior = $priorClosing
+                    ? $groupSorted->filter(fn ($r) => Carbon::parse($r->created_at)->gt(Carbon::parse($priorClosing->created_at)))->values()
+                    : $groupSorted;
+
+                $currentScanData = $afterPrior
+                    ->filter(fn ($r) => Carbon::parse($r->created_at)->lte((clone $periodeEnd)->addDays($graceDays)))
+                    ->sortBy('created_at')
+                    ->last();
+
+                if (!$currentScanData) {
+                    continue;
+                }
+
+                $firstScan = $priorClosing ?? $groupSorted->first();
+
+                $hasTwoScans =
+                    $firstScan
+                    && $currentScanData
+                    && (int) $firstScan->id !== (int) $currentScanData->id;
+
+                $item = clone $currentScanData;
 
             $getCounter = function ($value) {
                 return (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
@@ -1725,8 +1932,27 @@ class SummaryController extends Controller
 
             $item->new_note = '';
 
-            return $item;
-        });
+                $billingItems[] = $item;
+            }
+        }
+
+        usort($billingItems, fn ($a, $b) => strcmp((string) $b->created_at, (string) $a->created_at));
+
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 10;
+
+        $billingCollection = collect($billingItems);
+
+        $billings = new LengthAwarePaginator(
+            $billingCollection->forPage($page, $perPage)->values(),
+            $billingCollection->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
 
         if ($request->boolean('debug')) {
             dd($billings->items());
@@ -1756,89 +1982,95 @@ class SummaryController extends Controller
 
     public function ceaBilling(Request $request)
     {
+        $graceDays = 3;
+
         $month = $request->input('month', now()->format('Y-m'));
 
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
 
         if (!$startDate || !$endDate) {
-            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+            $monthCarbon = Carbon::parse($month . '-01');
 
-            $startDateCarbon = Carbon::parse($month . '-28')
-                ->subMonthNoOverflow()
-                ->startOfDay();
-
-            $startDate = $startDateCarbon->toDateString();
-            $endDate = $endDateCarbon->toDateString();
+            $endDate = $monthCarbon->copy()->endOfMonth()->toDateString();
+            $startDate = $monthCarbon->copy()->subMonthNoOverflow()->endOfMonth()->toDateString();
         }
 
-        $periodeStart = Carbon::parse($startDate)->startOfDay();
+        $periodeStart = Carbon::parse($startDate)->endOfDay();
         $periodeEnd = Carbon::parse($endDate)->endOfDay();
 
-        $query = DB::table('dbo.v_image_scan_cea as p')
-            ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
-            ->select([
-                'p.*',
-                'mm.keterangan as master_keterangan',
-            ])
-            ->whereBetween('p.created_at', [$periodeStart, $periodeEnd])
-            ->whereRaw("
-                p.created_at = (
-                    SELECT MAX(p2.created_at)
-                    FROM dbo.v_image_scan_cea p2
-                    WHERE p2.serial_number = p.serial_number
-                    AND ISNULL(p2.cabang_id, 0) = ISNULL(p.cabang_id, 0)
-                    AND p2.created_at BETWEEN ? AND ?
-                )
-            ", [$periodeStart, $periodeEnd]);
+        $applyCeaFilters = function ($query) use ($request) {
+            if ($request->filled('search')) {
+                $search = trim($request->search);
 
-        if ($request->filled('search')) {
-            $search = trim($request->search);
+                $query->where(function ($q) use ($search) {
+                    $q->where('p.serial_number', 'like', "%{$search}%")
+                        ->orWhere('p.nama_mesin', 'like', "%{$search}%")
+                        ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
+                        ->orWhere('p.nama_vendor', 'like', "%{$search}%")
+                        ->orWhere('p.kode_vendor', 'like', "%{$search}%")
+                        ->orWhere('p.nama_cabang', 'like', "%{$search}%")
+                        ->orWhere('p.kode_cabang', 'like', "%{$search}%");
+                });
+            }
 
-            $query->where(function ($q) use ($search) {
-                $q->where('p.serial_number', 'like', "%{$search}%")
-                    ->orWhere('p.nama_mesin', 'like', "%{$search}%")
-                    ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
-                    ->orWhere('p.nama_vendor', 'like', "%{$search}%")
-                    ->orWhere('p.kode_vendor', 'like', "%{$search}%")
-                    ->orWhere('p.nama_cabang', 'like', "%{$search}%")
-                    ->orWhere('p.kode_cabang', 'like', "%{$search}%");
-            });
-        }
+            if ($request->filled('vendor')) {
+                $query->where('p.master_vendor_id', $request->vendor);
+            }
 
-        if ($request->filled('vendor')) {
-            $query->where('p.master_vendor_id', $request->vendor);
-        }
+            if ($request->filled('cabang_id')) {
+                $query->where('p.cabang_id', $request->cabang_id);
+            }
 
-        if ($request->filled('cabang_id')) {
-            $query->where('p.cabang_id', $request->cabang_id);
-        }
+            return $query;
+        };
 
-        $billings = $query
-            ->orderByDesc('p.created_at')
-            ->paginate(10)
-            ->withQueryString();
+        // Grouping per serial_number + cabang_id, sama seperti perilaku asli.
+        $allScansUptoEnd = $applyCeaFilters(
+            DB::table('dbo.v_image_scan_cea as p')
+                ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
+                ->select([
+                    'p.*',
+                    'mm.keterangan as master_keterangan',
+                ])
+                ->where('p.created_at', '<=', (clone $periodeEnd)->addDays($graceDays))
+        )
+            ->orderBy('p.serial_number')
+            ->orderBy('p.created_at')
+            ->get()
+            ->groupBy(fn ($r) => $r->serial_number . '-' . ($r->cabang_id ?? 0));
 
-        $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
-            $baseScanQuery = DB::table('dbo.v_image_scan_cea')
-                ->where('serial_number', $item->serial_number)
-                ->where('cabang_id', $item->cabang_id)
-                ->whereBetween('created_at', [$periodeStart, $periodeEnd]);
+        $billingItems = [];
 
-            $firstScan = (clone $baseScanQuery)
-                ->orderBy('created_at', 'asc')
-                ->orderBy('id', 'asc')
-                ->first();
+        foreach ($allScansUptoEnd as $groupKey => $groupRows) {
+            $groupSorted = $groupRows->sortBy('created_at')->values();
 
-            $currentScan = (clone $baseScanQuery)
-                ->orderByDesc('created_at')
-                ->orderByDesc('id')
-                ->first();
+            $priorClosing = $groupSorted
+                ->filter(fn ($r) => Carbon::parse($r->created_at)->lte((clone $periodeStart)->addDays($graceDays)))
+                ->sortBy('created_at')
+                ->last();
+
+            $afterPrior = $priorClosing
+                ? $groupSorted->filter(fn ($r) => Carbon::parse($r->created_at)->gt(Carbon::parse($priorClosing->created_at)))->values()
+                : $groupSorted;
+
+            $currentScan = $afterPrior
+                ->filter(fn ($r) => Carbon::parse($r->created_at)->lte((clone $periodeEnd)->addDays($graceDays)))
+                ->sortBy('created_at')
+                ->last();
+
+            if (!$currentScan) {
+                continue;
+            }
+
+            $firstScan = $priorClosing ?? $groupSorted->first();
 
             $hasTwoScans =
                 $firstScan
                 && $currentScan
                 && (int) $firstScan->id !== (int) $currentScan->id;
+
+            $item = clone $currentScan;
 
             $getCounter = function ($value) {
                 return (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
@@ -2029,8 +2261,26 @@ class SummaryController extends Controller
 
             $item->new_note = '';
 
-            return $item;
-        });
+            $billingItems[] = $item;
+        }
+
+        usort($billingItems, fn ($a, $b) => strcmp((string) $b->created_at, (string) $a->created_at));
+
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 10;
+
+        $billingCollection = collect($billingItems);
+
+        $billings = new LengthAwarePaginator(
+            $billingCollection->forPage($page, $perPage)->values(),
+            $billingCollection->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
 
         if ($request->boolean('debug')) {
             dd($billings->items());
@@ -2071,99 +2321,104 @@ class SummaryController extends Controller
 
     public function ceaSewaBilling(Request $request)
     {
+        $graceDays = 3;
+
         $month = $request->input('month', now()->format('Y-m'));
 
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
 
         if (!$startDate || !$endDate) {
-            $endDateCarbon = Carbon::parse($month . '-28')->endOfDay();
+            $monthCarbon = Carbon::parse($month . '-01');
 
-            $startDateCarbon = Carbon::parse($month . '-28')
-                ->subMonthNoOverflow()
-                ->startOfDay();
-
-            $startDate = $startDateCarbon->toDateString();
-            $endDate = $endDateCarbon->toDateString();
+            $endDate = $monthCarbon->copy()->endOfMonth()->toDateString();
+            $startDate = $monthCarbon->copy()->subMonthNoOverflow()->endOfMonth()->toDateString();
         }
 
-        $periodeStart = Carbon::parse($startDate)->startOfDay();
+        $periodeStart = Carbon::parse($startDate)->endOfDay();
         $periodeEnd = Carbon::parse($endDate)->endOfDay();
 
-        $query = DB::table('dbo.v_image_scan_cea_sewa as p')
-            ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
-            ->select([
-                'p.*',
+        $applyCeaSewaFilters = function ($query) use ($request) {
+            if ($request->filled('search')) {
+                $search = trim($request->search);
 
-                'mm.harga_bw_a3',
-                'mm.harga_bw_a4',
-                'mm.minimum_charge_click',
-                'mm.minimum_charge_nominal',
-                'mm.minimum_charge_size',
-                'mm.status_kepemilikan',
-                'mm.keterangan as master_keterangan',
-            ])
-            ->whereBetween('p.created_at', [$periodeStart, $periodeEnd])
-            ->whereRaw("
-                p.created_at = (
-                    SELECT MAX(p2.created_at)
-                    FROM dbo.v_image_scan_cea_sewa p2
-                    WHERE p2.serial_number = p.serial_number
-                    AND ISNULL(p2.cabang_id, 0) = ISNULL(p.cabang_id, 0)
-                    AND p2.created_at BETWEEN ? AND ?
-                )
-            ", [$periodeStart, $periodeEnd]);
+                $query->where(function ($q) use ($search) {
+                    $q->where('p.serial_number', 'like', "%{$search}%")
+                        ->orWhere('p.nama_mesin', 'like', "%{$search}%")
+                        ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
+                        ->orWhere('p.nama_vendor', 'like', "%{$search}%")
+                        ->orWhere('p.kode_vendor', 'like', "%{$search}%")
+                        ->orWhere('p.nama_cabang', 'like', "%{$search}%")
+                        ->orWhere('p.kode_cabang', 'like', "%{$search}%");
+                });
+            }
 
-        // Kalau data master sudah rapi, boleh aktifkan ini.
-        // $query->whereRaw("LOWER(ISNULL(mm.status_kepemilikan, '')) = 'sewa'");
+            if ($request->filled('vendor')) {
+                $query->where('p.master_vendor_id', $request->vendor);
+            }
 
-        if ($request->filled('search')) {
-            $search = trim($request->search);
+            if ($request->filled('cabang_id')) {
+                $query->where('p.cabang_id', $request->cabang_id);
+            }
 
-            $query->where(function ($q) use ($search) {
-                $q->where('p.serial_number', 'like', "%{$search}%")
-                    ->orWhere('p.nama_mesin', 'like', "%{$search}%")
-                    ->orWhere('p.master_nama_mesin', 'like', "%{$search}%")
-                    ->orWhere('p.nama_vendor', 'like', "%{$search}%")
-                    ->orWhere('p.kode_vendor', 'like', "%{$search}%")
-                    ->orWhere('p.nama_cabang', 'like', "%{$search}%")
-                    ->orWhere('p.kode_cabang', 'like', "%{$search}%");
-            });
-        }
+            return $query;
+        };
 
-        if ($request->filled('vendor')) {
-            $query->where('p.master_vendor_id', $request->vendor);
-        }
+        // Grouping per serial_number + cabang_id, sama seperti perilaku asli.
+        $allScansUptoEnd = $applyCeaSewaFilters(
+            DB::table('dbo.v_image_scan_cea_sewa as p')
+                ->leftJoin('dbo.master_mesins as mm', 'mm.id', '=', 'p.master_mesin_id')
+                ->select([
+                    'p.*',
 
-        if ($request->filled('cabang_id')) {
-            $query->where('p.cabang_id', $request->cabang_id);
-        }
+                    'mm.harga_bw_a3',
+                    'mm.harga_bw_a4',
+                    'mm.minimum_charge_click',
+                    'mm.minimum_charge_nominal',
+                    'mm.minimum_charge_size',
+                    'mm.status_kepemilikan',
+                    'mm.keterangan as master_keterangan',
+                ])
+                // Kalau data master sudah rapi, boleh aktifkan ini.
+                // ->whereRaw("LOWER(ISNULL(mm.status_kepemilikan, '')) = 'sewa'")
+                ->where('p.created_at', '<=', (clone $periodeEnd)->addDays($graceDays))
+        )
+            ->orderBy('p.serial_number')
+            ->orderBy('p.created_at')
+            ->get()
+            ->groupBy(fn ($r) => $r->serial_number . '-' . ($r->cabang_id ?? 0));
 
-        $billings = $query
-            ->orderByDesc('p.created_at')
-            ->paginate(10)
-            ->withQueryString();
+        $billingItems = [];
 
-        $billings->getCollection()->transform(function ($item) use ($periodeStart, $periodeEnd) {
-            $baseScanQuery = DB::table('dbo.v_image_scan_cea_sewa')
-                ->where('serial_number', $item->serial_number)
-                ->where('cabang_id', $item->cabang_id)
-                ->whereBetween('created_at', [$periodeStart, $periodeEnd]);
+        foreach ($allScansUptoEnd as $groupKey => $groupRows) {
+            $groupSorted = $groupRows->sortBy('created_at')->values();
 
-            $firstScan = (clone $baseScanQuery)
-                ->orderBy('created_at', 'asc')
-                ->orderBy('id', 'asc')
-                ->first();
+            $priorClosing = $groupSorted
+                ->filter(fn ($r) => Carbon::parse($r->created_at)->lte((clone $periodeStart)->addDays($graceDays)))
+                ->sortBy('created_at')
+                ->last();
 
-            $currentScan = (clone $baseScanQuery)
-                ->orderByDesc('created_at')
-                ->orderByDesc('id')
-                ->first();
+            $afterPrior = $priorClosing
+                ? $groupSorted->filter(fn ($r) => Carbon::parse($r->created_at)->gt(Carbon::parse($priorClosing->created_at)))->values()
+                : $groupSorted;
+
+            $currentScan = $afterPrior
+                ->filter(fn ($r) => Carbon::parse($r->created_at)->lte((clone $periodeEnd)->addDays($graceDays)))
+                ->sortBy('created_at')
+                ->last();
+
+            if (!$currentScan) {
+                continue;
+            }
+
+            $firstScan = $priorClosing ?? $groupSorted->first();
 
             $hasTwoScans =
                 $firstScan
                 && $currentScan
                 && (int) $firstScan->id !== (int) $currentScan->id;
+
+            $item = clone $currentScan;
 
             $getCounter = function ($value) {
                 return (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
@@ -2354,8 +2609,26 @@ class SummaryController extends Controller
 
             $item->new_note = '';
 
-            return $item;
-        });
+            $billingItems[] = $item;
+        }
+
+        usort($billingItems, fn ($a, $b) => strcmp((string) $b->created_at, (string) $a->created_at));
+
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 10;
+
+        $billingCollection = collect($billingItems);
+
+        $billings = new LengthAwarePaginator(
+            $billingCollection->forPage($page, $perPage)->values(),
+            $billingCollection->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
 
         return Inertia::render('Summary/CeaSewa', [
             'billings' => $billings,
@@ -2576,6 +2849,51 @@ class SummaryController extends Controller
         }
 
         return 'Lengkap';
+    }
+
+    /**
+     * Cari "penutup" yang benar untuk 1 grup (cabang + token) pada suatu tanggal
+     * cutoff, dengan sadar akan pola isi ulang token listrik: user sering upload
+     * foto "sisa" (penutup periode lama) lalu foto "sudah ditopup" (pembuka
+     * periode baru) berdekatan waktu, kadang di hari yang sama dengan cutoff.
+     *
+     * Aturan: penutup periode TIDAK BOLEH berupa foto yang kWh-nya baru NAIK
+     * (baru saja ditopup) dibanding foto sebelumnya. Kalau foto terakhir
+     * sebelum/pada cutoff ternyata begitu, itu bukan penutup periode ini --
+     * mundur ke foto sebelumnya (level "sisa") sebagai penutup, dan foto topup
+     * yang di-skip itu "dikembalikan" untuk jadi pembuka periode berikutnya,
+     * walau created_at-nya masih <= cutoff.
+     *
+     * @param \Illuminate\Support\Collection $sortedGroupReadings Foto 1 grup, urut created_at ASC.
+     * @param \Carbon\Carbon $cutoff
+     * @return array{closing: object|null, reclassifiedToNext: \Illuminate\Support\Collection}
+     */
+    private function splitElectricityAtCutoff($sortedGroupReadings, Carbon $cutoff): array
+    {
+        $uptoCutoff = $sortedGroupReadings
+            ->filter(fn ($r) => Carbon::parse($r->created_at)->lte($cutoff))
+            ->values();
+
+        if ($uptoCutoff->isEmpty()) {
+            return [
+                'closing' => null,
+                'reclassifiedToNext' => collect(),
+            ];
+        }
+
+        $idx = $uptoCutoff->count() - 1;
+
+        while (
+            $idx > 0
+            && $this->toFloat($uptoCutoff[$idx]->kwh ?? 0) > $this->toFloat($uptoCutoff[$idx - 1]->kwh ?? 0)
+        ) {
+            $idx--;
+        }
+
+        return [
+            'closing' => $uptoCutoff[$idx],
+            'reclassifiedToNext' => $uptoCutoff->slice($idx + 1)->values(),
+        ];
     }
 
     private function toFloat($value): float

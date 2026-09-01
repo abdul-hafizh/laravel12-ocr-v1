@@ -10,24 +10,9 @@ const props = defineProps({
     filters: Object,
 });
 
-const getDefaultPeriod = () => {
+const getDefaultMonth = () => {
     const now = new Date();
-
-    const end = new Date(now.getFullYear(), now.getMonth(), 28);
-    const start = new Date(now.getFullYear(), now.getMonth() - 1, 28);
-
-    const formatDate = (date) => {
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-
-        return `${y}-${m}-${d}`;
-    };
-
-    return {
-        start_date: formatDate(start),
-        end_date: formatDate(end),
-    };
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 };
 
 const deleteNote = (noteId) => {
@@ -44,19 +29,30 @@ const deleteNote = (noteId) => {
     );
 };
 
-const defaultPeriod = getDefaultPeriod();
-
 const search = ref(props.filters.search || '');
 const vendor = ref(props.filters.vendor || '');
 const cabangId = ref(props.filters.cabang_id || '');
+const month = ref(props.filters.month || getDefaultMonth());
 
-const startDate = ref(
-    props.filters.start_date || defaultPeriod.start_date
-);
+const monthLabelFormatter = new Intl.DateTimeFormat('id-ID', {
+    month: 'long',
+    year: 'numeric',
+});
 
-const endDate = ref(
-    props.filters.end_date || defaultPeriod.end_date
-);
+const monthDisplayLabel = () => {
+    if (!month.value) return '-';
+
+    const [y, m] = month.value.split('-').map(Number);
+    if (!y || !m) return '-';
+
+    return monthLabelFormatter.format(new Date(y, m - 1, 1));
+};
+
+const periodeLabel = () => {
+    if (!props.filters.start_date || !props.filters.end_date) return '-';
+
+    return `${props.filters.start_date} s/d ${props.filters.end_date}`;
+};
 
 const saveNote = (item) => {
     if (!item.new_note || !item.new_note.trim()) {
@@ -109,9 +105,7 @@ const applyFilter = () => {
             search: search.value,
             vendor: vendor.value,
             cabang_id: cabangId.value,
-            start_date: startDate.value,
-            end_date: endDate.value,
-            month: endDate.value.substring(0, 7),
+            month: month.value,
             page: 1,
         },
         {
@@ -125,15 +119,12 @@ const resetFilter = () => {
     search.value = '';
     vendor.value = '';
     cabangId.value = '';
-    startDate.value = defaultPeriod.start_date;
-    endDate.value = defaultPeriod.end_date;
+    month.value = getDefaultMonth();
 
     router.get(
         route('summary.printer-billing'),
         {
-            start_date: startDate.value,
-            end_date: endDate.value,
-            month: endDate.value.substring(0, 7),
+            month: month.value,
         },
         {
             preserveState: true,
@@ -187,10 +178,7 @@ const printBilling = () => {
             <h2>Billing Meter Printer</h2>
 
             <p>
-                Periode :
-                ${startDate.value}
-                s/d
-                ${endDate.value}
+                Periode : ${monthDisplayLabel()} (${periodeLabel()})
             </p>
 
             <table>
@@ -333,7 +321,7 @@ const generateLaporanRows = () => {
                 </div>
 
                 <div class="report-period">
-                    ${endDate.value.substring(0, 7)}
+                    ${monthDisplayLabel()}
                 </div>
 
                 <table class="journal-table">
@@ -483,9 +471,7 @@ const sendWa = () => {
             search: search.value,
             vendor: vendor.value,
             cabang_id: cabangId.value,
-            start_date: startDate.value,
-            end_date: endDate.value,
-            month: endDate.value.substring(0, 7),
+            month: month.value,
         },
         {
             preserveScroll: true,
@@ -513,7 +499,7 @@ const sendWa = () => {
 
         <div class="space-y-6">
             <div class="mx-auto">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="relative md:col-span-2">
                         <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -531,16 +517,10 @@ const sendWa = () => {
                     </div>
 
                     <input
-                        v-model="startDate"
-                        type="date"
+                        v-model="month"
+                        type="month"
                         class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
                     />
-
-                    <input
-                        v-model="endDate"
-                        type="date"
-                        class="w-full px-4 py-3.5 bg-white border border-slate-200/60 rounded-[1.5rem] text-sm focus:border-[#2DD4BF] focus:ring-0 transition-all shadow-sm"
-                    />                    
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4">
