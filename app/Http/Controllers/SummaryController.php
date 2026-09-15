@@ -700,6 +700,16 @@ class SummaryController extends Controller
             // Pastikan urut waktu; jangan andalkan first()/last() dari orderBy query saja
             $groupSorted = $groupRows->sortBy('created_at')->values();
 
+            // Gabungkan foto-foto yang diupload berdekatan waktunya (mis. sesi
+            // "kejar setoran": tutup periode lama lalu langsung difoto lagi
+            // setelah topup, kadang beberapa kali percobaan/retry) menjadi
+            // cuma 2 titik: nilai TERKECIL (penutup periode lama) dan nilai
+            // TERBESAR (pembuka periode baru). Foto di antaranya (bukan
+            // titik ekstrem) dibuang dari perhitungan batas periode -- lihat
+            // collapseCluster(). Ini tidak mengubah rumus konsumsi per-segmen
+            // di bawah, cuma memperbaiki foto mana yang jadi acuan awal/akhir.
+            $groupSorted = $this->collapseElectricityClusters($groupSorted);
+
             // Penutup periode SEBELUM ini (calon carry-over) -- dicari dengan
             // toleransi $graceDays, supaya konsisten: "akhir Juli" dan "awal
             // Agustus" akan selalu ketemu foto yang PERSIS SAMA, dihitung
@@ -2849,6 +2859,77 @@ class SummaryController extends Controller
         }
 
         return 'Lengkap';
+    }
+
+    /**
+     * Gabungkan foto-foto 1 grup (cabang + token) yang diupload berdekatan
+     * waktunya (selisih <= $gapDays dari foto sebelumnya) menjadi cuma 2 foto
+     * representatif: kWh TERKECIL (penutup periode sebelumnya) dan kWh
+     * TERBESAR (pembuka periode berikutnya). Foto lain di cluster yang sama
+     * (bukan titik ekstrem) dibuang dari perhitungan batas periode.
+     *
+     * Alasan: pola nyata di lapangan -- cabang foto "sisa" (penutup periode
+     * lama), lalu topup, lalu foto lagi (kadang beberapa kali/retry) sebagai
+     * pembuka periode baru, semuanya dalam hari yang sama atau selisih
+     * beberapa hari. Kalau tiap foto dalam sesi itu dipakai apa adanya,
+     * urutan naik-turunnya bisa salah diartikan sebagai konsumsi/topup
+     * beneran padahal cuma noise percobaan foto dalam satu sesi singkat.
+     *
+     * Cluster berisi 1 foto (tidak ada foto lain dalam $gapDays) tidak
+     * terpengaruh -- tetap dipakai apa adanya, termasuk pola isi-ulang
+     * di tengah periode (kehabisan token -> foto rendah -> topup -> foto
+     * tinggi), karena itu memang cuma 2 foto = min & max cluster itu sendiri.
+     *
+     * @param \Illuminate\Support\Collection $sortedGroupReadings Foto 1 grup, urut created_at ASC.
+     * @param int $gapDays Jarak maksimal antar foto (hari) supaya dianggap 1 cluster.
+     * @return \Illuminate\Support\Collection Urut created_at ASC, sudah di-collapse.
+     */
+    private function collapseElectricityClusters($sortedGroupReadings, int $gapDays = 3)
+    {
+        if ($sortedGroupReadings->count() <= 1) {
+            return $sortedGroupReadings->values();
+        }
+
+        $clusters = collect();
+        $current = collect([$sortedGroupReadings->first()]);
+
+        for ($i = 1; $i < $sortedGroupReadings->count(); $i++) {
+            $prev = $sortedGroupReadings[$i - 1];
+            $curr = $sortedGroupReadings[$i];
+
+            $gap = Carbon::parse($prev->created_at)->diffInDays(Carbon::parse($curr->created_at));
+
+            if ($gap <= $gapDays) {
+                $current->push($curr);
+                continue;
+            }
+
+            $clusters->push($current);
+            $current = collect([$curr]);
+        }
+
+        $clusters->push($current);
+
+        return $clusters
+            ->flatMap(function ($cluster) {
+                if ($cluster->count() <= 1) {
+                    return $cluster;
+                }
+
+                $min = $cluster->reduce(
+                    fn ($carry, $r) => $carry === null || $this->toFloat($r->kwh ?? 0) < $this->toFloat($carry->kwh ?? 0) ? $r : $carry
+                );
+                $max = $cluster->reduce(
+                    fn ($carry, $r) => $carry === null || $this->toFloat($r->kwh ?? 0) > $this->toFloat($carry->kwh ?? 0) ? $r : $carry
+                );
+
+                if ($min->id === $max->id) {
+                    return [$min];
+                }
+
+                return collect([$min, $max])->sortBy('created_at')->values();
+            })
+            ->values();
     }
 
     /**

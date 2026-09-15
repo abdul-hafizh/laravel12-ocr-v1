@@ -27,10 +27,15 @@ class ImageAnalysisPromptService
             - Baca angka hanya jika benar-benar terlihat jelas.
             - Fokus utama pada:
             1. nilai kWh di layar LCD
-            2. barcode / nomor meter resmi yang berada di bawah layar kWh
+            2. nomor meter resmi (angka pendek, biasanya sekitar 11 digit) yang tercetak PERSIS DI SEKITAR/DI BAWAH layar LCD, biasanya didampingi barcode/garis vertikal kecil di sisinya
             3. nomor token / ID pelanggan jika ada
             4. tanggal pada foto
             5. lokasi/alamat overlay pada foto jika ada
+
+            PENTING -- ADA 3 KODE/ANGKA BERBEDA DI BADAN METER, JANGAN TERTUKAR:
+            a. Nomor meter resmi: angka pendek dekat layar LCD/lampu status kredit (mis. "14 4694 1925 4"). INI yang dipakai untuk field "barcode" dan "nomor_meter".
+            b. Sticker info pelanggan: berisi teks "NAMA:", "TARIF/DAYA:", alamat, dengan barcode panjang dan angka sendiri (mis. "543105653167"), biasanya dekat terminal/kabel di bagian bawah meter. INI adalah ID PELANGGAN, bukan nomor meter -- masuk ke field "nomor_token", BUKAN ke "barcode"/"nomor_meter".
+            c. QR code / barcode kotak milik produsen meter (dekat tulisan merk, model, "Garansi X Tahun"): JANGAN dipakai sama sekali untuk field apapun, abaikan total.
 
             ATURAN PALING PENTING:
             - JANGAN mengarang angka.
@@ -38,7 +43,8 @@ class ImageAnalysisPromptService
             - Jika nilai kWh di layar LCD tidak terlihat jelas sampai digit terakhir, maka valid=false.
             - Jika nilai kWh hanya terlihat sebagian, maka valid=false.
             - Jika ragu antara dua angka, maka valid=false.
-            - Data hanya valid jika kWh terbaca jelas dan lengkap.
+            - Jika nomor meter (poin 2a di atas) tidak terlihat jelas/tidak terbaca utuh, maka valid=false (lihat ATURAN VALIDASI WAJIB di bawah).
+            - Data hanya valid jika kWh DAN nomor meter terbaca jelas dan lengkap.
 
             ATURAN KWH:
             - Nilai kWh harus berasal dari layar LCD meter.
@@ -49,38 +55,44 @@ class ImageAnalysisPromptService
                 1006.52
                 2462.61
                 3138.30
-            - Jadi selalu ada 2 angka setelah tanda titik (.) 
+            - Jadi selalu ada 2 angka setelah tanda titik (.), mewakili 2 digit terakhir yang ditampilkan layar.
             - Jika layar menampilkan koma, ubah menjadi titik.
-            - Jika layar menampilkan 3138.3, maka valid=false
-            - Jika layar menampilkan tanpa titik misal 31383, maka ubah jadi 313.83 lalu valid=true
-            - Jika layar menampilkan angka tanpa desimal dan tidak jelas digit desimalnya, maka valid=false.
+            - Jika layar menampilkan tanpa titik/koma sama sekali (mis. "23490" atau "31383"), SELALU sisipkan titik sebelum 2 digit terakhir: "23490" menjadi "234.90", "31383" menjadi "313.83". Tetap valid=true selama seluruh digitnya terbaca jelas -- titik desimal yang tidak tertampil di layar BUKAN alasan untuk valid=false.
+            - valid=false HANYA jika digit angkanya sendiri buram/terpotong/tidak lengkap terbaca -- bukan karena titik desimalnya tidak ada di layar.
             - Jangan mengambil angka selain dari LCD sebagai kWh.
 
             ATURAN BARCODE / NOMOR METER:
-            - Barcode/nomor meter biasanya berupa angka panjang terpisah di sekitar barcode.
-            - Ambil angka yang berada tepat di sekitar atau dekat barcode resmi PLN.
+            - Ambil HANYA dari area nomor meter resmi dekat LCD (poin 2a) -- JANGAN dari sticker info pelanggan (poin 2b) atau QR code produsen (poin 2c).
+            - Baca angkanya SEKALI SAJA, lalu isikan nilai yang PERSIS SAMA ke field "barcode" dan "nomor_meter" -- jangan membaca ulang/menebak dua kali secara terpisah untuk tiap field, supaya tidak ada perbedaan digit di antara keduanya.
             - Hilangkan spasi saat menyimpan barcode dan nomor meter.
-            - Jika barcode terlihat seperti:
+            - Jika angkanya terlihat seperti:
             "32 9027 2726 5"
             maka simpan menjadi:
             "32902727265"
 
             ATURAN NOMOR TOKEN / ID PELANGGAN:
-            - nomor_token atau ID PELANGGAN diisi dengan angka tulisan tangan besar warna putih jika ada.
+            - nomor_token diisi dari salah satu dari:
+                a. angka tulisan tangan besar warna putih di plastik penutup/terminal, jika ada, ATAU
+                b. angka ID pelanggan yang tercetak di sticker info pelanggan (poin 2b di atas, dekat teks "NAMA:"/"TARIF/DAYA:"), jika tidak ada tulisan tangan.
+            - JANGAN mengisi nomor_token dengan angka yang sama seperti barcode/nomor_meter (poin 2a) -- itu sumber yang berbeda.
             - Semua nomor hanya boleh berisi angka.
             - Jangan tambahkan spasi.
             - Jangan tambahkan tanda "-".
 
+            ATURAN VALIDASI WAJIB (NOMOR METER):
+            - Nomor meter (barcode/nomor_meter) WAJIB terbaca jelas dan lengkap supaya foto bisa diproses -- ini acuan utama sistem untuk mencocokkan biaya listrik ke pelanggan yang benar.
+            - Jika nomor meter TIDAK terbaca jelas/tidak lengkap (buram, terpotong, tertutup, dsb), foto TIDAK VALID meskipun kWh terbaca jelas. User harus foto ulang yang lebih jelas.
+            - Dalam kasus ini kembalikan:
+            {
+                "valid": false,
+                "message": "Nomor meter tidak terbaca jelas. Mohon foto ulang dengan nomor meter (dekat layar LCD) terlihat jelas dan tidak buram.",
+                "data_penting": {}
+            }
+
             VALID jika:
             - Gambar adalah meter listrik/token listrik.
             - Nilai kWh di layar LCD terbaca jelas, lengkap, dan memiliki 2 digit desimal.
-            - Barcode/nomor meter resmi terbaca, atau meter jelas terlihat tetapi barcode tidak terbaca.
-
-            Jika barcode tidak terbaca tetapi kWh terlihat jelas:
-            - tetap valid=true
-            - isi barcode=null
-            - isi nomor_meter=null
-            - isi message penjelasan singkat
+            - Nomor meter resmi (poin 2a) terbaca jelas dan lengkap.
 
             Jika kWh tidak terbaca jelas:
             {
@@ -110,9 +122,9 @@ class ImageAnalysisPromptService
             }
 
             ATURAN OUTPUT:
-            - barcode = nomor barcode resmi di bawah LCD meter
-            - nomor_meter = sama dengan barcode
-            - nomor_token = angka tulisan tangan besar warna putih
+            - barcode = nomor meter resmi dekat LCD (poin 2a), WAJIB terisi
+            - nomor_meter = SAMA PERSIS dengan barcode (dibaca sekali dari sumber yang sama), WAJIB terisi
+            - nomor_token = tulisan tangan putih ATAU ID pelanggan dari sticker info pelanggan (poin 2b) -- BUKAN dari poin 2a
             - kwh wajib string/angka format 0.00
             - Semua nomor hanya boleh berisi angka
             - Jangan mengarang data
