@@ -222,7 +222,12 @@ class ImageTelegramService
                 $analysis['data_penting']['kwh'] = $this->normalizeKwh($kwh);
                 $analysis['data_penting']['master_token_listrik'] = ['id' => $masterToken->id, 'nomor_meter' => $masterToken->nomor_meter];
 
-                $scan->update(['analysis_result' => $analysis]);
+                // Data sudah lengkap & valid dari analisis sinkron di atas --
+                // langsung tandai success di sini, JANGAN gantungkan status ke
+                // AnalyzeImageJob yang dikirim di bawah (job itu jalan di
+                // antrean terpisah, bisa telat/menumpuk, dan tidak seharusnya
+                // jadi satu-satunya penentu status "success").
+                $scan->update(['status' => 'success', 'analysis_result' => $analysis, 'error_message' => null]);
             }
 
             if (in_array($scanType, ['printer', 'cea', 'asaba', 'astra'], true)) {
@@ -326,9 +331,13 @@ class ImageTelegramService
 
                 $analysis['data_penting'] = $dataPenting;
 
+                // Sama seperti electricity di atas: data sudah lengkap & valid,
+                // set success langsung, tidak menunggu AnalyzeImageJob.
                 $scan->update([
                     'master_mesin_id' => $mesin->id,
                     'analysis_result' => $analysis,
+                    'status' => 'success',
+                    'error_message' => null,
                 ]);
             }
 
