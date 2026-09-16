@@ -172,7 +172,7 @@ const generateBillingRows = () => {
             <td>
                 Print: ${formatCurrency(item.print_billing)}<br>
                 Copy: ${formatCurrency(item.copy_billing)}<br>
-                Tinta: ${formatCurrency(item.billing_detail?.biaya_tinta ?? 0)}<br>
+                Tinta: ${formatCurrency(item.billing_detail?.biaya_tinta ?? 0)}${item.billing_detail?.tinta_belum_dilaporkan ? " (BELUM LAPOR)" : ""}<br>
                 Part: ${formatCurrency(item.billing_detail?.biaya_part ?? 0)}<br>
                 Maintenance: ${formatCurrency(item.billing_detail?.biaya_maintenance ?? 0)}<br>
                 <hr>
@@ -877,7 +877,13 @@ const printLaporan = () => {
                                         </div>
 
                                         <div
-                                            class="text-[10px] font-black text-slate-500"
+                                            class="text-[10px] font-black"
+                                            :class="
+                                                item.billing_detail
+                                                    ?.tinta_belum_dilaporkan
+                                                    ? 'text-rose-500'
+                                                    : 'text-slate-500'
+                                            "
                                         >
                                             Tinta:
                                             {{
@@ -886,6 +892,15 @@ const printLaporan = () => {
                                                         ?.biaya_tinta ?? 0,
                                                 )
                                             }}
+                                            <span
+                                                v-if="
+                                                    item.billing_detail
+                                                        ?.tinta_belum_dilaporkan
+                                                "
+                                                class="ml-1 px-1.5 py-0.5 rounded-md bg-rose-50 border border-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-tight align-middle"
+                                            >
+                                                Belum Lapor
+                                            </span>
                                         </div>
 
                                         <div

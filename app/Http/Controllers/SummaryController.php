@@ -20,6 +20,10 @@ class SummaryController extends Controller
 {
     private const ASTRA_VENDOR_ID = 6;
 
+    // Biaya contract service CEA MILIK: flat, tetap, tidak berubah per
+    // kesepakatan -- lihat catatan di ceaBilling().
+    private const CEA_MILIK_CONTRACT_SERVICE = 300000.0;
+
     public function electricity(Request $request)
     {
         $month = $request->input('month', now()->format('Y-m'));
@@ -203,9 +207,19 @@ class SummaryController extends Controller
                 ->last();
 
             if (!$currentScan) {
-                // Tidak ada aktivitas apa pun sesudah penutup periode
-                // sebelumnya, sampai batas periode ini (+ toleransi).
-                continue;
+                if (!$priorClosing) {
+                    // Mesin ini belum pernah difoto sama sekali sampai batas
+                    // periode ini -- benar-benar tidak ada apa-apa, skip.
+                    continue;
+                }
+
+                // Sudah ada penutup periode sebelumnya (carry-over), tapi
+                // belum ada foto BARU di periode ini (mis. periode masih
+                // berjalan/belum ditutup, atau memang belum sempat difoto).
+                // Tetap tampilkan barisnya dengan foto penutup lama sebagai
+                // "awal" -- pemakaian 0 sampai foto penutup periode ini ada,
+                // BUKAN didiamkan/disembunyikan dari daftar.
+                $currentScan = $priorClosing;
             }
 
             // "awal" periode ini = penutup periode sebelumnya apa adanya
@@ -282,11 +296,6 @@ class SummaryController extends Controller
             $overBwA3 = (float) ($rate->over_click_bw_a3 ?? 0);
             $overBwA4 = (float) ($rate->over_click_bw_a4 ?? 0);
 
-            $rateColorA3 = $overColorA3 > 0 ? $overColorA3 : $hargaColorA3;
-            $rateColorA4 = $overColorA4 > 0 ? $overColorA4 : $hargaColorA4;
-            $rateBwA3 = $overBwA3 > 0 ? $overBwA3 : $hargaBwA3;
-            $rateBwA4 = $overBwA4 > 0 ? $overBwA4 : $hargaBwA4;
-
             $totalA3Click = $bwA3 + $colorA3 + $bwLongSheet + $colorLongSheet;
             $totalA4Click = $bwA4 + $colorA4;
 
@@ -305,6 +314,24 @@ class SummaryController extends Controller
             } else {
                 $minimumBasisClick = 0;
             }
+
+            // Tarif over_click = tarif TIER KEDUA (biasanya lebih murah, volume
+            // discount ala kontrak Samafitro) yang HANYA berlaku kalau volume
+            // klik kategori yang diatur $minimum_charge_size sudah melewati
+            // $minimum_charge_click. Dulu kode ini langsung pakai over_click
+            // begitu field-nya diisi, TANPA cek volume dulu -- akibatnya tarif
+            // diskon volume kepakai walau pemakaian bulan itu masih sedikit.
+            // INI TERPISAH dari $hasMinimumRule (biaya minimum flat) di bawah,
+            // yang butuh minimum_charge_nominal > 0 -- kontrak tier per-klik
+            // (Samafitro) nominalnya 0 karena bukan biaya flat.
+            $isOverClickThreshold = $minimumClick > 0 && $minimumBasisClick > $minimumClick;
+
+            $tierApplies = fn (string $size) => $isOverClickThreshold && $minimumSize === $size;
+
+            $rateColorA3 = ($tierApplies('A3') && $overColorA3 > 0) ? $overColorA3 : $hargaColorA3;
+            $rateColorA4 = ($tierApplies('A4') && $overColorA4 > 0) ? $overColorA4 : $hargaColorA4;
+            $rateBwA3 = ($tierApplies('A3') && $overBwA3 > 0) ? $overBwA3 : $hargaBwA3;
+            $rateBwA4 = ($tierApplies('A4') && $overBwA4 > 0) ? $overBwA4 : $hargaBwA4;
 
             $hasMinimumRule =
                 in_array($minimumSize, ['A3', 'A4'])
@@ -361,14 +388,15 @@ class SummaryController extends Controller
                 }
             }
 
+            $periodScanIds = $this->currentPeriodScanIds($afterPrior, $periodeEnd, $graceDays);
+
             $maintenanceCosts = DB::table('dbo.machine_maintenance_costs')
                 ->where('master_mesin_id', $item->master_mesin_id)
                 ->where('cabang_id', $item->cabang_id)
-                ->whereDate('periode_start', $periodeStart->toDateString())
-                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->whereIn('image_scan_id', $periodScanIds)
                 ->get();
 
-            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
+            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodScanIds, $periodeEnd);
 
             $biayaPart = (float) $maintenanceCosts
                 ->where('cost_type', 'part')
@@ -1247,7 +1275,15 @@ class SummaryController extends Controller
                     ->last();
 
                 if (!$currentScanData) {
-                    continue;
+                    if (!$priorClosing) {
+                        continue;
+                    }
+
+                    // Sudah ada riwayat (carry-over), tapi belum ada foto baru
+                    // di periode ini -- tetap tampilkan, pemakaian 0, jangan
+                    // disembunyikan dari daftar. Lihat perbaikan yang sama di
+                    // printerBilling().
+                    $currentScanData = $priorClosing;
                 }
 
                 $firstScan = $priorClosing ?? $groupSorted->first();
@@ -1321,8 +1357,7 @@ class SummaryController extends Controller
             $overColorA4 = (float) ($rate->over_click_color_a4 ?? 0);
             $overBwA4 = (float) ($rate->over_click_bw_a4 ?? 0);
 
-            $rateColorA4 = $overColorA4 > 0 ? $overColorA4 : $hargaColorA4;
-            $rateBwA4 = $overBwA4 > 0 ? $overBwA4 : $hargaBwA4;
+            $minimumClickForTier = (int) ($rate->minimum_charge_click ?? 0);
 
             /*
             * Aturan Asaba:
@@ -1350,6 +1385,15 @@ class SummaryController extends Controller
             }
 
             $totalPemakaianClick = $usageBwBilling + $usageColorBilling;
+
+            // Tarif over_click = tier volume discount, HANYA berlaku kalau
+            // total pemakaian bulan ini sudah melewati minimum_charge_click --
+            // dulu langsung dipakai begitu field-nya terisi, tanpa cek volume
+            // dulu. Lihat perbaikan yang sama & alasannya di printerBilling().
+            $isOverClickThreshold = $minimumClickForTier > 0 && $totalPemakaianClick > $minimumClickForTier;
+
+            $rateColorA4 = ($isOverClickThreshold && $overColorA4 > 0) ? $overColorA4 : $hargaColorA4;
+            $rateBwA4 = ($isOverClickThreshold && $overBwA4 > 0) ? $overBwA4 : $hargaBwA4;
 
             $biayaBw = $usageBwBilling * $rateBwA4;
             $biayaColor = $usageColorBilling * $rateColorA4;
@@ -1408,14 +1452,15 @@ class SummaryController extends Controller
             $item->foto_awal_created_at = $firstScan?->created_at;
             $item->foto_akhir_created_at = $hasTwoScans ? $currentScanData?->created_at : null;
 
+            $periodScanIds = $this->currentPeriodScanIds($afterPrior, $periodeEnd, $graceDays);
+
             $maintenanceCosts = DB::table('dbo.machine_maintenance_costs')
                 ->where('master_mesin_id', $item->master_mesin_id)
                 ->where('cabang_id', $item->cabang_id)
-                ->whereDate('periode_start', $periodeStart->toDateString())
-                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->whereIn('image_scan_id', $periodScanIds)
                 ->get();
 
-            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
+            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodScanIds, $periodeEnd);
 
             $biayaPart = (float) $maintenanceCosts
                 ->where('cost_type', 'part')
@@ -1695,7 +1740,15 @@ class SummaryController extends Controller
                     ->last();
 
                 if (!$currentScanData) {
-                    continue;
+                    if (!$priorClosing) {
+                        continue;
+                    }
+
+                    // Sudah ada riwayat (carry-over), tapi belum ada foto baru
+                    // di periode ini -- tetap tampilkan, pemakaian 0, jangan
+                    // disembunyikan dari daftar. Lihat perbaikan yang sama di
+                    // printerBilling().
+                    $currentScanData = $priorClosing;
                 }
 
                 $firstScan = $priorClosing ?? $groupSorted->first();
@@ -1749,8 +1802,7 @@ class SummaryController extends Controller
             $overColorA4 = (float) ($rate->over_click_color_a4 ?? 0);
             $overBwA4 = (float) ($rate->over_click_bw_a4 ?? 0);
 
-            $rateColorA4 = $overColorA4 > 0 ? $overColorA4 : $hargaColorA4;
-            $rateBwA4 = $overBwA4 > 0 ? $overBwA4 : $hargaBwA4;
+            $minimumClickForTier = (int) ($rate->minimum_charge_click ?? 0);
 
             /*
             * Aturan Astra:
@@ -1775,6 +1827,14 @@ class SummaryController extends Controller
             }
 
             $totalPemakaianClick = $usageBwBilling + $usageColorBilling;
+
+            // Tarif over_click = tier volume discount, HANYA berlaku kalau
+            // total pemakaian bulan ini sudah melewati minimum_charge_click --
+            // lihat perbaikan yang sama & alasannya di printerBilling().
+            $isOverClickThreshold = $minimumClickForTier > 0 && $totalPemakaianClick > $minimumClickForTier;
+
+            $rateColorA4 = ($isOverClickThreshold && $overColorA4 > 0) ? $overColorA4 : $hargaColorA4;
+            $rateBwA4 = ($isOverClickThreshold && $overBwA4 > 0) ? $overBwA4 : $hargaBwA4;
 
             $biayaBw = $usageBwBilling * $rateBwA4;
             $biayaColor = $usageColorBilling * $rateColorA4;
@@ -1833,14 +1893,15 @@ class SummaryController extends Controller
             $item->foto_awal_created_at = $firstScan?->created_at;
             $item->foto_akhir_created_at = $hasTwoScans ? $currentScanData?->created_at : null;
 
+            $periodScanIds = $this->currentPeriodScanIds($afterPrior, $periodeEnd, $graceDays);
+
             $maintenanceCosts = DB::table('dbo.machine_maintenance_costs')
                 ->where('master_mesin_id', $item->master_mesin_id)
                 ->where('cabang_id', $item->cabang_id)
-                ->whereDate('periode_start', $periodeStart->toDateString())
-                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->whereIn('image_scan_id', $periodScanIds)
                 ->get();
 
-            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
+            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodScanIds, $periodeEnd);
 
             $biayaPart = (float) $maintenanceCosts
                 ->where('cost_type', 'part')
@@ -2070,7 +2131,15 @@ class SummaryController extends Controller
                 ->last();
 
             if (!$currentScan) {
-                continue;
+                if (!$priorClosing) {
+                    continue;
+                }
+
+                // Sudah ada riwayat (carry-over), tapi belum ada foto baru di
+                // periode ini -- tetap tampilkan, pemakaian 0, jangan
+                // disembunyikan dari daftar. Lihat perbaikan yang sama di
+                // printerBilling().
+                $currentScan = $priorClosing;
             }
 
             $firstScan = $priorClosing ?? $groupSorted->first();
@@ -2114,25 +2183,43 @@ class SummaryController extends Controller
                 ? round(($usageCopy / $totalMeter) * 100, 2)
                 : 0;
 
+            $periodScanIds = $this->currentPeriodScanIds($afterPrior, $periodeEnd, $graceDays);
+
             $cost = DB::table('cea_billing_costs')
                 ->where('master_mesin_id', $item->master_mesin_id)
                 ->where('cabang_id', $item->cabang_id)
-                ->whereDate('periode_start', $periodeStart->toDateString())
-                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->whereIn('image_scan_id', $periodScanIds)
+                ->orderByDesc('id')
                 ->first();
 
             $maintenance = DB::table('machine_maintenance_costs')
                 ->where('master_mesin_id', $item->master_mesin_id)
                 ->where('cabang_id', $item->cabang_id)
-                ->whereDate('periode_start', $periodeStart->toDateString())
-                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->whereIn('image_scan_id', $periodScanIds)
                 ->get();
 
-            $this->lockCostRowIfElapsed('cea_billing_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
-            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
+            $this->lockCostRowIfElapsed('cea_billing_costs', $item->master_mesin_id, $item->cabang_id, $periodScanIds, $periodeEnd);
+            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodScanIds, $periodeEnd);
 
-            $contractService = (float) ($cost->contract_service ?? 0);
-            $biayaTinta      = (float) ($cost->biaya_tinta ?? 0);
+            $isBillablePeriod = $hasTwoScans && $totalMeter > 0;
+
+            // Biaya contract service CEA MILIK itu flat & tetap Rp 300.000/mesin/
+            // periode (tidak pernah berubah) -- BUKAN nilai yang perlu dilaporkan
+            // manual lewat bot tiap periode. Dulu nilainya diambil dari kolom
+            // cea_billing_costs.contract_service, yang berarti kalau PIC belum
+            // sempat lapor biaya tinta (satu form yang sama dgn contract_service)
+            // di periode ini, contract service ikut kebaca Rp0 -- padahal biaya
+            // ini tetap harus ditagih selama mesinnya ada pemakaian.
+            $contractService = $isBillablePeriod ? self::CEA_MILIK_CONTRACT_SERVICE : 0.0;
+
+            // Beda dgn contract service: biaya tinta MEMANG harus dilaporkan
+            // manual per periode (nominalnya variatif). $cost === null berarti
+            // belum ada laporan sama sekali utk periode ini -- ditandai lewat
+            // $tintaBelumDilaporkan supaya kelihatan di UI, BUKAN disamakan dgn
+            // "sudah dilaporkan Rp0" (yang merupakan nilai valid tersendiri).
+            $biayaTinta = (float) ($cost->biaya_tinta ?? 0);
+            $tintaBelumDilaporkan = $isBillablePeriod && !$cost;
+
             $biayaMaintenance = $maintenance
                 ->where('cost_type', 'maintenance')
                 ->sum('nominal');
@@ -2222,9 +2309,12 @@ class SummaryController extends Controller
                 'biaya_tinta' => $biayaTinta,
                 'biaya_part' => $biayaPart,
                 'biaya_maintenance' => $biayaMaintenance,
+                'tinta_belum_dilaporkan' => $tintaBelumDilaporkan,
 
                 'total_dasar_billing' => $totalDasarBilling,
             ];
+
+            $item->tinta_belum_dilaporkan = $tintaBelumDilaporkan;
 
             $item->usage_total_counter_mesin = $usageTotal;
             $item->usage_print_counter = $usagePrint;
@@ -2418,7 +2508,15 @@ class SummaryController extends Controller
                 ->last();
 
             if (!$currentScan) {
-                continue;
+                if (!$priorClosing) {
+                    continue;
+                }
+
+                // Sudah ada riwayat (carry-over), tapi belum ada foto baru di
+                // periode ini -- tetap tampilkan, pemakaian 0, jangan
+                // disembunyikan dari daftar. Lihat perbaikan yang sama di
+                // printerBilling().
+                $currentScan = $priorClosing;
             }
 
             $firstScan = $priorClosing ?? $groupSorted->first();
@@ -2540,24 +2638,30 @@ class SummaryController extends Controller
             $item->billing_rule = $billingRule;
             $item->total_tagihan = $totalTagihan;
 
+            $periodScanIds = $this->currentPeriodScanIds($afterPrior, $periodeEnd, $graceDays);
+
             $ceaCost = DB::table('dbo.cea_billing_costs')
                 ->where('master_mesin_id', $item->master_mesin_id)
                 ->where('cabang_id', $item->cabang_id)
-                ->whereDate('periode_start', $periodeStart->toDateString())
-                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->whereIn('image_scan_id', $periodScanIds)
+                ->orderByDesc('id')
                 ->first();
 
             $maintenanceCosts = DB::table('dbo.machine_maintenance_costs')
                 ->where('master_mesin_id', $item->master_mesin_id)
                 ->where('cabang_id', $item->cabang_id)
-                ->whereDate('periode_start', $periodeStart->toDateString())
-                ->whereDate('periode_end', $periodeEnd->toDateString())
+                ->whereIn('image_scan_id', $periodScanIds)
                 ->get();
 
-            $this->lockCostRowIfElapsed('cea_billing_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
-            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodeStart, $periodeEnd);
+            $this->lockCostRowIfElapsed('cea_billing_costs', $item->master_mesin_id, $item->cabang_id, $periodScanIds, $periodeEnd);
+            $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodScanIds, $periodeEnd);
 
             $biayaTinta = (float) ($ceaCost->biaya_tinta ?? 0);
+
+            // Sama seperti CEA MILIK: $ceaCost === null berarti belum ada
+            // laporan tinta sama sekali utk periode ini (beda dgn "sudah
+            // lapor tapi Rp0"), ditandai selama mesinnya memang billable.
+            $tintaBelumDilaporkan = $hasTwoScans && $totalMeter > 0 && !$ceaCost;
 
             $biayaPart = (float) $maintenanceCosts
                 ->where('cost_type', 'part')
@@ -2570,6 +2674,7 @@ class SummaryController extends Controller
             $item->biaya_tinta = $biayaTinta;
             $item->biaya_part = $biayaPart;
             $item->biaya_maintenance = $biayaMaintenance;
+            $item->tinta_belum_dilaporkan = $tintaBelumDilaporkan;
 
             $item->billing_detail = [
                 'billing_rule' => $billingRule,
@@ -2593,6 +2698,7 @@ class SummaryController extends Controller
                 'biaya_tinta' => $biayaTinta,
                 'biaya_part' => $biayaPart,
                 'biaya_maintenance' => $biayaMaintenance,
+                'tinta_belum_dilaporkan' => $tintaBelumDilaporkan,
             ];
 
             $item->laporan_detail = [
@@ -2736,22 +2842,49 @@ class SummaryController extends Controller
             ->first();
     }
 
+    /**
+     * ID scan yang benar-benar milik periode billing ini (dihitung dari
+     * kalender bulanan SummaryController), dipakai untuk mencocokkan baris
+     * biaya (cea_billing_costs / machine_maintenance_costs) via image_scan_id
+     * -- BUKAN via periode_start/periode_end.
+     *
+     * Baris biaya diinput lewat bot Telegram/WA yang periodenya dihitung
+     * dengan aturan "tanggal 28 ke 28" (lihat getBillingPeriod() di
+     * ImageTelegramService/ImageWhatsappService), sedangkan periode di
+     * SummaryController pakai 1 bulan kalender penuh. Dua definisi periode
+     * ini nyaris tidak pernah sama persis, jadi whereDate(periode_start)/
+     * whereDate(periode_end) hampir selalu gagal cocok walau baris biayanya
+     * ada -- ini akar masalah "Tinta/Contract Service selalu Rp0" yang
+     * dilaporkan user. image_scan_id konsisten diisi oleh kedua bot dan juga
+     * dipakai ImageScanController utk join yang sama, jadi ini kunci yang
+     * jauh lebih andal.
+     */
+    private function currentPeriodScanIds($afterPrior, Carbon $periodeEnd, int $graceDays): array
+    {
+        return $afterPrior
+            ->filter(fn ($r) => Carbon::parse($r->created_at)->lte((clone $periodeEnd)->addDays($graceDays)))
+            ->pluck('id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
     private function lockCostRowIfElapsed(
         string $table,
         $masterMesinId,
         $cabangId,
-        Carbon $periodeStart,
+        array $periodScanIds,
         Carbon $periodeEnd
     ): void {
-        if (empty($masterMesinId) || $periodeEnd->isFuture()) {
+        if (empty($masterMesinId) || empty($periodScanIds) || $periodeEnd->isFuture()) {
             return;
         }
 
         DB::table($table)
             ->where('master_mesin_id', $masterMesinId)
             ->where('cabang_id', $cabangId)
-            ->whereDate('periode_start', $periodeStart->toDateString())
-            ->whereDate('periode_end', $periodeEnd->toDateString())
+            ->whereIn('image_scan_id', $periodScanIds)
             ->whereNull('locked_at')
             ->update(['locked_at' => now()]);
     }
