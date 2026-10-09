@@ -8,6 +8,7 @@ use App\Models\ImageScan;
 use App\Models\MasterMesin;
 use App\Models\MasterTokenListrik;
 use App\Services\ImageAnalysisPromptService;
+use App\Services\PrinterCounterValidator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -102,6 +103,28 @@ class ImageWhatsappService
                     "❌ Gambar tidak sesuai dengan menu yang dipilih.\n\n" .
                     "Alasan: " . ($validation['message'] ?? 'Data wajib tidak ditemukan.') . "\n\n" .
                     "Silakan kirim gambar yang sesuai.\n" .
+                    "Ketik *ulang* untuk kembali ke menu."
+                );
+                return;
+            }
+
+            // Tolak hasil OCR counter yang jelas salah baca SEBELUM disimpan,
+            // supaya tidak merusak hitungan billing -- lihat PrinterCounterValidator.
+            $counterError = PrinterCounterValidator::botIngestError($scanType, $validation['data'] ?? []);
+
+            if ($counterError) {
+                Log::warning('PRINTER_COUNTER_REJECTED', [
+                    'phone' => $phone,
+                    'scan_type' => $scanType,
+                    'data' => $validation['data'] ?? [],
+                    'reason' => $counterError,
+                ]);
+
+                SendSms::sendMessageWA(
+                    $phone,
+                    "❌ Foto belum bisa disimpan.\n\n" .
+                    "Alasan: {$counterError}\n\n" .
+                    "Silakan kirim ulang fotonya.\n" .
                     "Ketik *ulang* untuk kembali ke menu."
                 );
                 return;
@@ -513,6 +536,7 @@ class ImageWhatsappService
                             [
                                 'type' => 'input_image',
                                 'image_url' => "data:{$mimeType};base64,{$base64}",
+                                'detail' => 'high',
                             ],
                         ],
                     ],

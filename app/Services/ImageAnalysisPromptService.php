@@ -244,6 +244,53 @@ class ImageAnalysisPromptService
         - Jika serial number tidak ditemukan maka valid = false.
 
         =====================================================
+        STRUKTUR LAYAR "CHECK COUNTER" (WAJIB DIPAHAMI)
+        =====================================================
+
+        Setiap baris di layar terdiri dari 3 bagian, kiri ke kanan:
+
+            [KODE 3 digit]  [LABEL]  ............  ▶ [NILAI 8 digit]
+
+        Contoh satu baris:
+            ■ 113  Total (Black & White/Small)  ........  ▶ 00056386
+            -> KODE = 113 (BUKAN nilai), LABEL = Total (Black & White/Small),
+               NILAI = 00056386 -> bw_a4 = 56386
+
+        - KODE (101, 112, 113, 401, 402, 472, 473, 475, dst) adalah nomor
+          jenis counter, BUKAN jumlah cetakan. JANGAN PERNAH memasukkan kode
+          sebagai nilai counter.
+        - NILAI selalu ada di ujung KANAN baris yang sama, setelah tanda ▶,
+          dan tampil 8 digit dengan nol di depan (mis. 00612673).
+
+        =====================================================
+        CARA MEMBACA (IKUTI URUTANNYA)
+        =====================================================
+
+        1. Baca layar BARIS PER BARIS dari atas ke bawah. Untuk tiap baris,
+           ikuti garis titik-titik dari LABEL ke kanan sampai ke NILAI di
+           baris yang SAMA. Jangan mengambil nilai dari baris di atas/bawahnya
+           (hati-hati baris tergeser saat foto miring).
+        2. Tulis setiap baris ke "baris_terbaca" persis seperti di layar:
+           kode, label, dan nilai 8 digit LENGKAP dengan nol di depan.
+        3. Hitung digit nilai: harus tepat 8 digit. Jika kurang/lebih dari 8,
+           baca ulang baris itu. Jangan sampai ada digit yang hilang atau
+           dobel (mis. 00065070 jangan terbaca 00006070).
+        4. Baru setelah itu petakan ke field JSON berdasarkan LABEL (lihat
+           IDENTIFIKASI COUNTER di bawah) dan buang nol di depannya.
+        5. CEK SILANG WAJIB: jika ada baris "Total 1" (kode 101), maka
+              bw_a3 + bw_a4 + color_a3 + color_a4 == total_counter_mesin
+           HARUS sama persis (counter Long Sheet TIDAK ikut dijumlah, karena
+           sudah termasuk di counter Large). Contoh:
+              4411 + 56386 + 105840 + 612673 = 779310 = Total 1  -> BENAR
+           Jika tidak sama, baca ulang SEMUA baris dengan teliti. Jika masih
+           tidak sama, kembalikan valid=false dengan message
+           "Angka counter tidak konsisten, mohon foto ulang lebih jelas."
+        6. Jika ada baris counter yang terpotong, buram, tertutup pantulan
+           cahaya, atau digitnya tidak terbaca pasti: JANGAN menebak, kembalikan
+           valid=false dengan message
+           "Angka counter tidak terbaca jelas, mohon foto ulang lebih jelas."
+
+        =====================================================
         ATURAN PENTING
         =====================================================
 
@@ -355,6 +402,25 @@ class ImageAnalysisPromptService
         Label "Total (Black & White/Small)" = 00050543
         maka bw_a4 = 50543
 
+        Contoh 7 (satu layar lengkap):
+        ■ 112 Total (Black & White/Large)                       ▶ 00004411
+        ■ 113 Total (Black & White/Small)                       ▶ 00056386
+        ■ 401 Copy + Print (Full Color/Large)                   ▶ 00105840
+        ■ 402 Copy + Print (Full Color/Small)                   ▶ 00612673
+        ■ 472 Total (Full Color/Long Sheet)                     ▶ 00001397
+        ■ 473 Total (Black & White/Long Sheet)                  ▶ 00000004
+        ■ 475 Total (Full Color + Single Color/Long Sheet)      ▶ 00001397
+        ■ 101 Total 1                                           ▶ 00779310
+        maka:
+        bw_a3 = 4411, bw_a4 = 56386, color_a3 = 105840, color_a4 = 612673,
+        color_long_sheet = 1397, bw_long_sheet = 4, total_counter_mesin = 779310
+        cek: 4411 + 56386 + 105840 + 612673 = 779310 (sama -> valid)
+
+        SALAH (pernah terjadi, JANGAN diulang):
+        - bw_a3 = 112, bw_a4 = 113, color_long_sheet = 475  -> itu KODE, bukan nilai.
+        - color_a4 = 161 padahal 161 adalah nilai baris lain -> baris tergeser.
+        - color_a3 = 6070 padahal layar 00065070 -> digit hilang.
+
         =====================================================
         OUTPUT JSON
         =====================================================
@@ -367,6 +433,10 @@ class ImageAnalysisPromptService
                 "lokasi": "",
                 "nama_mesin": "",
                 "serial_number": "",
+
+                "baris_terbaca": [
+                    {"kode": "112", "label": "Total (Black & White/Large)", "nilai": "00004411"}
+                ],
 
                 "bw_a3": 0,
                 "bw_a4": 0,
@@ -616,6 +686,25 @@ class ImageAnalysisPromptService
         - Jika tidak ditemukan isi 0.
         - Jangan mengarang data.
 
+        CARA MEMBACA (WAJIB):
+        - Baca BARIS PER BARIS. Nilai counter ada di sebelah KANAN label pada
+          baris yang SAMA. Jangan mengambil nilai dari baris di atas/bawahnya.
+        - Baca SEMUA digit, termasuk nol di depan, baru hilangkan nol di
+          depannya. Hati-hati digit hilang (mis. 1413381 jangan jadi 141338)
+          atau digit dobel.
+        - Jika ada counter yang buram, terpotong, atau tertutup pantulan cahaya,
+          JANGAN menebak: kembalikan valid=false dengan message
+          "Angka counter tidak terbaca jelas, mohon foto ulang lebih jelas."
+
+        CEK SILANG WAJIB (selalu berlaku di layar mesin ini):
+        1. Total Counter = Printer Total Counter + Copy Total Counter
+        2. Jika layar menampilkan Full Color / Single Color / Black Counter:
+           Total Counter = Full Color + Single Color + Black Counter
+        Contoh: 3611754 + 8 + 70079 = 3681841 = 3661200 + 20641 -> BENAR.
+        Jika salah satu cek tidak sama, baca ulang SEMUA angka dengan teliti.
+        Jika masih tidak sama, kembalikan valid=false dengan message
+        "Angka counter tidak konsisten, mohon foto ulang lebih jelas."
+
         Mapping:
 
         Total Counter = total_counter
@@ -745,6 +834,22 @@ class ImageAnalysisPromptService
         - Jika counter tidak ditemukan isi 0.
         - Jangan mengarang data.
         - Ambil Serial Number persis seperti yang tertampil di layar.
+
+        CARA MEMBACA (WAJIB):
+        - Baca BARIS PER BARIS. Nilai ada di sebelah KANAN label pada baris
+          yang SAMA. Jangan mengambil nilai dari baris di atas/bawahnya.
+        - Baca SEMUA digit. Hati-hati digit hilang atau dobel.
+        - Jika ada nilai yang buram, terpotong, atau tertutup pantulan cahaya,
+          JANGAN menebak: kembalikan valid=false dengan message
+          "Angka counter tidak terbaca jelas, mohon foto ulang lebih jelas."
+
+        CEK SILANG WAJIB (selalu berlaku di layar ini):
+        1. Total Impressions = Color Impressions + Black Impressions
+        2. Color Large Impressions TIDAK BOLEH lebih besar dari Color Impressions
+        Contoh: 89981 + 1438 = 91419 = Total Impressions -> BENAR.
+        Jika tidak cocok, baca ulang SEMUA angka dengan teliti. Jika masih
+        tidak cocok, kembalikan valid=false dengan message
+        "Angka counter tidak konsisten, mohon foto ulang lebih jelas."
 
         Mapping:
 

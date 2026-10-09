@@ -10,7 +10,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'created']);
 
-const MACHINE_TYPES = ['printer', 'cea', 'asaba', 'part_maintenance'];
+const MACHINE_TYPES = ['printer', 'cea', 'asaba', 'astra', 'part_maintenance'];
 
 const now = () => {
     const d = new Date();

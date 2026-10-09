@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Libraries\SendSms;
 use App\Libraries\SendTelegram;
 use App\Services\ImageAnalysisPromptService;
+use App\Services\PrinterCounterValidator;
 use App\Models\ImageScan;
 use App\Models\MasterTokenListrik;
 use App\Models\MasterMesin;
@@ -73,7 +74,8 @@ class AnalyzeImageJob implements ShouldQueue
                             [
                                 'type' => 'image_url',
                                 'image_url' => [
-                                    'url' => "data:{$mimeType};base64,{$base64}"
+                                    'url' => "data:{$mimeType};base64,{$base64}",
+                                    'detail' => 'high',
                                 ],
                             ],
                         ],
@@ -168,6 +170,23 @@ class AnalyzeImageJob implements ShouldQueue
                     'id' => $masterToken->id,
                     'nomor_meter' => $masterToken->nomor_meter,
                 ];
+            }
+        }
+
+        if ($text && !($parsed['data_penting']['is_manual_correction'] ?? false)) {
+            // Hasil OCR baru dari antrean juga harus lolos cek rumus layar,
+            // sama seperti jalur Telegram/manual -- lihat PrinterCounterValidator.
+            $counterError = PrinterCounterValidator::checksumErrorFor($scanType, $parsed['data_penting'] ?? []);
+
+            if ($counterError) {
+                $scan->update([
+                    'status' => 'failed',
+                    'analysis_result' => $parsed,
+                    'error_message' => $counterError,
+                ]);
+
+                $this->notifyScanChannel($scan, "❌ {$counterError}");
+                return;
             }
         }
 

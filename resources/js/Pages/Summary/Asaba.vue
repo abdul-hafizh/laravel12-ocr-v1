@@ -136,7 +136,8 @@ const generateBillingRows = () => {
         const biayaPart = Number(item.biaya_part || 0);
         const biayaMaintenance = Number(item.biaya_maintenance || 0);
         const billingMesin = Number(item.total_tagihan || 0);
-        const grandTotal = billingMesin + biayaPart + biayaMaintenance;
+        const ppnPersen = Number(item.ppn_persentase || 0);
+        const grandTotal = Number(item.grand_total ?? (billingMesin + biayaPart + biayaMaintenance));
 
         return `
             <tr>
@@ -157,6 +158,7 @@ const generateBillingRows = () => {
                     Billing Mesin: ${formatCurrency(billingMesin)}<br>
                     Biaya Part: ${formatCurrency(biayaPart)}<br>
                     Biaya Maintenance: ${formatCurrency(biayaMaintenance)}<br>
+                    ${ppnPersen > 0 ? `${item.ppn_nama_pajak} (${ppnPersen}%): -${formatCurrency(item.ppn_nominal)}<br>` : ''}
                     <hr>
                     <b>Grand Total: ${formatCurrency(grandTotal)}</b>
                 </td>
@@ -684,11 +686,11 @@ const printLaporan = () => {
 
                                     <td class="px-6 py-4 text-right">
                                         <div class="text-lg font-black text-emerald-600">
-                                            {{ formatCurrency(
+                                            {{ formatCurrency(item.grand_total ?? (
                                                 Number(item.total_tagihan || 0) +
                                                 Number(item.biaya_part || 0) +
                                                 Number(item.biaya_maintenance || 0)
-                                            ) }}
+                                            )) }}
                                         </div>
 
                                         <div class="text-[9px] font-bold text-slate-400 uppercase">
@@ -701,6 +703,14 @@ const printLaporan = () => {
 
                                         <div class="text-[9px] font-bold text-slate-400 uppercase">
                                             Biaya Maintenance: {{ formatCurrency(item.biaya_maintenance) }}
+                                        </div>
+
+                                        <div
+                                            v-if="Number(item.ppn_persentase || 0) > 0"
+                                            class="text-[9px] font-bold text-rose-500 uppercase"
+                                        >
+                                            {{ item.ppn_nama_pajak }} ({{ item.ppn_persentase }}%):
+                                            -{{ formatCurrency(item.ppn_nominal) }}
                                         </div>
 
                                         <div class="text-[9px] font-bold text-slate-400 uppercase">
@@ -735,6 +745,27 @@ const printLaporan = () => {
                                                 >
                                                     {{ item.master_mesin_id ? 'OK' : 'Belum Mapping' }}
                                                 </span>
+                                            </div>
+
+                                            <div
+                                                v-if="item.billing_rule === 'counter_anomaly'"
+                                                class="bg-amber-50 border border-amber-200 rounded-lg px-2 py-2 text-left space-y-1"
+                                            >
+                                                <div class="text-[9px] font-black text-amber-700 uppercase">
+                                                    Counter salah baca — tagihan ditahan, koreksi scan:
+                                                </div>
+                                                <div
+                                                    v-for="anomaly in item.counter_anomalies"
+                                                    :key="anomaly.image_scan_id"
+                                                    class="text-[10px] text-amber-800"
+                                                >
+                                                    <b>#{{ anomaly.image_scan_id }}</b>
+                                                    ({{ formatDate(anomaly.created_at) }}):
+                                                    <span v-for="(c, idx) in anomaly.counter_turun" :key="c.field">
+                                                        {{ c.field }} {{ formatNumber(c.terbaca) }} &lt; {{ formatNumber(c.sebelumnya) }}<span v-if="idx < anomaly.counter_turun.length - 1">, </span>
+                                                    </span>
+                                                    <div v-if="anomaly.inkonsisten">{{ anomaly.inkonsisten }}</div>
+                                                </div>
                                             </div>
 
                                             <div

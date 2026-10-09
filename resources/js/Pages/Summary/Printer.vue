@@ -831,6 +831,27 @@ const sendWa = () => {
                                             </div>
 
                                             <div
+                                                v-if="item.billing_rule === 'counter_anomaly'"
+                                                class="bg-amber-50 border border-amber-200 rounded-lg px-2 py-2 text-left space-y-1"
+                                            >
+                                                <div class="text-[9px] font-black text-amber-700 uppercase">
+                                                    Counter salah baca — tagihan ditahan, koreksi scan:
+                                                </div>
+                                                <div
+                                                    v-for="anomaly in item.counter_anomalies"
+                                                    :key="anomaly.image_scan_id"
+                                                    class="text-[10px] text-amber-800"
+                                                >
+                                                    <b>#{{ anomaly.image_scan_id }}</b>
+                                                    ({{ formatDate(anomaly.created_at) }}):
+                                                    <span v-for="(c, idx) in anomaly.counter_turun" :key="c.field">
+                                                        {{ c.field }} {{ formatNumber(c.terbaca) }} &lt; {{ formatNumber(c.sebelumnya) }}<span v-if="idx < anomaly.counter_turun.length - 1">, </span>
+                                                    </span>
+                                                    <div v-if="anomaly.inkonsisten">{{ anomaly.inkonsisten }}</div>
+                                                </div>
+                                            </div>
+
+                                            <div
                                                 v-if="item.notes && item.notes.length"
                                                 class="space-y-1 max-h-24 overflow-y-auto"
                                             >

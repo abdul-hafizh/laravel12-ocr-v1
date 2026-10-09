@@ -9,6 +9,7 @@ use App\Models\MasterCabang;
 use App\Models\MasterMesin;
 use App\Models\MasterTokenListrik;
 use App\Services\ManualUpload\ManualUploadService;
+use App\Services\PrinterCounterValidator;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,16 +25,18 @@ class ManualUploadController extends Controller
         'printer' => 'Mesin Samafitro',
         'cea' => 'Mesin CEA',
         'asaba' => 'Mesin Asaba',
+        'astra' => 'Mesin Astragraphia',
         'part_maintenance' => 'Part / Maintenance',
     ];
 
-    private const MACHINE_SCAN_TYPES = ['printer', 'cea', 'asaba', 'part_maintenance'];
+    private const MACHINE_SCAN_TYPES = ['printer', 'cea', 'asaba', 'astra', 'part_maintenance'];
 
     private const EDITABLE_FIELDS = [
         'electricity' => ['tanggal', 'kwh', 'barcode', 'nomor_meter', 'nomor_token', 'lokasi', 'alamat_lengkap', 'kecamatan', 'kota', 'provinsi'],
-        'printer' => ['tanggal', 'lokasi', 'bw_a3', 'bw_a4', 'color_a3', 'color_a4', 'total_long_sheet', 'bw_long_sheet', 'color_long_sheet'],
+        'printer' => ['tanggal', 'lokasi', 'bw_a3', 'bw_a4', 'color_a3', 'color_a4', 'total_long_sheet', 'bw_long_sheet', 'color_long_sheet', 'total_counter_mesin'],
         'cea' => ['tanggal', 'lokasi', 'total_counter_mesin', 'print_counter', 'copy_counter'],
         'asaba' => ['tanggal', 'lokasi', 'total_counter', 'printer_counter', 'copy_counter', 'scan_counter', 'feed_paper_counter', 'output_paper_counter', 'full_color_counter', 'single_color_counter', 'black_counter'],
+        'astra' => ['tanggal', 'lokasi', 'color_impressions', 'black_impressions', 'color_large_impressions', 'total_impressions'],
         'part_maintenance' => ['jenis_gambar', 'deskripsi_gambar', 'catatan', 'nominal_chat'],
         'online_receipt' => [
             'jenis_struk', 'bank_atau_aplikasi', 'status_transaksi', 'tanggal_transaksi', 'waktu_transaksi',
@@ -217,6 +220,17 @@ class ManualUploadController extends Controller
             ], 422);
         }
 
+        // Hanya cek rumus layar, bukan cek counter turun: upload manual boleh
+        // backdate, jadi "foto terakhir" belum tentu foto sebelumnya.
+        $counterError = PrinterCounterValidator::checksumErrorFor($validated['scan_type'], $validation['data'] ?? []);
+
+        if ($counterError) {
+            return response()->json([
+                'status' => 'invalid',
+                'message' => $counterError,
+            ], 422);
+        }
+
         $extension = $file->getClientOriginalExtension() ?: 'jpg';
         $filename = 'manual_' . $validated['cabang_id'] . '_' . time() . '.' . $extension;
         $path = 'image-scans/' . $filename;
@@ -301,7 +315,7 @@ class ManualUploadController extends Controller
             $scan->update(['analysis_result' => $analysis]);
         }
 
-        if (in_array($validated['scan_type'], ['printer', 'cea', 'asaba'], true) && $mesin) {
+        if (in_array($validated['scan_type'], ['printer', 'cea', 'asaba', 'astra'], true) && $mesin) {
             $analysis = $scan->analysis_result;
             $analysis['data_penting']['serial_number'] = $mesin->serial_number;
             $analysis['data_penting']['master_mesin'] = [

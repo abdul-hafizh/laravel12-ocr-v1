@@ -7,6 +7,7 @@ use App\Exports\PrinterBillingExport;
 use App\Libraries\SendSms;
 use App\Models\User;
 use App\Models\ImageScan;
+use App\Services\PrinterCounterValidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -163,6 +164,10 @@ class SummaryController extends Controller
                     'mm.free_klik_percent',
                     'mm.keterangan as master_keterangan',
                 ])
+                // View tidak memfilter status; scan yang ditolak validasi counter
+                // (status failed) jangan sampai ikut dihitung. 'pending' tetap
+                // dipakai: datanya sudah lolos validasi sinkron.
+                ->where('p.status', '!=', 'failed')
                 ->where('p.created_at', '<=', (clone $periodeEnd)->addDays($graceDays))
         )
             ->orderBy('p.serial_number')
@@ -172,16 +177,26 @@ class SummaryController extends Controller
                 return ($item->cabang_id ?? 0) . '-' . ($item->master_mesin_id ?? 0) . '-' . $item->serial_number;
             });
 
-        $cabangPpnMap = DB::table('dbo.master_cabangs as c')
-            ->leftJoin('dbo.master_ppns as pp', 'pp.id', '=', 'c.ppn_id')
-            ->select('c.id as cabang_id', 'pp.nama_pajak', 'pp.persentase')
-            ->get()
-            ->keyBy('cabang_id');
+        $cabangPpnMap = $this->cabangPpnMap();
 
         $billingItems = [];
 
         foreach ($allScansUptoEnd as $mesinKey => $groupRows) {
-            $groupSorted = $groupRows->sortBy('created_at')->values();
+            // Counter printer SELALU naik. Foto yang salah satu counternya
+            // lebih kecil dari foto valid sebelumnya = salah baca OCR (mis.
+            // baris tergeser / digit hilang) -> dibuang dari perhitungan.
+            // Dulu foto seperti ini tetap dipakai & selisih negatifnya cuma
+            // di-max(0, ...), akibatnya tagihan meledak (foto "awal" terlalu
+            // kecil) atau anjlok (foto "akhir" terlalu kecil).
+            [$groupSorted, $counterAnomalies] = $this->splitCounterAnomalies(
+                $groupRows->sortBy('created_at')->values(),
+                PrinterCounterValidator::COUNTER_FIELDS,
+                fn ($scan) => PrinterCounterValidator::checksumError((array) $scan)
+            );
+
+            if ($groupSorted->isEmpty()) {
+                continue;
+            }
 
             // Penutup periode SEBELUM ini (calon carry-over "awal"), dicari
             // dengan toleransi $graceDays -- persis prinsip yang sama dgn
@@ -231,6 +246,17 @@ class SummaryController extends Controller
             $hasFirstScan = $firstScan ? true : false;
             $hasCurrentScan = $currentScan ? true : false;
             $hasTwoScans = $firstScan && $currentScan && (int) $firstScan->id !== (int) $currentScan->id;
+
+            $blockingAnomalies = $this->blockingCounterAnomalies(
+                $counterAnomalies,
+                $priorClosing,
+                $currentScan,
+                $periodeStart,
+                $periodeEnd,
+                $graceDays
+            );
+
+            $hasCounterAnomaly = count($blockingAnomalies) > 0;
 
             // $item = data mesin (nama, harga, dll) diambil dari foto penutup
             // periode ini -- field-nya identik dgn $currentScan krn berasal
@@ -369,7 +395,10 @@ class SummaryController extends Controller
 
             $subtotalSetelahFree = max(0, $subtotalBilling - $nilaiFreeKlik);
 
-            if (!$hasTwoScans) {
+            if ($hasCounterAnomaly) {
+                $totalTagihan = 0;
+                $billingRule = 'counter_anomaly';
+            } elseif (!$hasTwoScans) {
                 $totalTagihan = 0;
                 $billingRule = 'need_two_scans_in_period';
             } elseif ($totalPemakaianClick <= 0) {
@@ -408,11 +437,8 @@ class SummaryController extends Controller
 
             $grandTotalBeforePpn = $totalTagihan + $biayaPart + $biayaMaintenance;
 
-            $cabangPpn = $cabangPpnMap->get($item->cabang_id);
-            $ppnNamaPajak = $cabangPpn->nama_pajak ?? null;
-            $ppnPersentase = $ppnNamaPajak ? (float) $cabangPpn->persentase : 0;
-            $ppnNominal = round($grandTotalBeforePpn * ($ppnPersentase / 100));
-            $grandTotalAfterPpn = $grandTotalBeforePpn - $ppnNominal;
+            [$ppnNamaPajak, $ppnPersentase, $ppnNominal, $grandTotalAfterPpn] =
+                $this->extractPpn($grandTotalBeforePpn, $cabangPpnMap->get($item->cabang_id));
 
             $item->biaya_part = $biayaPart;
             $item->biaya_maintenance = $biayaMaintenance;
@@ -532,6 +558,7 @@ class SummaryController extends Controller
             $item->minimum_basis_click = $minimumBasisClick;
             $item->billing_rule = $billingRule;
             $item->total_tagihan = $totalTagihan;
+            $item->counter_anomalies = $blockingAnomalies;
 
             $item->notes = DB::table('scan_notes')
                 ->leftJoin('users', 'users.id', '=', 'scan_notes.user_id')
@@ -1245,6 +1272,10 @@ class SummaryController extends Controller
                     'mm.free_klik_percent',
                     'mm.keterangan as master_keterangan',
                 ])
+                // Scan yang ditolak validasi counter (failed) jangan ikut
+                // dihitung. 'pending' tetap dipakai: datanya sudah lolos
+                // validasi sinkron, cuma job antreannya belum jalan.
+                ->where('p.status', '!=', 'failed')
                 ->where('p.created_at', '<=', (clone $periodeEnd)->addDays($graceDays))
         )
             ->orderBy('p.serial_number')
@@ -1254,11 +1285,24 @@ class SummaryController extends Controller
 
         $billingItems = [];
 
+        $cabangPpnMap = $this->cabangPpnMap();
+
         foreach ($allScansUptoEnd as $serialKey => $groupRowsAllCabang) {
             // Dalam 1 serial_number, mesin bisa "pindah" cabang antar waktu --
             // pecah lagi per cabang_id spy carry-over-nya tetap benar per unit.
             foreach ($groupRowsAllCabang->groupBy(fn ($r) => $r->cabang_id ?? 0) as $groupRows) {
-                $groupSorted = $groupRows->sortBy('created_at')->values();
+                // Buang foto salah baca OCR: counter mundur, atau rumus layar
+                // (Total = Printer + Copy = Full Color + Single + Black) tidak
+                // cocok. Lihat catatan yang sama di printerBilling().
+                [$groupSorted, $counterAnomalies] = $this->splitCounterAnomalies(
+                    $groupRows->sortBy('created_at')->values(),
+                    PrinterCounterValidator::ASABA_COUNTER_FIELDS,
+                    fn ($scan) => PrinterCounterValidator::asabaChecksumError((array) $scan)
+                );
+
+                if ($groupSorted->isEmpty()) {
+                    continue;
+                }
 
                 $priorClosing = $groupSorted
                     ->filter(fn ($r) => Carbon::parse($r->created_at)->lte((clone $periodeStart)->addDays($graceDays)))
@@ -1292,6 +1336,17 @@ class SummaryController extends Controller
                     $firstScan
                     && $currentScanData
                     && (int) $firstScan->id !== (int) $currentScanData->id;
+
+                $blockingAnomalies = $this->blockingCounterAnomalies(
+                    $counterAnomalies,
+                    $priorClosing,
+                    $currentScanData,
+                    $periodeStart,
+                    $periodeEnd,
+                    $graceDays
+                );
+
+                $hasCounterAnomaly = count($blockingAnomalies) > 0;
 
                 $item = clone $currentScanData;
 
@@ -1360,28 +1415,42 @@ class SummaryController extends Controller
             $minimumClickForTier = (int) ($rate->minimum_charge_click ?? 0);
 
             /*
-            * Aturan Asaba:
-            * - Jika counter Full Color / Black tersedia, pakai itu.
-            * - Single Color digabung ke color.
-            * - Jika mesin BW dan tidak ada Black Counter, fallback ke Printer Counter.
-            * - Jika Printer Counter kosong, fallback ke Total Counter.
+            * Aturan Asaba (rumus layar: Total = Printer + Copy
+            *                           = Full Color + Single Color + Black):
+            * - Mesin warna: color = Full Color + Single Color, BW = Black.
+            *   Kalau Black tidak tampil di layar, BW = Total - color.
+            *   JANGAN fallback ke Printer Counter: Printer Counter berisi
+            *   cetakan warna juga -> dulu warna tertagih 2x (sbg color DAN
+            *   sbg BW) begitu selisih Black kebetulan 0.
+            * - Mesin BW: BW = Total Counter (Printer + Copy). Dulu cuma
+            *   Printer Counter -> semua klik Copy tidak tertagih.
             */
-            $usageColorBilling = $usageFullColor + $usageSingleColor;
+            $isColorMachine = $hargaColorA4 > 0
+                || ($currentFullColor + $currentSingleColor + $previousFullColor + $previousSingleColor) > 0;
 
-            if ($usageBlack > 0) {
-                $usageBwBilling = $usageBlack;
-                $counterSource = 'black_color_counter';
-            } elseif ($usagePrinter > 0) {
-                $usageBwBilling = $usagePrinter;
-                $counterSource = 'printer_counter';
+            $hasBlackCounter = ($currentBlack + $previousBlack) > 0;
+            $hasTotalCounter = ($currentTotal + $previousTotal) > 0;
+
+            if ($isColorMachine) {
+                $usageColorBilling = $usageFullColor + $usageSingleColor;
+
+                if ($hasBlackCounter) {
+                    $usageBwBilling = $usageBlack;
+                    $counterSource = 'black_color_counter';
+                } else {
+                    $usageBwBilling = max(0, $usageTotal - $usageColorBilling);
+                    $counterSource = 'total_minus_color';
+                }
             } else {
-                $usageBwBilling = $usageTotal;
-                $counterSource = 'total_counter';
-            }
+                $usageColorBilling = 0;
 
-            if ($hargaColorA4 <= 0 && $usageColorBilling <= 0) {
-                $usageBwBilling = $usagePrinter > 0 ? $usagePrinter : $usageTotal;
-                $counterSource = 'bw_machine';
+                if ($hasTotalCounter) {
+                    $usageBwBilling = $usageTotal;
+                    $counterSource = 'bw_machine_total';
+                } else {
+                    $usageBwBilling = $usagePrinter + $usageCopy;
+                    $counterSource = 'bw_machine_printer_copy';
+                }
             }
 
             $totalPemakaianClick = $usageBwBilling + $usageColorBilling;
@@ -1424,7 +1493,10 @@ class SummaryController extends Controller
 
             $subtotalSetelahFree = max(0, $subtotalBilling - $nilaiFreeKlik);
 
-            if (!$hasTwoScans) {
+            if ($hasCounterAnomaly) {
+                $totalTagihan = 0;
+                $billingRule = 'counter_anomaly';
+            } elseif (!$hasTwoScans) {
                 $totalTagihan = 0;
                 $billingRule = 'need_two_scans_in_period';
             } elseif ($totalPemakaianClick <= 0) {
@@ -1472,6 +1544,19 @@ class SummaryController extends Controller
 
             $item->biaya_part = $biayaPart;
             $item->biaya_maintenance = $biayaMaintenance;
+
+            $grandTotalBeforePpn = $totalTagihan + $biayaPart + $biayaMaintenance;
+
+            // PPN cabang (master_ppns) -- sama seperti printerBilling(),
+            // lihat extractPpn().
+            [$ppnNamaPajak, $ppnPersentase, $ppnNominal, $grandTotalAfterPpn] =
+                $this->extractPpn($grandTotalBeforePpn, $cabangPpnMap->get($item->cabang_id));
+
+            $item->grand_total_before_ppn = $grandTotalBeforePpn;
+            $item->ppn_nama_pajak = $ppnNamaPajak;
+            $item->ppn_persentase = $ppnPersentase;
+            $item->ppn_nominal = $ppnNominal;
+            $item->grand_total = $grandTotalAfterPpn;
 
             $item->counter_detail = [
                 'has_first_scan' => $firstScan ? true : false,
@@ -1554,6 +1639,12 @@ class SummaryController extends Controller
                 'has_minimum_rule' => $hasMinimumRule,
 
                 'total_tagihan' => $totalTagihan,
+
+                'grand_total_before_ppn' => $grandTotalBeforePpn,
+                'ppn_nama_pajak' => $ppnNamaPajak,
+                'ppn_persentase' => $ppnPersentase,
+                'ppn_nominal' => $ppnNominal,
+                'grand_total' => $grandTotalAfterPpn,
             ];
 
             $item->usage_total_counter = $usageTotal;
@@ -1571,6 +1662,7 @@ class SummaryController extends Controller
             $item->total_pemakaian_click = $totalPemakaianClick;
             $item->billing_rule = $billingRule;
             $item->counter_source = $counterSource;
+            $item->counter_anomalies = $blockingAnomalies;
             $item->total_tagihan = $totalTagihan;
 
             $item->notes = DB::table('scan_notes')
@@ -1712,6 +1804,9 @@ class SummaryController extends Controller
                     'mm.keterangan as master_keterangan',
                 ])
                 ->where('mm.master_vendor_id', self::ASTRA_VENDOR_ID)
+                // Scan yang ditolak validasi counter (failed) jangan ikut
+                // dihitung; 'pending' tetap dipakai.
+                ->where('p.status', '!=', 'failed')
                 ->where('p.created_at', '<=', (clone $periodeEnd)->addDays($graceDays))
         )
             ->orderBy('p.serial_number')
@@ -1721,9 +1816,22 @@ class SummaryController extends Controller
 
         $billingItems = [];
 
+        $cabangPpnMap = $this->cabangPpnMap();
+
         foreach ($allScansUptoEnd as $serialKey => $groupRowsAllCabang) {
             foreach ($groupRowsAllCabang->groupBy(fn ($r) => $r->cabang_id ?? 0) as $groupRows) {
-                $groupSorted = $groupRows->sortBy('created_at')->values();
+                // Buang foto salah baca OCR: counter mundur, atau rumus layar
+                // (Total = Color + Black, Color Large <= Color) tidak cocok.
+                // Lihat catatan yang sama di printerBilling().
+                [$groupSorted, $counterAnomalies] = $this->splitCounterAnomalies(
+                    $groupRows->sortBy('created_at')->values(),
+                    PrinterCounterValidator::ASTRA_COUNTER_FIELDS,
+                    fn ($scan) => PrinterCounterValidator::astraChecksumError((array) $scan)
+                );
+
+                if ($groupSorted->isEmpty()) {
+                    continue;
+                }
 
                 $priorClosing = $groupSorted
                     ->filter(fn ($r) => Carbon::parse($r->created_at)->lte((clone $periodeStart)->addDays($graceDays)))
@@ -1757,6 +1865,17 @@ class SummaryController extends Controller
                     $firstScan
                     && $currentScanData
                     && (int) $firstScan->id !== (int) $currentScanData->id;
+
+                $blockingAnomalies = $this->blockingCounterAnomalies(
+                    $counterAnomalies,
+                    $priorClosing,
+                    $currentScanData,
+                    $periodeStart,
+                    $periodeEnd,
+                    $graceDays
+                );
+
+                $hasCounterAnomaly = count($blockingAnomalies) > 0;
 
                 $item = clone $currentScanData;
 
@@ -1865,7 +1984,10 @@ class SummaryController extends Controller
 
             $subtotalSetelahFree = max(0, $subtotalBilling - $nilaiFreeKlik);
 
-            if (!$hasTwoScans) {
+            if ($hasCounterAnomaly) {
+                $totalTagihan = 0;
+                $billingRule = 'counter_anomaly';
+            } elseif (!$hasTwoScans) {
                 $totalTagihan = 0;
                 $billingRule = 'need_two_scans_in_period';
             } elseif ($totalPemakaianClick <= 0) {
@@ -1913,6 +2035,19 @@ class SummaryController extends Controller
 
             $item->biaya_part = $biayaPart;
             $item->biaya_maintenance = $biayaMaintenance;
+
+            $grandTotalBeforePpn = $totalTagihan + $biayaPart + $biayaMaintenance;
+
+            // PPN cabang (master_ppns) -- sama seperti printerBilling(),
+            // lihat extractPpn().
+            [$ppnNamaPajak, $ppnPersentase, $ppnNominal, $grandTotalAfterPpn] =
+                $this->extractPpn($grandTotalBeforePpn, $cabangPpnMap->get($item->cabang_id));
+
+            $item->grand_total_before_ppn = $grandTotalBeforePpn;
+            $item->ppn_nama_pajak = $ppnNamaPajak;
+            $item->ppn_persentase = $ppnPersentase;
+            $item->ppn_nominal = $ppnNominal;
+            $item->grand_total = $grandTotalAfterPpn;
 
             $item->counter_detail = [
                 'has_first_scan' => $firstScan ? true : false,
@@ -1975,6 +2110,12 @@ class SummaryController extends Controller
                 'has_minimum_rule' => $hasMinimumRule,
 
                 'total_tagihan' => $totalTagihan,
+
+                'grand_total_before_ppn' => $grandTotalBeforePpn,
+                'ppn_nama_pajak' => $ppnNamaPajak,
+                'ppn_persentase' => $ppnPersentase,
+                'ppn_nominal' => $ppnNominal,
+                'grand_total' => $grandTotalAfterPpn,
             ];
 
             $item->usage_total_impressions = $usageTotal;
@@ -1987,6 +2128,7 @@ class SummaryController extends Controller
             $item->total_pemakaian_click = $totalPemakaianClick;
             $item->billing_rule = $billingRule;
             $item->counter_source = $counterSource;
+            $item->counter_anomalies = $blockingAnomalies;
             $item->total_tagihan = $totalTagihan;
 
             $item->notes = DB::table('scan_notes')
@@ -2840,6 +2982,144 @@ class SummaryController extends Controller
             ->whereDate('periode_start', $periodeStart->toDateString())
             ->whereDate('periode_end', $periodeEnd->toDateString())
             ->first();
+    }
+
+    /**
+     * PPN per cabang dari master_ppns (via master_cabangs.ppn_id), hanya
+     * yang aktif. Key = cabang_id.
+     */
+    private function cabangPpnMap()
+    {
+        return DB::table('dbo.master_cabangs as c')
+            ->leftJoin('dbo.master_ppns as pp', function ($join) {
+                $join->on('pp.id', '=', 'c.ppn_id')->where('pp.is_active', true);
+            })
+            ->select('c.id as cabang_id', 'pp.nama_pajak', 'pp.persentase')
+            ->get()
+            ->keyBy('cabang_id');
+    }
+
+    /**
+     * Tarif di master mesin untuk cabang ber-PPN sudah TERMASUK PPN, sedangkan
+     * vendor menagih DPP (sebelum PPN). Jadi PPN DIKELUARKAN dari total:
+     *   DPP = total / (1 + p%),  PPN = total - DPP
+     * BUKAN dipotong p% dari total (total x (1 - p%)) seperti sebelumnya --
+     * itu kebesaran motongnya. Contoh GDR Sep 2026 (Asaba ineo 4070):
+     *   30.452.787 / 1,11 = 27.434.943  vs tagihan vendor 27.439.964
+     *   30.452.787 x 0,89 = 27.103.980  (meleset ~Rp 336 rb)
+     *
+     * @return array{0: ?string, 1: float, 2: float, 3: float} [nama, persen, nominal PPN, total setelah PPN]
+     */
+    private function extractPpn(float $totalTermasukPpn, $cabangPpn): array
+    {
+        $nama = $cabangPpn->nama_pajak ?? null;
+        $persen = $nama ? (float) $cabangPpn->persentase : 0.0;
+
+        if ($persen <= 0) {
+            return [$nama, $persen, 0.0, $totalTermasukPpn];
+        }
+
+        $dpp = round($totalTermasukPpn / (1 + $persen / 100));
+
+        return [$nama, $persen, $totalTermasukPpn - $dpp, $dpp];
+    }
+
+    /**
+     * Pisahkan foto yang counternya salah baca OCR dari foto valid:
+     * - salah satu counter lebih kecil dari foto VALID terakhir sebelumnya
+     *   (counter mesin tidak pernah turun), atau
+     * - $consistencyCheck (rumus internal layar, mis. Total = Printer + Copy)
+     *   mengembalikan pesan error.
+     * Pembanding = foto VALID terakhir, jadi satu foto rusak tidak ikut
+     * menjatuhkan foto2 sesudahnya.
+     *
+     * @return array{0: \Illuminate\Support\Collection, 1: array}
+     */
+    private function splitCounterAnomalies($sortedScans, array $fields, ?callable $consistencyCheck = null): array
+    {
+        $counter = fn ($value) => (int) preg_replace('/[^0-9]/', '', (string) ($value ?? 0));
+
+        $valid = collect();
+        $anomalies = [];
+        $lastValid = null;
+
+        foreach ($sortedScans as $scan) {
+            $turun = [];
+
+            if ($lastValid) {
+                foreach ($fields as $field) {
+                    $before = $counter($lastValid->{$field} ?? 0);
+                    $after = $counter($scan->{$field} ?? 0);
+
+                    if ($after < $before) {
+                        $turun[] = [
+                            'field' => $field,
+                            'sebelumnya' => $before,
+                            'terbaca' => $after,
+                        ];
+                    }
+                }
+            }
+
+            $inkonsisten = $consistencyCheck ? $consistencyCheck($scan) : null;
+
+            if ($turun || $inkonsisten) {
+                $anomalies[] = [
+                    'image_scan_id' => (int) $scan->id,
+                    'created_at' => $scan->created_at,
+                    'image_path' => $scan->image_path ?? null,
+                    'pembanding_scan_id' => $lastValid ? (int) $lastValid->id : null,
+                    'counter_turun' => $turun,
+                    'inkonsisten' => $inkonsisten,
+                ];
+
+                continue;
+            }
+
+            $valid->push($scan);
+            $lastValid = $scan;
+        }
+
+        return [$valid, $anomalies];
+    }
+
+    /**
+     * Foto anomali yang SEHARUSNYA jadi penutup periode lalu ("awal") atau
+     * penutup periode ini ("akhir"), dan tidak ada foto valid pengganti di
+     * dekatnya (<= $graceDays). Kalau dibiarkan, sistem diam2 mundur ke foto
+     * yang jauh lebih lama -> pemakaian 2 bulan tertagih di 1 periode, atau
+     * pemakaian periode ini hilang. Tagihan ditahan sampai datanya dikoreksi.
+     */
+    private function blockingCounterAnomalies(
+        array $anomalies,
+        $priorClosing,
+        $currentScan,
+        Carbon $periodeStart,
+        Carbon $periodeEnd,
+        int $graceDays
+    ): array {
+        $isUncovered = function ($anomaly, $validScan) use ($graceDays) {
+            return !$validScan
+                || Carbon::parse($validScan->created_at)
+                    ->lt(Carbon::parse($anomaly['created_at'])->subDays($graceDays));
+        };
+
+        $currentIsNew = $currentScan && (!$priorClosing || (int) $currentScan->id !== (int) $priorClosing->id);
+
+        return collect($anomalies)->filter(function ($a) use ($priorClosing, $currentScan, $currentIsNew, $periodeStart, $periodeEnd, $graceDays, $isUncovered) {
+            $at = Carbon::parse($a['created_at']);
+
+            $isStartClosing = $at->lte((clone $periodeStart)->addDays($graceDays))
+                && (!$priorClosing || $at->gt(Carbon::parse($priorClosing->created_at)))
+                && $isUncovered($a, $priorClosing);
+
+            $isEndClosing = $at->lte((clone $periodeEnd)->addDays($graceDays))
+                && $at->gt((clone $periodeStart)->subDays($graceDays))
+                && (!$currentScan || $at->gt(Carbon::parse($currentScan->created_at)))
+                && (!$currentIsNew || $isUncovered($a, $currentScan));
+
+            return $isStartClosing || $isEndClosing;
+        })->values()->all();
     }
 
     /**

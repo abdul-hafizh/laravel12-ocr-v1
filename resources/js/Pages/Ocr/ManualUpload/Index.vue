@@ -304,11 +304,11 @@ const onUpdated = () => {
                                                     <div class="font-black text-[#1E293B] text-xs">{{ getValue(item, 'nomor_meter') }}</div>
                                                 </div>
 
-                                                <div v-if="['printer','cea','asaba'].includes(item.scan_type)" class="rounded-xl bg-slate-50 p-3">
+                                                <div v-if="['printer','cea','asaba','astra'].includes(item.scan_type)" class="rounded-xl bg-slate-50 p-3">
                                                     <div class="text-[9px] font-black uppercase tracking-widest text-slate-400">Mesin</div>
                                                     <div class="font-black text-[#1E293B] text-xs">{{ item.mesin?.nama_mesin || '-' }}</div>
                                                 </div>
-                                                <div v-if="['printer','cea','asaba'].includes(item.scan_type)" class="rounded-xl bg-slate-50 p-3">
+                                                <div v-if="['printer','cea','asaba','astra'].includes(item.scan_type)" class="rounded-xl bg-slate-50 p-3">
                                                     <div class="text-[9px] font-black uppercase tracking-widest text-slate-400">SN</div>
                                                     <div class="font-black text-[#1E293B] text-xs">{{ item.mesin?.serial_number || '-' }}</div>
                                                 </div>

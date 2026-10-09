@@ -27,6 +27,7 @@ const FIELD_CONFIG = {
         { key: 'total_long_sheet', label: 'Total Long Sheet', type: 'number' },
         { key: 'bw_long_sheet', label: 'BW Long Sheet', type: 'number' },
         { key: 'color_long_sheet', label: 'Color Long Sheet', type: 'number' },
+        { key: 'total_counter_mesin', label: 'Total 1 (101)', type: 'number' },
     ],
     cea: [
         { key: 'total_counter_mesin', label: 'Total Counter (101)', type: 'number' },
@@ -43,6 +44,12 @@ const FIELD_CONFIG = {
         { key: 'full_color_counter', label: 'Full Color Counter', type: 'number' },
         { key: 'single_color_counter', label: 'Single Color Counter', type: 'number' },
         { key: 'black_counter', label: 'Black Counter', type: 'number' },
+    ],
+    astra: [
+        { key: 'total_impressions', label: 'Total Impressions', type: 'number' },
+        { key: 'color_impressions', label: 'Color Impressions', type: 'number' },
+        { key: 'black_impressions', label: 'Black Impressions', type: 'number' },
+        { key: 'color_large_impressions', label: 'Color Large Impressions', type: 'number' },
     ],
     part_maintenance: [
         { key: 'nominal_chat', label: 'Nominal Biaya (Rp)', type: 'number' },
@@ -62,7 +69,7 @@ const FIELD_CONFIG = {
     ],
 };
 
-const MACHINE_TYPES = ['printer', 'cea', 'asaba', 'part_maintenance'];
+const MACHINE_TYPES = ['printer', 'cea', 'asaba', 'astra', 'part_maintenance'];
 
 const dataPenting = computed(() => {
     const result = props.scan.analysis_result;
