@@ -139,7 +139,7 @@ const printBilling = () => {
     printWindow.document.write(`
         <html>
         <head>
-            <title>Billing Meter Printer</title>
+            <title>Billing Mesin Samafitro</title>
 
             <style>
                 body{
@@ -175,7 +175,7 @@ const printBilling = () => {
         </head>
 
         <body>
-            <h2>Billing Meter Printer</h2>
+            <h2>Billing Mesin Samafitro</h2>
 
             <p>
                 Periode : ${monthDisplayLabel()} (${periodeLabel()})
@@ -481,17 +481,17 @@ const sendWa = () => {
 </script>
 
 <template>
-    <Head title="Billing Meter Printer" />
+    <Head title="Billing Mesin Samafitro" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                 <div>
                     <h2 class="font-bold text-2xl text-[#1E293B] leading-tight">
-                        Billing <span class="text-[#2DD4BF]">Meter Printer</span>
+                        Billing <span class="text-[#2DD4BF]">Mesin Samafitro</span>
                     </h2>
                     <p class="hidden sm:block mt-1 text-sm text-slate-400 font-medium">
-                        Periode billing printer/mesin
+                        Periode billing mesin Samafitro (Canon)
                     </p>
                 </div>
             </div>
