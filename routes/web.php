@@ -11,6 +11,7 @@ use App\Http\Controllers\MasterSkpdController;
 use App\Http\Controllers\MasterHargaBiayaController;
 use App\Http\Controllers\MasterDayaListrikController;
 use App\Http\Controllers\MasterPpnController;
+use App\Http\Controllers\MasterHargaTintaController;
 use App\Http\Controllers\TelegramUserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoleController;
@@ -121,6 +122,10 @@ Route::middleware(['auth', 'verified', 'role.url'])->group(function () {
         ->except(['create', 'edit', 'show']);
 
     Route::resource('master-ppn', MasterPpnController::class)
+        ->except(['create', 'edit', 'show']);
+
+    Route::resource('master-harga-tinta', MasterHargaTintaController::class)
+        ->parameters(['master-harga-tinta' => 'masterHargaTinta'])
         ->except(['create', 'edit', 'show']);
 
     Route::get('/hasil-upload/mesin-cetak', function () {

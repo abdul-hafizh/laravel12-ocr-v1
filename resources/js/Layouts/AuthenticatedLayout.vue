@@ -210,6 +210,11 @@ const masterDataMenus = [
         href: route("master-ppn.index"),
         current: route().current("master-ppn.*"),
     },
+    {
+        name: "Master Harga Tinta",
+        href: route("master-harga-tinta.index"),
+        current: route().current("master-harga-tinta.*"),
+    },
 ];
 
 const navigation = [
@@ -320,7 +325,8 @@ const isMasterDataOpen = ref(
         route().current("master-kendaraan.*") ||
         route().current("master-skpd.*") ||
         route().current("master-harga-biaya.*") ||
-        route().current("master-ppn.*"),
+        route().current("master-ppn.*") ||
+        route().current("master-harga-tinta.*"),
 );
 
 const isHasilUploadOpen = ref(route().current("hasil-upload.*"));
@@ -350,7 +356,8 @@ watch(
             route().current("master-kendaraan.*") ||
             route().current("master-skpd.*") ||
             route().current("master-harga-biaya.*") ||
-            route().current("master-ppn.*")
+            route().current("master-ppn.*") ||
+            route().current("master-harga-tinta.*")
         ) {
             isMasterDataOpen.value = true;
         }

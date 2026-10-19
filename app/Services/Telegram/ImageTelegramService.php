@@ -5,6 +5,7 @@ namespace App\Services\Telegram;
 use App\Jobs\AnalyzeImageJob;
 use App\Libraries\SendTelegram;
 use App\Models\ImageScan;
+use App\Models\MasterHargaTinta;
 use App\Models\MasterMesin;
 use App\Models\MasterTokenListrik;
 use App\Services\ImageAnalysisPromptService;
@@ -378,8 +379,9 @@ class ImageTelegramService
                     "✅ Foto CEA berhasil diterima.\n" .
                     "Sedang dianalisis oleh sistem.\n\n" .
                     "ID Scan: <b>{$scan->id}</b>\n\n" .
-                    "Silakan masukkan nominal <b>biaya tinta</b>.\n" .
-                    "Contoh: 185000"
+                    "Silakan masukkan <b>jumlah (qty) tinta</b> yang dipakai.\n" .
+                    "Contoh: 1 atau 4\n" .
+                    "Ketik 0 jika tidak ada pengisian tinta."
                 );
 
                 return;
@@ -751,12 +753,13 @@ class ImageTelegramService
 
     private function handleCeaTinta(string|int $chatId, string $message, object $session): void
     {
-        $biayaTinta = $this->extractNominalFromMessage($message);
+        $message = trim($message);
+        $qtyTinta = preg_match('/^\d{1,4}$/', $message) ? (int) $message : null;
 
-        if ($biayaTinta === null) {
+        if ($qtyTinta === null) {
             SendTelegram::sendMessage(
                 $chatId,
-                "Nominal tinta tidak valid.\n\nContoh: 185000"
+                "Qty tinta tidak valid. Masukkan angka jumlah tinta saja (bukan harga).\n\nContoh: 1 atau 4"
             );
             return;
         }
@@ -804,6 +807,28 @@ class ImageTelegramService
             return;
         }
 
+        // Biaya tinta = qty x harga satuan dari master harga tinta, sesuai
+        // status kepemilikan mesin (milik/sewa) atau harga umum CEA.
+        $statusKepemilikan = DB::table('dbo.master_mesins')
+            ->where('id', $scan->master_mesin_id)
+            ->value('status_kepemilikan');
+
+        $hargaTinta = MasterHargaTinta::hargaAktifUntuk($statusKepemilikan);
+
+        if (!$hargaTinta) {
+            // Step sengaja tidak di-reset: setelah admin mengisi master harga
+            // tinta, PIC cukup kirim ulang qty tanpa upload foto lagi.
+            SendTelegram::sendMessage(
+                $chatId,
+                "Harga tinta belum diatur di Master Harga Tinta.\n" .
+                "Hubungi admin, lalu kirim ulang qty tinta."
+            );
+            return;
+        }
+
+        $hargaSatuan = (float) $hargaTinta->harga;
+        $biayaTinta = $qtyTinta * $hargaSatuan;
+
         DB::table('dbo.cea_billing_costs')->updateOrInsert(
             [
                 'periode_start' => $periodeStart->toDateString(),
@@ -816,6 +841,9 @@ class ImageTelegramService
                 'master_mesin_id' => $scan->master_mesin_id,
                 'contract_service' => 300000,
                 'biaya_tinta' => $biayaTinta,
+                'qty_tinta' => $qtyTinta,
+                'harga_tinta_satuan' => $hargaSatuan,
+                'master_harga_tinta_id' => $hargaTinta->id,
                 'updated_at' => now(),
                 'created_at' => now(),
             ]
@@ -826,7 +854,8 @@ class ImageTelegramService
         SendTelegram::sendMessage(
             $chatId,
             "✅ Biaya tinta CEA berhasil disimpan.\n\n" .
-            "Tinta: Rp " . number_format($biayaTinta, 0, ',', '.') . "\n" .
+            "Tinta: {$qtyTinta} x Rp " . number_format($hargaSatuan, 0, ',', '.') .
+            " = <b>Rp " . number_format($biayaTinta, 0, ',', '.') . "</b>\n" .
             "Periode: " . $periodeStart->format('d/m/Y') . " - " . $periodeEnd->format('d/m/Y') . "\n\n" .
             "Ketik <b>MENU</b> untuk kembali ke menu."
         );

@@ -15,6 +15,9 @@ class CeaBillingCost extends Model
         'serial_number',
         'contract_service',
         'biaya_tinta',
+        'qty_tinta',
+        'harga_tinta_satuan',
+        'master_harga_tinta_id',
     ];
 
     protected $casts = [
@@ -22,5 +25,7 @@ class CeaBillingCost extends Model
         'periode_end' => 'date',
         'contract_service' => 'decimal:2',
         'biaya_tinta' => 'decimal:2',
+        'qty_tinta' => 'integer',
+        'harga_tinta_satuan' => 'decimal:2',
     ];
 }
