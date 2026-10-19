@@ -102,6 +102,7 @@ class RoleController extends Controller
             ['url' => '/master-ppn', 'label' => 'Master PPN'],
 
             ['url' => '/employee-measurements', 'label' => 'BMI Karyawan'],
+            ['url' => '/log-activity', 'label' => 'Log Activity'],
 
             ['url' => '/roles', 'label' => 'Master Role'],
             ['url' => '/users-management', 'label' => 'Manajemen User'],

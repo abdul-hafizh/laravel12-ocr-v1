@@ -19,6 +19,7 @@ use App\Http\Controllers\DashboardScanController;
 use App\Http\Controllers\ManualUploadController;
 use App\Http\Controllers\SummaryController;
 use App\Http\Controllers\EmployeeMeasurementController;
+use App\Http\Controllers\ActivityLogController;
 use App\Models\MasterCabang;
 use App\Models\MasterMesin;
 use App\Models\User;
@@ -179,6 +180,9 @@ Route::middleware(['auth', 'verified', 'role.url'])->group(function () {
 
     Route::delete('/employee-measurements/{employeeMeasurement}', [EmployeeMeasurementController::class, 'destroy'])
         ->name('employee-measurements.destroy');
+
+    Route::get('/log-activity', [ActivityLogController::class, 'index'])
+        ->name('log-activity.index');
 
     Route::get('/manual', [ManualUploadController::class, 'index'])
         ->name('manual.index');

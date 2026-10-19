@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\ElectricitySummaryExport;
 use App\Exports\PrinterBillingExport;
 use App\Libraries\SendSms;
+use App\Models\ActivityLog;
 use App\Models\User;
 use App\Models\ImageScan;
 use App\Services\PrinterCounterValidator;
@@ -3443,13 +3444,39 @@ class SummaryController extends Controller
             ], 403);
         }
 
-        $scan = ImageScan::findOrFail($id);
+        $scan = ImageScan::with(['user:id,name', 'cabang:id,kode_cabang,nama_cabang'])->findOrFail($id);
 
+        $moduleLabel = ActivityLogController::MODULE_LABELS[$scan->scan_type] ?? $scan->scan_type;
+        $cabangLabel = $scan->cabang
+            ? trim($scan->cabang->kode_cabang . ' - ' . $scan->cabang->nama_cabang, ' -')
+            : null;
+
+        DB::transaction(function () use ($scan, $moduleLabel, $cabangLabel) {
+            ActivityLog::record(
+                'delete',
+                'hasil_upload.' . $scan->scan_type,
+                $scan,
+                "Menghapus hasil upload {$moduleLabel} #{$scan->id}"
+                    . ($cabangLabel ? " ({$cabangLabel})" : ''),
+                [
+                    'scan_type' => $scan->scan_type,
+                    'cabang' => $cabangLabel,
+                    'uploaded_by' => $scan->user?->name,
+                    'uploaded_at' => optional($scan->created_at)->toDateTimeString(),
+                    'original_filename' => $scan->original_filename,
+                    'image_path' => $scan->image_path,
+                    'status' => $scan->status,
+                    'analysis_result' => $scan->analysis_result,
+                ]
+            );
+
+            $scan->delete();
+        });
+
+        // File dihapus setelah transaksi DB sukses, supaya gambar tidak hilang kalau delete DB gagal.
         if ($scan->image_path) {
             Storage::disk('public')->delete($scan->image_path);
         }
-
-        $scan->delete();
 
         return response()->json([
             'success' => true,
