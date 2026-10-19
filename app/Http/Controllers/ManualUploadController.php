@@ -6,6 +6,7 @@ use App\Helpers\UserAccessHelper;
 use App\Jobs\AnalyzeImageJob;
 use App\Models\ImageScan;
 use App\Models\MasterCabang;
+use App\Models\MasterHargaTinta;
 use App\Models\MasterMesin;
 use App\Models\MasterTokenListrik;
 use App\Services\ManualUpload\ManualUploadService;
@@ -180,7 +181,22 @@ class ManualUploadController extends Controller
                 'exists:master_mesins,id',
             ],
             'master_mesin_part_id' => ['nullable', 'exists:master_mesin_parts,id'],
-            'nominal' => ['nullable', 'numeric', 'min:0'],
+            'nominal' => [
+                Rule::requiredIf($request->scan_type === 'part_maintenance'),
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
+            'qty_tinta' => [
+                Rule::requiredIf($request->scan_type === 'cea'),
+                'nullable',
+                'integer',
+                'min:0',
+                'max:9999',
+            ],
+        ], [
+            'nominal.required' => 'Nominal biaya wajib diisi.',
+            'qty_tinta.required' => 'Qty tinta wajib diisi (isi 0 jika tidak ada pengisian tinta).',
         ]);
 
         $cabang = MasterCabang::findOrFail($validated['cabang_id']);
@@ -207,8 +223,51 @@ class ManualUploadController extends Controller
             }
         }
 
+        // Cek periode terkunci & harga tinta SEBELUM analisis gambar, supaya
+        // tidak ada scan yatim (dan biaya OpenAI) kalau biayanya tidak bisa
+        // disimpan -- aturannya sama dengan jalur Telegram.
+        [$periodeStart, $periodeEnd] = $this->getBillingPeriod($validated['created_at']);
+        $hargaTinta = null;
+
+        if ($validated['scan_type'] === 'cea') {
+            $isLocked = DB::table('dbo.cea_billing_costs')
+                ->where('periode_start', $periodeStart->toDateString())
+                ->where('periode_end', $periodeEnd->toDateString())
+                ->where('cabang_id', $validated['cabang_id'])
+                ->where('serial_number', $mesin->serial_number)
+                ->whereNotNull('locked_at')
+                ->exists();
+
+            if ($isLocked) {
+                return $this->lockedPeriodResponse($periodeStart, $periodeEnd);
+            }
+
+            $hargaTinta = MasterHargaTinta::hargaAktifUntuk($mesin->status_kepemilikan);
+
+            if (!$hargaTinta) {
+                return response()->json([
+                    'status' => 'invalid',
+                    'message' => 'Harga tinta belum diatur di Master Harga Tinta.',
+                ], 422);
+            }
+        }
+
+        if ($validated['scan_type'] === 'part_maintenance') {
+            $isLocked = DB::table('dbo.machine_maintenance_costs')
+                ->where('periode_start', $periodeStart->toDateString())
+                ->where('periode_end', $periodeEnd->toDateString())
+                ->where('cabang_id', $validated['cabang_id'])
+                ->where('master_mesin_id', $mesin->id)
+                ->whereNotNull('locked_at')
+                ->exists();
+
+            if ($isLocked) {
+                return $this->lockedPeriodResponse($periodeStart, $periodeEnd);
+            }
+        }
+
         $file = $request->file('image');
-        $imageBody = file_get_contents($file->getRealPath());
+        $imageBody = $file->get();
         $mimeType = $file->getMimeType();
 
         $validation = $this->manualUploadService->validateImage($validated['scan_type'], $imageBody, $mimeType);
@@ -312,7 +371,14 @@ class ManualUploadController extends Controller
                 'nomor_meter' => $match['master_token']->nomor_meter,
             ];
 
-            $scan->update(['analysis_result' => $analysis]);
+            // Sama seperti Telegram: data sudah lengkap & valid, langsung
+            // success supaya AnalyzeImageJob tidak menganalisis ulang dan
+            // menimpa hasilnya.
+            $scan->update([
+                'status' => 'success',
+                'analysis_result' => $analysis,
+                'error_message' => null,
+            ]);
         }
 
         if (in_array($validated['scan_type'], ['printer', 'cea', 'asaba', 'astra'], true) && $mesin) {
@@ -328,7 +394,62 @@ class ManualUploadController extends Controller
                 $analysis['data_penting']['perhitungan'] = $this->manualUploadService->printerPerhitungan($dataPenting, $mesin);
             }
 
-            $scan->update(['analysis_result' => $analysis]);
+            // Mesin sudah dipilih admin & data valid: langsung success seperti
+            // Telegram, supaya mesin pilihan admin tidak ditimpa hasil OCR ulang.
+            $scan->update([
+                'status' => 'success',
+                'analysis_result' => $analysis,
+                'error_message' => null,
+            ]);
+        }
+
+        if ($validated['scan_type'] === 'cea') {
+            $qtyTinta = (int) $validated['qty_tinta'];
+            $hargaSatuan = (float) $hargaTinta->harga;
+
+            DB::table('dbo.cea_billing_costs')->updateOrInsert(
+                [
+                    'periode_start' => $periodeStart->toDateString(),
+                    'periode_end' => $periodeEnd->toDateString(),
+                    'cabang_id' => $scan->cabang_id,
+                    'serial_number' => $mesin->serial_number,
+                ],
+                [
+                    'image_scan_id' => $scan->id,
+                    'master_mesin_id' => $mesin->id,
+                    'contract_service' => 300000,
+                    'biaya_tinta' => $qtyTinta * $hargaSatuan,
+                    'qty_tinta' => $qtyTinta,
+                    'harga_tinta_satuan' => $hargaSatuan,
+                    'master_harga_tinta_id' => $hargaTinta->id,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+        }
+
+        if ($validated['scan_type'] === 'part_maintenance') {
+            $namaPart = $scan->master_mesin_part_id
+                ? DB::table('dbo.master_mesin_parts')->where('id', $scan->master_mesin_part_id)->value('nama_part')
+                : null;
+            $isPart = (bool) $scan->master_mesin_part_id;
+
+            DB::table('dbo.machine_maintenance_costs')->insert([
+                'periode_start' => $periodeStart->toDateString(),
+                'periode_end' => $periodeEnd->toDateString(),
+                'image_scan_id' => $scan->id,
+                'cabang_id' => $scan->cabang_id,
+                'master_mesin_id' => $mesin->id,
+                'serial_number' => $mesin->serial_number,
+                'cost_type' => $isPart ? 'part' : 'maintenance',
+                'nama_part' => $namaPart,
+                'nominal' => (int) $validated['nominal'],
+                'keterangan' => $isPart
+                    ? 'Biaya part mesin' . ($namaPart ? ': ' . $namaPart : '')
+                    : 'Biaya maintenance mesin',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
         }
 
         AnalyzeImageJob::dispatch($scan->id);
@@ -337,6 +458,31 @@ class ManualUploadController extends Controller
             'status' => 'success',
             'scan' => $scan->fresh(['user:id,name,phone', 'cabang:id,kode_cabang,nama_cabang', 'mesin:id,nama_mesin,serial_number']),
         ]);
+    }
+
+    private function lockedPeriodResponse(Carbon $periodeStart, Carbon $periodeEnd)
+    {
+        return response()->json([
+            'status' => 'invalid',
+            'message' => 'Periode ' . $periodeStart->format('d/m/Y') . ' - ' . $periodeEnd->format('d/m/Y') .
+                ' sudah dilaporkan dan terkunci untuk mesin ini. Hubungi admin jika perlu koreksi.',
+        ], 422);
+    }
+
+    // Periode tagihan 28 s/d 28 bulan berikutnya -- sama dengan bot Telegram/WA.
+    private function getBillingPeriod($date): array
+    {
+        $date = Carbon::parse($date);
+
+        if ((int) $date->format('d') >= 28) {
+            $start = $date->copy()->day(28)->startOfDay();
+            $end = $date->copy()->addMonthNoOverflow()->day(28)->endOfDay();
+        } else {
+            $start = $date->copy()->subMonthNoOverflow()->day(28)->startOfDay();
+            $end = $date->copy()->day(28)->endOfDay();
+        }
+
+        return [$start, $end];
     }
 
     public function correct(Request $request, ImageScan $imageScan)

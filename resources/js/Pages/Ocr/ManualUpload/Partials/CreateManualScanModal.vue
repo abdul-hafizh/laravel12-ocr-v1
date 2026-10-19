@@ -26,6 +26,7 @@ const form = ref({
     master_mesin_id: '',
     master_mesin_part_id: '',
     nominal: '',
+    qty_tinta: '',
 });
 
 const imageFile = ref(null);
@@ -60,6 +61,9 @@ const mesinParts = computed(() => selectedMesin.value?.maintenance_parts || []);
 
 const needsMachine = computed(() => MACHINE_TYPES.includes(form.value.scan_type));
 const needsPart = computed(() => form.value.scan_type === 'part_maintenance');
+const needsTinta = computed(() => form.value.scan_type === 'cea');
+
+const isFilled = (value) => value !== '' && value !== null && value !== undefined;
 
 const onCabangChange = () => {
     form.value.user_id = '';
@@ -83,6 +87,14 @@ const canSubmit = computed(() => {
     }
 
     if (needsMachine.value && !form.value.master_mesin_id) {
+        return false;
+    }
+
+    if (needsPart.value && !isFilled(form.value.nominal)) {
+        return false;
+    }
+
+    if (needsTinta.value && !isFilled(form.value.qty_tinta)) {
         return false;
     }
 
@@ -113,8 +125,12 @@ const submit = async () => {
             data.append('master_mesin_part_id', form.value.master_mesin_part_id);
         }
 
-        if (form.value.nominal) {
+        if (needsPart.value && isFilled(form.value.nominal)) {
             data.append('nominal', form.value.nominal);
+        }
+
+        if (needsTinta.value && isFilled(form.value.qty_tinta)) {
+            data.append('qty_tinta', form.value.qty_tinta);
         }
 
         const res = await axios.post('/manual', data, {
@@ -265,8 +281,15 @@ const submitKwhCorrection = async () => {
                 </div>
 
                 <div v-if="needsPart">
-                    <label class="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">Nominal Biaya (Rp)</label>
+                    <label class="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">Nominal Biaya (Rp) *</label>
                     <input v-model="form.nominal" type="number" min="0" placeholder="Contoh: 250000" class="w-full rounded-xl border-slate-300 text-sm" />
+                    <p class="mt-1 text-[10px] font-bold text-slate-400">Pilih part = Biaya Part, tanpa part = Biaya Maintenance.</p>
+                </div>
+
+                <div v-if="needsTinta">
+                    <label class="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">Qty Tinta *</label>
+                    <input v-model="form.qty_tinta" type="number" min="0" max="9999" step="1" placeholder="Contoh: 1 atau 4" class="w-full rounded-xl border-slate-300 text-sm" />
+                    <p class="mt-1 text-[10px] font-bold text-slate-400">Isi 0 jika tidak ada pengisian tinta. Biaya = qty × harga di Master Harga Tinta.</p>
                 </div>
 
                 <div>
