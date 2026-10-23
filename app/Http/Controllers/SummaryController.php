@@ -175,7 +175,7 @@ class SummaryController extends Controller
             ->orderBy('p.created_at')
             ->get()
             ->groupBy(function ($item) {
-                return ($item->cabang_id ?? 0) . '-' . ($item->master_mesin_id ?? 0) . '-' . $item->serial_number;
+                return ($item->cabang_id ?? 0) . '-' . ($item->master_mesin_id ?? 0) . '-' . $this->serialKey($item->serial_number);
             });
 
         $cabangPpnMap = $this->cabangPpnMap();
@@ -1282,7 +1282,7 @@ class SummaryController extends Controller
             ->orderBy('p.serial_number')
             ->orderBy('p.created_at')
             ->get()
-            ->groupBy('serial_number');
+            ->groupBy(fn ($r) => $this->serialKey($r->serial_number));
 
         $billingItems = [];
 
@@ -1813,7 +1813,7 @@ class SummaryController extends Controller
             ->orderBy('p.serial_number')
             ->orderBy('p.created_at')
             ->get()
-            ->groupBy('serial_number');
+            ->groupBy(fn ($r) => $this->serialKey($r->serial_number));
 
         $billingItems = [];
 
@@ -2252,7 +2252,7 @@ class SummaryController extends Controller
             ->orderBy('p.serial_number')
             ->orderBy('p.created_at')
             ->get()
-            ->groupBy(fn ($r) => $r->serial_number . '-' . ($r->cabang_id ?? 0));
+            ->groupBy(fn ($r) => $this->serialKey($r->serial_number) . '-' . ($r->cabang_id ?? 0));
 
         $billingItems = [];
 
@@ -2629,7 +2629,7 @@ class SummaryController extends Controller
             ->orderBy('p.serial_number')
             ->orderBy('p.created_at')
             ->get()
-            ->groupBy(fn ($r) => $r->serial_number . '-' . ($r->cabang_id ?? 0));
+            ->groupBy(fn ($r) => $this->serialKey($r->serial_number) . '-' . ($r->cabang_id ?? 0));
 
         $billingItems = [];
 
@@ -2983,6 +2983,17 @@ class SummaryController extends Controller
             ->whereDate('periode_start', $periodeStart->toDateString())
             ->whereDate('periode_end', $periodeEnd->toDateString())
             ->first();
+    }
+
+    /**
+     * Kunci grup serial number. SQL Server membandingkan serial secara
+     * case-insensitive, tapi groupBy() di PHP tidak -- "4vb05958" (dari master
+     * mesin / upload manual) dan "4VB05958" (hasil OCR Telegram) dulu pecah
+     * jadi 2 baris billing untuk mesin yang sama.
+     */
+    private function serialKey(?string $serialNumber): string
+    {
+        return strtoupper(trim((string) $serialNumber));
     }
 
     /**
