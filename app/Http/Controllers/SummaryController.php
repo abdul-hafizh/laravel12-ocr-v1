@@ -342,35 +342,40 @@ class SummaryController extends Controller
                 $minimumBasisClick = 0;
             }
 
-            // Tarif over_click = tarif TIER KEDUA (biasanya lebih murah, volume
-            // discount ala kontrak Samafitro) yang HANYA berlaku kalau volume
-            // klik kategori yang diatur $minimum_charge_size sudah melewati
-            // $minimum_charge_click. Dulu kode ini langsung pakai over_click
-            // begitu field-nya diisi, TANPA cek volume dulu -- akibatnya tarif
-            // diskon volume kepakai walau pemakaian bulan itu masih sedikit.
-            // INI TERPISAH dari $hasMinimumRule (biaya minimum flat) di bawah,
-            // yang butuh minimum_charge_nominal > 0 -- kontrak tier per-klik
-            // (Samafitro) nominalnya 0 karena bukan biaya flat.
-            $isOverClickThreshold = $minimumClick > 0 && $minimumBasisClick > $minimumClick;
-
-            $tierApplies = fn (string $size) => $isOverClickThreshold && $minimumSize === $size;
-
-            $rateColorA3 = ($tierApplies('A3') && $overColorA3 > 0) ? $overColorA3 : $hargaColorA3;
-            $rateColorA4 = ($tierApplies('A4') && $overColorA4 > 0) ? $overColorA4 : $hargaColorA4;
-            $rateBwA3 = ($tierApplies('A3') && $overBwA3 > 0) ? $overBwA3 : $hargaBwA3;
-            $rateBwA4 = ($tierApplies('A4') && $overBwA4 > 0) ? $overBwA4 : $hargaBwA4;
-
             $hasMinimumRule =
                 in_array($minimumSize, ['A3', 'A4'])
                 && $minimumClick > 0
                 && $minimumNominal > 0;
 
+            // Rumus Excel billing Samafitro: semua klik dikonversi ke SETARA A4
+            // (A3 = 2 klik A4, long sheet = 4 klik A4), dipotong free klik %
+            // TANPA pembulatan, lalu dikali tarif A4 per jenis (Color / BW).
+            // Harga A3 di master TIDAK dipakai -- A3 selalu 2x tarif A4.
+            $colorA4Equivalent = $colorA4 + ($colorA3 * 2) + ($colorLongSheet * 4);
+            $bwA4Equivalent = $bwA4 + ($bwA3 * 2) + ($bwLongSheet * 4);
+
+            $freeFactor = ($freePercent > 0 && !$hasMinimumRule) ? $freePercent / 100 : 0;
+
+            // Tarif over_click = tarif TIER KEDUA (lebih murah). Berlaku untuk
+            // SEMUA klik suatu jenis kalau meter setara A4 jenis itu (setelah
+            // free klik, = "meter color a4" / "meter bw a4" di Excel) melewati
+            // $minimumClick. Color & BW dicek sendiri-sendiri.
+            $colorTier = $minimumClick > 0 && $overColorA4 > 0
+                && $colorA4Equivalent * (1 - $freeFactor) > $minimumClick;
+            $bwTier = $minimumClick > 0 && $overBwA4 > 0
+                && $bwA4Equivalent * (1 - $freeFactor) > $minimumClick;
+
+            $rateColorA4 = $colorTier ? $overColorA4 : $hargaColorA4;
+            $rateBwA4 = $bwTier ? $overBwA4 : $hargaBwA4;
+            $rateColorA3 = $rateColorA4 * 2;
+            $rateBwA3 = $rateBwA4 * 2;
+
             $biayaBwA3 = $bwA3 * $rateBwA3;
             $biayaBwA4 = $bwA4 * $rateBwA4;
             $biayaColorA3 = $colorA3 * $rateColorA3;
             $biayaColorA4 = $colorA4 * $rateColorA4;
-            $biayaBwLongSheet = $bwLongSheet * $rateBwA3;
-            $biayaColorLongSheet = $colorLongSheet * $rateColorA3;
+            $biayaBwLongSheet = $bwLongSheet * 4 * $rateBwA4;
+            $biayaColorLongSheet = $colorLongSheet * 4 * $rateColorA4;
 
             $subtotalBilling =
                 $biayaBwA3 +
@@ -382,17 +387,10 @@ class SummaryController extends Controller
 
             $subtotalSebelumFree = $subtotalBilling;
 
-            $freeKlik = 0;
-            $nilaiFreeKlik = 0;
-
-            if ($freePercent > 0 && $totalPemakaianClick > 0 && !$hasMinimumRule) {
-                $freeKlik = floor($totalPemakaianClick * ($freePercent / 100));
-
-                if ($subtotalBilling > 0) {
-                    $nilaiPerKlikRataRata = $subtotalBilling / $totalPemakaianClick;
-                    $nilaiFreeKlik = $freeKlik * $nilaiPerKlikRataRata;
-                }
-            }
+            // Free klik dalam satuan setara A4; nilainya = free % x subtotal,
+            // sama dgn Excel yg memotong 1% di tiap baris sebelum dikali harga.
+            $freeKlik = ($colorA4Equivalent + $bwA4Equivalent) * $freeFactor;
+            $nilaiFreeKlik = $subtotalBilling * $freeFactor;
 
             $subtotalSetelahFree = max(0, $subtotalBilling - $nilaiFreeKlik);
 
@@ -1483,8 +1481,15 @@ class SummaryController extends Controller
             $freeKlik = 0;
             $nilaiFreeKlik = 0;
 
-            if ($freePercent > 0 && $totalPemakaianClick > 0 && !$hasMinimumRule) {
-                $freeKlik = floor($totalPemakaianClick * ($freePercent / 100));
+            // Free klik tetap berlaku walau mesin punya minimum charge: kalau
+            // pemakaian di atas minimum, Excel billing Asaba tetap memotong 1%
+            // (mis. Ineo 4070, min 6000 klik / Rp 2.850.000). Kalau di bawah
+            // minimum, tagihan = minimum nominal flat (lihat di bawah).
+            if ($freePercent > 0 && $totalPemakaianClick > 0) {
+                // Free klik TIDAK dibulatkan, sama dgn rumus Excel billing Asaba:
+                // (klik - klik x 1%) x harga. Dulu pakai floor() -> selisih ratusan
+                // rupiah dari Excel.
+                $freeKlik = $totalPemakaianClick * ($freePercent / 100);
 
                 if ($subtotalBilling > 0) {
                     $nilaiPerKlikRataRata = $subtotalBilling / $totalPemakaianClick;
@@ -1925,12 +1930,18 @@ class SummaryController extends Controller
             $minimumClickForTier = (int) ($rate->minimum_charge_click ?? 0);
 
             /*
-            * Aturan Astra:
-            * - Color Impressions dipakai sebagai dasar biaya color.
-            * - Black Impressions dipakai sebagai dasar biaya BW jika tersedia.
-            * - Jika Black Impressions kosong, fallback ke selisih Total - Color.
-            * - Color Large Impressions hanya informasi (subset dari Color Impressions), tidak dihitung terpisah.
+            * Aturan Astra (sesuai Excel billing Astragraphia APEOS C650):
+            * - Color Large Impressions = klik Color A3 (subset dari Color
+            *   Impressions), Color A4 = Color Impressions - Color Large.
+            * - Color A4 x harga_color_a4. Color A3 x harga_color_a3, KECUALI
+            *   kategori yg kena minimum charge (minimum_charge_size): klik s/d
+            *   minimum_charge_click ditagih flat minimum_charge_nominal,
+            *   kelebihannya x harga (over_click kalau diisi).
+            * - Black Impressions dipakai sebagai dasar biaya BW jika tersedia
+            *   (x harga_bw_a4). Jika kosong, fallback ke selisih Total - Color.
             */
+            $usageColorA3Billing = $usageColorLarge;
+            $usageColorA4Billing = max(0, $usageColor - $usageColorLarge);
             $usageColorBilling = $usageColor;
 
             if ($usageBlack > 0) {
@@ -1948,19 +1959,8 @@ class SummaryController extends Controller
 
             $totalPemakaianClick = $usageBwBilling + $usageColorBilling;
 
-            // Tarif over_click = tier volume discount, HANYA berlaku kalau
-            // total pemakaian bulan ini sudah melewati minimum_charge_click --
-            // lihat perbaikan yang sama & alasannya di printerBilling().
-            $isOverClickThreshold = $minimumClickForTier > 0 && $totalPemakaianClick > $minimumClickForTier;
-
-            $rateColorA4 = ($isOverClickThreshold && $overColorA4 > 0) ? $overColorA4 : $hargaColorA4;
-            $rateBwA4 = ($isOverClickThreshold && $overBwA4 > 0) ? $overBwA4 : $hargaBwA4;
-
-            $biayaBw = $usageBwBilling * $rateBwA4;
-            $biayaColor = $usageColorBilling * $rateColorA4;
-
-            $subtotalBilling = $biayaBw + $biayaColor;
-            $subtotalSebelumFree = $subtotalBilling;
+            $hargaColorA3 = (float) ($rate->harga_color_a3 ?? 0);
+            $overColorA3 = (float) ($rate->over_click_color_a3 ?? 0);
 
             $minimumClick = (int) ($rate->minimum_charge_click ?? 0);
             $minimumNominal = (float) ($rate->minimum_charge_nominal ?? 0);
@@ -1968,22 +1968,50 @@ class SummaryController extends Controller
             $freePercent = (float) ($rate->free_klik_percent ?? 0);
 
             $hasMinimumRule =
-                $minimumClick > 0
+                in_array($minimumSize, ['A3', 'A4'], true)
+                && $minimumClick > 0
                 && $minimumNominal > 0;
 
+            // Biaya 1 kategori color. Kategori yg kena minimum charge: klik s/d
+            // $minimumClick = flat $minimumNominal, kelebihannya x tarif over
+            // (fallback harga normal). Mis. Excel: Color A3 4.210 klik, min
+            // 3.000 -> 3.000.000 + 1.210 x 1.000.
+            $colorCategoryCost = function (int $clicks, string $size, float $harga, float $over) use (
+                $hasMinimumRule, $minimumSize, $minimumClick, $minimumNominal
+            ): array {
+                if ($hasMinimumRule && $minimumSize === $size) {
+                    $overRate = $over > 0 ? $over : $harga;
+
+                    return [$minimumNominal + max(0, $clicks - $minimumClick) * $overRate, $overRate];
+                }
+
+                return [$clicks * $harga, $harga];
+            };
+
+            [$biayaColorA3, $rateColorA3] = $colorCategoryCost($usageColorA3Billing, 'A3', $hargaColorA3, $overColorA3);
+            [$biayaColorA4, $rateColorA4] = $colorCategoryCost($usageColorA4Billing, 'A4', $hargaColorA4, $overColorA4);
+
+            $rateBwA4 = $hargaBwA4;
+
+            $biayaBw = $usageBwBilling * $rateBwA4;
+            $biayaColor = $biayaColorA4 + $biayaColorA3;
+
+            $subtotalBilling = $biayaBw + $biayaColor;
+            $subtotalSebelumFree = $subtotalBilling;
+
+            // Free klik (tanpa pembulatan) hanya memotong biaya per klik --
+            // minimum nominal flat tidak ikut dipotong.
             $freeKlik = 0;
             $nilaiFreeKlik = 0;
 
-            if ($freePercent > 0 && $totalPemakaianClick > 0 && !$hasMinimumRule) {
-                $freeKlik = floor($totalPemakaianClick * ($freePercent / 100));
-
-                if ($subtotalBilling > 0) {
-                    $nilaiPerKlikRataRata = $subtotalBilling / $totalPemakaianClick;
-                    $nilaiFreeKlik = $freeKlik * $nilaiPerKlikRataRata;
-                }
+            if ($freePercent > 0 && $totalPemakaianClick > 0) {
+                $freeKlik = $totalPemakaianClick * ($freePercent / 100);
+                $nilaiFreeKlik = max(0, $subtotalBilling - ($hasMinimumRule ? $minimumNominal : 0)) * ($freePercent / 100);
             }
 
             $subtotalSetelahFree = max(0, $subtotalBilling - $nilaiFreeKlik);
+
+            $minimumBasisClick = $minimumSize === 'A3' ? $usageColorA3Billing : $usageColorA4Billing;
 
             if ($hasCounterAnomaly) {
                 $totalTagihan = 0;
@@ -1994,14 +2022,11 @@ class SummaryController extends Controller
             } elseif ($totalPemakaianClick <= 0) {
                 $totalTagihan = 0;
                 $billingRule = 'no_usage';
-            } elseif ($hasMinimumRule && $totalPemakaianClick < $minimumClick) {
-                $totalTagihan = $minimumNominal;
-                $billingRule = 'minimum_charge_' . strtolower($minimumSize ?: 'a4');
             } else {
                 $totalTagihan = $subtotalSetelahFree;
 
-                if ($hasMinimumRule && $totalPemakaianClick >= $minimumClick) {
-                    $billingRule = 'over_minimum_' . strtolower($minimumSize ?: 'a4');
+                if ($hasMinimumRule) {
+                    $billingRule = ($minimumBasisClick < $minimumClick ? 'minimum_charge_' : 'over_minimum_') . strtolower($minimumSize);
                 } else {
                     $billingRule = 'standard';
                 }
@@ -2097,6 +2122,14 @@ class SummaryController extends Controller
 
                 'biaya_bw' => $biayaBw,
                 'biaya_color' => $biayaColor,
+
+                'usage_color_a4_billing' => $usageColorA4Billing,
+                'usage_color_a3_billing' => $usageColorA3Billing,
+                'harga_color_a3' => $hargaColorA3,
+                'rate_color_a3' => $rateColorA3,
+                'biaya_color_a4' => $biayaColorA4,
+                'biaya_color_a3' => $biayaColorA3,
+                'minimum_basis_click' => $minimumBasisClick,
 
                 'subtotal_sebelum_free' => $subtotalSebelumFree,
                 'subtotal_setelah_free' => $subtotalSetelahFree,
@@ -2377,18 +2410,20 @@ class SummaryController extends Controller
                 $biayaMaintenance +
                 $biayaPart;
 
-            $biayaTerbagi = $contractService + $biayaTinta;
-
-            $printBilling = $totalMeter > 0
-                ? round($biayaTerbagi * ($printPercent / 100))
-                : 0;
-
-            $copyBilling = $totalMeter > 0
-                ? round($biayaTerbagi * ($copyPercent / 100))
-                : 0;
-            
             $totalTagihan = $hasTwoScans && $totalMeter > 0
                 ? $totalDasarBilling
+                : 0;
+
+            // Rumus Excel CEA milik: SELURUH tagihan (contract + tinta +
+            // sparepart/maintenance) dibagi rata per meter, lalu dikali meter
+            // fotocopy & print. Pakai rasio meter persis (bukan persen yg sudah
+            // dibulatkan 2 desimal), dan print = sisa supaya jumlahnya pas total.
+            $copyBilling = $totalMeter > 0
+                ? round($totalTagihan * $usageCopy / $totalMeter)
+                : 0;
+
+            $printBilling = $totalMeter > 0
+                ? $totalTagihan - $copyBilling
                 : 0;
 
             if (!$hasTwoScans) {
@@ -2740,18 +2775,23 @@ class SummaryController extends Controller
                 $printBilling = 0;
                 $copyBilling = 0;
                 $totalTagihan = 0;
-            } elseif ($totalMeter >= $minimumClick) {
-                $billingRule = 'minimum_charge';
-                $totalTagihan = $minimumNominal;
-
-                $printBilling = round($totalTagihan * ($printPercent / 100));
-                $copyBilling = round($totalTagihan * ($copyPercent / 100));
             } else {
-                $billingRule = 'harga_bw_per_click';
-                $totalTagihan = round($totalMeter * $hargaBw);
+                // Minimum charge = tagihan PALING SEDIKIT: di bawah minimum klik
+                // ditagih minimum nominal (2.040.000 = 30.000 x 68), di atasnya
+                // meter x harga. Dulu kebalikannya -- pemakaian rendah malah
+                // ditagih di bawah minimum, pemakaian tinggi mentok di minimum.
+                if ($totalMeter < $minimumClick) {
+                    $billingRule = 'minimum_charge';
+                    $totalTagihan = $minimumNominal;
+                } else {
+                    $billingRule = 'harga_bw_per_click';
+                    $totalTagihan = round($totalMeter * $hargaBw);
+                }
 
-                $printBilling = round($totalTagihan * ($printPercent / 100));
-                $copyBilling = round($totalTagihan * ($copyPercent / 100));
+                // Sama dgn Excel: tagihan dibagi per meter fotocopy & print
+                // dgn rasio persis; print = sisa supaya jumlahnya pas total.
+                $copyBilling = round($totalTagihan * $usageCopy / $totalMeter);
+                $printBilling = $totalTagihan - $copyBilling;
             }
 
             $item->periode_start = $periodeStart->toDateString();

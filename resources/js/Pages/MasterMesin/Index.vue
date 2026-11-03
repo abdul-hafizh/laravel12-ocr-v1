@@ -32,6 +32,11 @@ const formatCurrency = (value) => {
     }).format(value || 0);
 };
 
+// Harga per klik bisa desimal (mis. 44,40) -- jangan dibulatkan di tabel.
+const formatHarga = (value) => {
+    return Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+};
+
 watch([search, masterCabangId, masterVendorId], ([searchValue, cabangValue, vendorValue]) => {
     router.get(
         route('master-mesin.index'),
@@ -315,13 +320,13 @@ const executeDelete = () => {
                                             item.cabang?.nama_cabang || '-' }}</div>
                                     </td>
                                     <td class="px-2 py-4 text-[10px] font-black text-right">{{
-                                        Math.round(item.harga_color_a3) }}</td>
+                                        formatHarga(item.harga_color_a3) }}</td>
                                     <td class="px-2 py-4 text-[10px] font-black text-right">{{
-                                        Math.round(item.harga_color_a4) }}</td>
+                                        formatHarga(item.harga_color_a4) }}</td>
                                     <td class="px-2 py-4 text-[10px] font-black text-right">{{
-                                        Math.round(item.harga_bw_a3) }}</td>
+                                        formatHarga(item.harga_bw_a3) }}</td>
                                     <td class="px-2 py-4 text-[10px] font-black text-right">{{
-                                        Math.round(item.harga_bw_a4) }}</td>
+                                        formatHarga(item.harga_bw_a4) }}</td>
                                     <td class="px-6 py-4 text-[10px] font-black text-right">{{
                                             item.minimum_charge_click
                                                 ? Number(item.minimum_charge_click).toLocaleString('id-ID') + (item.minimum_charge_size ? ' ' + item.minimum_charge_size : '')
@@ -501,25 +506,25 @@ const executeDelete = () => {
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                                 <label class="text-[10px] font-black text-slate-400 uppercase">Color A3</label>
-                                <input v-model="form.harga_color_a3" type="number" min="0"
+                                <input v-model="form.harga_color_a3" type="number" min="0" step="0.01"
                                     class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
                             </div>
 
                             <div>
                                 <label class="text-[10px] font-black text-slate-400 uppercase">Color A4</label>
-                                <input v-model="form.harga_color_a4" type="number" min="0"
+                                <input v-model="form.harga_color_a4" type="number" min="0" step="0.01"
                                     class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
                             </div>
 
                             <div>
                                 <label class="text-[10px] font-black text-slate-400 uppercase">BW A3</label>
-                                <input v-model="form.harga_bw_a3" type="number" min="0"
+                                <input v-model="form.harga_bw_a3" type="number" min="0" step="0.01"
                                     class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
                             </div>
 
                             <div>
                                 <label class="text-[10px] font-black text-slate-400 uppercase">BW A4</label>
-                                <input v-model="form.harga_bw_a4" type="number" min="0"
+                                <input v-model="form.harga_bw_a4" type="number" min="0" step="0.01"
                                     class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
                             </div>
                         </div>
@@ -550,7 +555,7 @@ const executeDelete = () => {
 
                             <div>
                                 <label class="text-[10px] font-black text-slate-400 uppercase">Minimum Nominal</label>
-                                <input v-model="form.minimum_charge_nominal" type="number" min="0"
+                                <input v-model="form.minimum_charge_nominal" type="number" min="0" step="0.01"
                                     placeholder="Contoh: 1350000"
                                     class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
                             </div>
@@ -572,25 +577,25 @@ const executeDelete = () => {
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                                 <label class="text-[10px] font-black text-slate-400 uppercase">Over Color A3</label>
-                                <input v-model="form.over_click_color_a3" type="number" min="0"
+                                <input v-model="form.over_click_color_a3" type="number" min="0" step="0.01"
                                     class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
                             </div>
 
                             <div>
                                 <label class="text-[10px] font-black text-slate-400 uppercase">Over Color A4</label>
-                                <input v-model="form.over_click_color_a4" type="number" min="0"
+                                <input v-model="form.over_click_color_a4" type="number" min="0" step="0.01"
                                     class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
                             </div>
 
                             <div>
                                 <label class="text-[10px] font-black text-slate-400 uppercase">Over BW A3</label>
-                                <input v-model="form.over_click_bw_a3" type="number" min="0"
+                                <input v-model="form.over_click_bw_a3" type="number" min="0" step="0.01"
                                     class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
                             </div>
 
                             <div>
                                 <label class="text-[10px] font-black text-slate-400 uppercase">Over BW A4</label>
-                                <input v-model="form.over_click_bw_a4" type="number" min="0"
+                                <input v-model="form.over_click_bw_a4" type="number" min="0" step="0.01"
                                     class="w-full px-4 py-2 bg-white border-none rounded-xl text-sm font-bold" />
                             </div>
                         </div>
