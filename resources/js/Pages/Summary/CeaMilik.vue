@@ -90,6 +90,9 @@ const generateLaporanRows = () => {
             const biayaPrintBw = Number(
                 item.laporan_detail?.biaya_print_bw ?? item.print_billing ?? 0,
             );
+            const biayaKontrakTinta = Number(
+                item.laporan_detail?.biaya_kontrak_tinta ?? 0,
+            );
             const biayaPart = Number(item.laporan_detail?.biaya_part ?? 0);
             const biayaMaintenance = Number(
                 item.laporan_detail?.biaya_maintenance ?? 0,
@@ -98,6 +101,7 @@ const generateLaporanRows = () => {
             const totalDebit =
                 biayaFotocopy +
                 biayaPrintBw +
+                biayaKontrakTinta +
                 biayaPart +
                 biayaMaintenance;
             const totalKredit = totalDebit;
@@ -144,6 +148,16 @@ const generateLaporanRows = () => {
                             <td style="text-align:right;">${formatNumber(biayaPrintBw)}</td>
                             <td></td>
                         </tr>
+
+                        ${
+                            biayaKontrakTinta > 0
+                                ? `<tr>
+                            <td>biaya kontrak + tinta</td>
+                            <td style="text-align:right;">${formatNumber(biayaKontrakTinta)}</td>
+                            <td></td>
+                        </tr>`
+                                : ""
+                        }
 
                         <tr>
                             <td>biaya part</td>

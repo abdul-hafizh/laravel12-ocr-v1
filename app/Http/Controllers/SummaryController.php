@@ -2381,15 +2381,18 @@ class SummaryController extends Controller
             $this->lockCostRowIfElapsed('cea_billing_costs', $item->master_mesin_id, $item->cabang_id, $periodScanIds, $periodeEnd);
             $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodScanIds, $periodeEnd);
 
-            $isBillablePeriod = $hasTwoScans && $totalMeter > 0;
+            // Contract service tetap ditagih walau klik print & copy 0, selama
+            // mesin difoto di periode ini (ada foto awal & akhir) -- nilainya
+            // kontrak, bukan pemakaian. Dulu syaratnya juga meter > 0, akibatnya
+            // mesin yang tidak dipakai sebulan tagihannya Rp0 / cuma tinta.
+            $isBillablePeriod = $hasTwoScans;
 
             // Biaya contract service CEA MILIK itu flat & tetap Rp 300.000/mesin/
             // periode (tidak pernah berubah) -- BUKAN nilai yang perlu dilaporkan
             // manual lewat bot tiap periode. Dulu nilainya diambil dari kolom
             // cea_billing_costs.contract_service, yang berarti kalau PIC belum
             // sempat lapor biaya tinta (satu form yang sama dgn contract_service)
-            // di periode ini, contract service ikut kebaca Rp0 -- padahal biaya
-            // ini tetap harus ditagih selama mesinnya ada pemakaian.
+            // di periode ini, contract service ikut kebaca Rp0.
             $contractService = $isBillablePeriod ? self::CEA_MILIK_CONTRACT_SERVICE : 0.0;
 
             // Beda dgn contract service: biaya tinta MEMANG harus dilaporkan
@@ -2414,20 +2417,23 @@ class SummaryController extends Controller
                 $biayaMaintenance +
                 $biayaPart;
 
-            $totalTagihan = $hasTwoScans && $totalMeter > 0
+            $totalTagihan = $isBillablePeriod
                 ? $totalDasarBilling
                 : 0;
 
-            // Rumus Excel CEA milik: SELURUH tagihan (contract + tinta +
-            // sparepart/maintenance) dibagi rata per meter, lalu dikali meter
-            // fotocopy & print. Pakai rasio meter persis (bukan persen yg sudah
-            // dibulatkan 2 desimal), dan print = sisa supaya jumlahnya pas total.
+            // Rumus Excel CEA milik: contract + tinta dibagi rata per meter, lalu
+            // dikali meter fotocopy & print. Part & maintenance TIDAK ikut dibagi
+            // -- di laporan jurnal keduanya baris sendiri (kalau ikut dibagi,
+            // terhitung 2x). Pakai rasio meter persis (bukan persen yg sudah
+            // dibulatkan 2 desimal), dan print = sisa supaya jumlahnya pas.
+            $biayaTerbagi = $isBillablePeriod ? $contractService + $biayaTinta : 0;
+
             $copyBilling = $totalMeter > 0
-                ? round($totalTagihan * $usageCopy / $totalMeter)
+                ? round($biayaTerbagi * $usageCopy / $totalMeter)
                 : 0;
 
             $printBilling = $totalMeter > 0
-                ? $totalTagihan - $copyBilling
+                ? $biayaTerbagi - $copyBilling
                 : 0;
 
             if (!$hasTwoScans) {
@@ -2537,6 +2543,9 @@ class SummaryController extends Controller
 
                 'biaya_fotocopy' => $copyBilling,
                 'biaya_print_bw' => $printBilling,
+                // Meter 0: contract + tinta tidak dibagi ke fotocopy/print,
+                // dicatat utuh sebagai 1 baris jurnal sendiri.
+                'biaya_kontrak_tinta' => $totalMeter > 0 ? 0 : $biayaTerbagi,
 
                 'total_laporan' => $totalTagihan,
             ];
