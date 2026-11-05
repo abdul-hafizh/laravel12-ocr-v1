@@ -1972,17 +1972,18 @@ class SummaryController extends Controller
                 && $minimumClick > 0
                 && $minimumNominal > 0;
 
-            // Biaya 1 kategori color. Kategori yg kena minimum charge: klik s/d
-            // $minimumClick = flat $minimumNominal, kelebihannya x tarif over
-            // (fallback harga normal). Mis. Excel: Color A3 4.210 klik, min
-            // 3.000 -> 3.000.000 + 1.210 x 1.000.
+            // Biaya 1 kategori color. Kategori yg kena minimum charge, persis
+            // rumus Excel Astragraphia: minimum nominal + (klik - minimum klik)
+            // x tarif (over, fallback harga normal). Selisihnya BOLEH minus:
+            //   klik 4.210 -> 3.000.000 + 1.210 x 1.000   = 4.210.000
+            //   klik 1.360 -> 3.000.000 - 1.640 x 1.000   = 1.360.000
             $colorCategoryCost = function (int $clicks, string $size, float $harga, float $over) use (
                 $hasMinimumRule, $minimumSize, $minimumClick, $minimumNominal
             ): array {
                 if ($hasMinimumRule && $minimumSize === $size) {
                     $overRate = $over > 0 ? $over : $harga;
 
-                    return [$minimumNominal + max(0, $clicks - $minimumClick) * $overRate, $overRate];
+                    return [max(0, $minimumNominal + ($clicks - $minimumClick) * $overRate), $overRate];
                 }
 
                 return [$clicks * $harga, $harga];
@@ -1991,7 +1992,10 @@ class SummaryController extends Controller
             [$biayaColorA3, $rateColorA3] = $colorCategoryCost($usageColorA3Billing, 'A3', $hargaColorA3, $overColorA3);
             [$biayaColorA4, $rateColorA4] = $colorCategoryCost($usageColorA4Billing, 'A4', $hargaColorA4, $overColorA4);
 
-            $rateBwA4 = $hargaBwA4;
+            // Black Impressions = "BW A3" di Excel -> pakai harga BW A3 master
+            // (fallback harga BW A4 utk mesin yang hanya mengisi BW A4).
+            $hargaBwA3 = (float) ($rate->harga_bw_a3 ?? 0);
+            $rateBwA4 = $hargaBwA3 > 0 ? $hargaBwA3 : $hargaBwA4;
 
             $biayaBw = $usageBwBilling * $rateBwA4;
             $biayaColor = $biayaColorA4 + $biayaColorA3;
