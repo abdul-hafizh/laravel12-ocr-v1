@@ -117,6 +117,9 @@ const toDatetimeLocal = (value) => {
 
 const createdAt = ref(toDatetimeLocal(props.scan.created_at));
 
+// Qty tinta khusus CEA -- terisi qty yang sudah tersimpan (kalau ada).
+const qtyTinta = ref(props.scan.qty_tinta ?? '');
+
 const submitting = ref(false);
 const errorMessage = ref('');
 
@@ -141,6 +144,10 @@ const submit = async () => {
 
         if (createdAt.value) {
             payload.created_at = createdAt.value;
+        }
+
+        if (selectedScanType.value === 'cea' && qtyTinta.value !== '' && qtyTinta.value !== null) {
+            payload.qty_tinta = qtyTinta.value;
         }
 
         const res = await axios.put(`/manual/${props.scan.id}`, payload, {
@@ -199,6 +206,18 @@ const submit = async () => {
                         <option value="">-- tidak diubah --</option>
                         <option v-for="m in cabangMesins" :key="m.id" :value="m.id">{{ m.nama_mesin }} (SN: {{ m.serial_number }})</option>
                     </select>
+                </div>
+
+                <div v-if="selectedScanType === 'cea'">
+                    <label class="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">Qty Tinta</label>
+                    <input v-model="qtyTinta" type="number" min="0" max="9999" step="1" placeholder="Contoh: 1 atau 3" class="w-full rounded-xl border-slate-300 text-sm" />
+                    <p class="mt-1 text-[10px] font-bold text-slate-400">
+                        Isi 0 jika tidak ada pengisian tinta. Biaya = qty × harga Master Harga Tinta
+                        <span v-if="scan.biaya_tinta !== null && scan.biaya_tinta !== undefined">
+                            (tersimpan sekarang: qty {{ scan.qty_tinta ?? '-' }}, Rp {{ Number(scan.biaya_tinta).toLocaleString('id-ID') }})
+                        </span>.
+                        Tinta hanya ditagih untuk CEA Milik.
+                    </p>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">

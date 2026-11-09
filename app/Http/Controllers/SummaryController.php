@@ -2836,13 +2836,6 @@ class SummaryController extends Controller
 
             $periodScanIds = $this->currentPeriodScanIds($afterPrior, $periodeEnd, $graceDays);
 
-            $ceaCost = DB::table('dbo.cea_billing_costs')
-                ->where('master_mesin_id', $item->master_mesin_id)
-                ->where('cabang_id', $item->cabang_id)
-                ->whereIn('image_scan_id', $periodScanIds)
-                ->orderByDesc('id')
-                ->first();
-
             $maintenanceCosts = DB::table('dbo.machine_maintenance_costs')
                 ->where('master_mesin_id', $item->master_mesin_id)
                 ->where('cabang_id', $item->cabang_id)
@@ -2852,12 +2845,12 @@ class SummaryController extends Controller
             $this->lockCostRowIfElapsed('cea_billing_costs', $item->master_mesin_id, $item->cabang_id, $periodScanIds, $periodeEnd);
             $this->lockCostRowIfElapsed('machine_maintenance_costs', $item->master_mesin_id, $item->cabang_id, $periodScanIds, $periodeEnd);
 
-            $biayaTinta = (float) ($ceaCost->biaya_tinta ?? 0);
-
-            // Sama seperti CEA MILIK: $ceaCost === null berarti belum ada
-            // laporan tinta sama sekali utk periode ini (beda dgn "sudah
-            // lapor tapi Rp0"), ditandai selama mesinnya memang billable.
-            $tintaBelumDilaporkan = $hasTwoScans && $totalMeter > 0 && !$ceaCost;
+            // CEA SEWA tidak ditagih tinta -- tagihannya murni rumus master
+            // mesin (meter x harga / minimum). Laporan qty tinta dari bot utk
+            // mesin sewa diabaikan; dulu ikut dijumlahkan di halaman CEA Sewa
+            // sehingga total jadi 2.040.000 + 185.000.
+            $biayaTinta = 0.0;
+            $tintaBelumDilaporkan = false;
 
             $biayaPart = (float) $maintenanceCosts
                 ->where('cost_type', 'part')

@@ -134,6 +134,27 @@ class ManualUploadController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        // Qty tinta yang tersimpan per scan CEA -- dipakai form edit supaya
+        // isian qty tinta langsung terisi nilai lama.
+        $ceaScanIds = $scans->getCollection()->where('scan_type', 'cea')->pluck('id');
+
+        $ceaCosts = $ceaScanIds->isEmpty()
+            ? collect()
+            : DB::table('dbo.cea_billing_costs')
+                ->whereIn('image_scan_id', $ceaScanIds)
+                ->orderByDesc('id')
+                ->get(['image_scan_id', 'qty_tinta', 'biaya_tinta'])
+                ->unique('image_scan_id')
+                ->keyBy('image_scan_id');
+
+        $scans->getCollection()->transform(function (ImageScan $scan) use ($ceaCosts) {
+            $cost = $ceaCosts->get($scan->id);
+            $scan->setAttribute('qty_tinta', $cost?->qty_tinta);
+            $scan->setAttribute('biaya_tinta', $cost?->biaya_tinta);
+
+            return $scan;
+        });
+
         $cabangs = MasterCabang::with(['users:id,name,phone,email'])
             ->whereIn('id', $cabangIds)
             ->where('is_active', true)
@@ -277,6 +298,20 @@ class ManualUploadController extends Controller
                 'status' => 'invalid',
                 'message' => $validation['message'] ?? 'Data wajib tidak ditemukan pada gambar.',
             ], 422);
+        }
+
+        // Cegah salah foto: kalau serial number di foto terbaca dan BEDA dengan
+        // mesin yang dipilih, tolak (mis. foto mesin PNC terupload sbg mesin
+        // JLP). Serial tidak terbaca -> tetap boleh, mesin pilihan admin dipakai.
+        if (in_array($validated['scan_type'], ['printer', 'cea', 'asaba', 'astra'], true) && $mesin) {
+            $serialFoto = trim((string) ($validation['data']['serial_number'] ?? ''));
+
+            if ($serialFoto !== '' && $this->normalizeSerial($serialFoto) !== $this->normalizeSerial($mesin->serial_number)) {
+                return response()->json([
+                    'status' => 'invalid',
+                    'message' => "Serial number di foto ({$serialFoto}) tidak sama dengan mesin yang dipilih ({$mesin->serial_number}). Periksa kembali foto atau mesin yang dipilih.",
+                ], 422);
+            }
         }
 
         // Hanya cek rumus layar, bukan cek counter turun: upload manual boleh
@@ -469,6 +504,16 @@ class ManualUploadController extends Controller
         ], 422);
     }
 
+    // Bandingkan serial tanpa beda huruf besar/kecil, spasi/tanda baca, dan
+    // huruf O vs angka 0 (sering tertukar, mis. master "27PO1381" vs foto
+    // "27P01381") -- supaya foto yang benar tidak ikut tertolak.
+    private function normalizeSerial(?string $serial): string
+    {
+        $serial = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $serial));
+
+        return str_replace('O', '0', $serial);
+    }
+
     // Periode tagihan 28 s/d 28 bulan berikutnya -- sama dengan bot Telegram/WA.
     private function getBillingPeriod($date): array
     {
@@ -548,11 +593,49 @@ class ManualUploadController extends Controller
             'master_mesin_id' => ['nullable', 'exists:master_mesins,id'],
             'master_token_listrik_id' => ['nullable', 'exists:master_token_listriks,id'],
             'created_at' => ['nullable', 'date'],
+            'qty_tinta' => ['nullable', 'integer', 'min:0', 'max:9999'],
         ]);
 
         $originalScanType = $imageScan->scan_type;
         $newScanType = $validated['scan_type'] ?? $originalScanType;
         $scanTypeChanged = $newScanType !== $originalScanType;
+
+        // Koreksi qty tinta (khusus CEA): siapkan harga dulu SEBELUM data scan
+        // diubah, supaya kalau harga tinta belum diatur tidak ada yang tersimpan
+        // setengah jalan.
+        $updateTinta = $newScanType === 'cea' && array_key_exists('qty_tinta', $validated) && $validated['qty_tinta'] !== null;
+        $existingTintaCost = null;
+        $hargaTintaSatuan = null;
+        $masterHargaTintaId = null;
+
+        if ($updateTinta) {
+            $existingTintaCost = DB::table('dbo.cea_billing_costs')
+                ->where('image_scan_id', $imageScan->id)
+                ->orderByDesc('id')
+                ->first();
+
+            if ($existingTintaCost && $existingTintaCost->harga_tinta_satuan !== null) {
+                // Pakai harga yang berlaku saat tinta pertama kali dilaporkan.
+                $hargaTintaSatuan = (float) $existingTintaCost->harga_tinta_satuan;
+                $masterHargaTintaId = $existingTintaCost->master_harga_tinta_id;
+            } else {
+                $mesinForTinta = !empty($validated['master_mesin_id'])
+                    ? MasterMesin::find($validated['master_mesin_id'])
+                    : $imageScan->mesin;
+
+                $hargaTinta = MasterHargaTinta::hargaAktifUntuk($mesinForTinta?->status_kepemilikan);
+
+                if (!$hargaTinta) {
+                    return response()->json([
+                        'status' => 'invalid',
+                        'message' => 'Harga tinta belum diatur di Master Harga Tinta.',
+                    ], 422);
+                }
+
+                $hargaTintaSatuan = (float) $hargaTinta->harga;
+                $masterHargaTintaId = $hargaTinta->id;
+            }
+        }
 
         if ($scanTypeChanged && in_array($newScanType, self::MACHINE_SCAN_TYPES, true) && empty($validated['master_mesin_id']) && !$imageScan->master_mesin_id) {
             return response()->json([
@@ -631,11 +714,58 @@ class ManualUploadController extends Controller
 
         $imageScan->save();
 
+        if ($updateTinta) {
+            $qtyTinta = (int) $validated['qty_tinta'];
+            $tintaValues = [
+                'qty_tinta' => $qtyTinta,
+                'harga_tinta_satuan' => $hargaTintaSatuan,
+                'master_harga_tinta_id' => $masterHargaTintaId,
+                'biaya_tinta' => $qtyTinta * $hargaTintaSatuan,
+                'updated_at' => now(),
+            ];
+
+            if ($existingTintaCost) {
+                // Koreksi admin: boleh walau baris sudah terkunci (locked_at),
+                // sama seperti koreksi lewat query.
+                DB::table('dbo.cea_billing_costs')->where('id', $existingTintaCost->id)->update($tintaValues);
+            } else {
+                $mesinForTinta = $imageScan->mesin()->first();
+                [$periodeStart, $periodeEnd] = $this->getBillingPeriod($imageScan->created_at);
+
+                DB::table('dbo.cea_billing_costs')->updateOrInsert(
+                    [
+                        'periode_start' => $periodeStart->toDateString(),
+                        'periode_end' => $periodeEnd->toDateString(),
+                        'cabang_id' => $imageScan->cabang_id,
+                        'serial_number' => $mesinForTinta?->serial_number,
+                    ],
+                    $tintaValues + [
+                        'image_scan_id' => $imageScan->id,
+                        'master_mesin_id' => $imageScan->master_mesin_id,
+                        'contract_service' => 300000,
+                        'created_at' => now(),
+                    ]
+                );
+            }
+        }
+
         AnalyzeImageJob::dispatch($imageScan->id);
+
+        $freshScan = $imageScan->fresh(['user:id,name,phone', 'cabang:id,kode_cabang,nama_cabang', 'mesin:id,nama_mesin,serial_number']);
+
+        if ($freshScan->scan_type === 'cea') {
+            $cost = DB::table('dbo.cea_billing_costs')
+                ->where('image_scan_id', $freshScan->id)
+                ->orderByDesc('id')
+                ->first(['qty_tinta', 'biaya_tinta']);
+
+            $freshScan->setAttribute('qty_tinta', $cost?->qty_tinta);
+            $freshScan->setAttribute('biaya_tinta', $cost?->biaya_tinta);
+        }
 
         return response()->json([
             'status' => 'success',
-            'scan' => $imageScan->fresh(['user:id,name,phone', 'cabang:id,kode_cabang,nama_cabang', 'mesin:id,nama_mesin,serial_number']),
+            'scan' => $freshScan,
         ]);
     }
 }
